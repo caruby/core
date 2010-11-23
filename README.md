@@ -35,7 +35,7 @@ is installed.
 Usage
 -----
 
-See the project [Home](http://caruby.rubyforge.com) Page for usage examples. 
+See the project [Home](http://caruby.rubyforge.com/) Page for usage examples. 
 
 Changelog
 ---------
