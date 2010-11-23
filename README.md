@@ -1,7 +1,7 @@
 caRuby: Simplifying caBIG(TM)
 =============================
 
-**Home**:         [http://caruby.rubyforge.com](http://caruby.rubyforge.com)    
+**Home**:         [http://caruby.rubyforge.org](http://caruby.rubyforge.org)    
 **Git**:          [http://github.com/caruby/core](http://github.com/caruby/core)       
 **Author**:       OHSU Knight Cancer Institute    
 **Copyright**:    2010    
@@ -35,7 +35,7 @@ is installed.
 Usage
 -----
 
-See the project [Home](http://caruby.rubyforge.com/) Page for usage examples. 
+See the project [Home](http://caruby.rubyforge.org) Page for usage examples. 
 
 Changelog
 ---------
