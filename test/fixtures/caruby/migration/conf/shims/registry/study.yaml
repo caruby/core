@@ -1,0 +1,4 @@
+defaults:
+  # the unique global study
+  Study:
+    identifier: defaults[study.identifier]

@@ -1,0 +1,7 @@
+short: short
+dot.property: dot
+nested:
+  a: A
+  b: B
+  deep:
+    u: U

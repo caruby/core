@@ -1,0 +1,35 @@
+<?xml version ="1.0"?>
+
+<project name="clinicaltrials caRuby test fixture" default="jar">
+
+  <!--build locations -->
+  <property name="base.dir" value="." />
+  <property name="source.dir" value="src" />
+  <property name="target.dir" value="classes" />
+  <property name="bin.dir" value="bin" />
+
+  <target name="init">
+    <tstamp />
+    <mkdir dir="${target.dir}" />
+    <mkdir dir="${bin.dir}" />
+  </target>
+
+  <!-- Compile all files in the source directory -->
+  <target name="compile" depends="init">
+    <javac destdir="${target.dir}" includes="**/*.*">
+      <src path="${source.dir}" />
+      <compilerarg value="-Xlint:unchecked"/>
+    </javac>
+  </target>
+
+  <target name="jar" depends="compile">
+    <jar destfile="${bin.dir}/clinicaltrials.jar" basedir="${target.dir}" includes="**/*.*" />
+  </target>
+
+  <!-- Remove build directories -->
+  <target name="clean">
+    <delete dir="${bin.dir}" />
+    <delete dir="${target.dir}" />
+  </target>
+
+</project>

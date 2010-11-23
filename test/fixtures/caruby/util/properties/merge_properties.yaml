@@ -1,0 +1,7 @@
+short: long
+dot.property: dash
+nested:
+  a: X
+  c: C
+  deep:
+    v: V

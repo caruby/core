@@ -1,0 +1,4 @@
+=== 1.1.2 / 2010-09-30
+
+* Initial public release
+

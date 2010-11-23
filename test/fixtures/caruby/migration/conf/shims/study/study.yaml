@@ -1,0 +1,5 @@
+mapping:
+  Source:
+    # the study with identifier given by the Source study_id field
+    Study:
+      identifier: study_id
