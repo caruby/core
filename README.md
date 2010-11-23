@@ -46,6 +46,6 @@ Changelog
 Copyright
 ---------
 
-caRuby &copy; 2010 by [Oregon Health & Science University](mailto:loneyf@ohsu.edu).
+caRuby &copy; 2010 by [Oregon Health & Science University](http://www.ohsu.edu/xd/health/services/cancer/index.cfm).
 caRuby is licensed under the MIT license. Please see the LICENSE and LEGAL
 files for more information.
