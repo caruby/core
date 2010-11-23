@@ -6,8 +6,8 @@ caRuby: Simplifying caBIG(TM)
 **Author**:       OHSU Knight Cancer Institute    
 **Copyright**:    2010    
 **License**:      MIT License    
-**Latest Version**: 1.1.2   
-**Release Date**: November 11th 2010    
+**Latest Version**: 1.4.1   
+**Release Date**: November 23rd 2010    
 
 Synopsis
 --------
@@ -40,7 +40,7 @@ See the project [http://caruby.rubyforge.com](Home) Page for usage examples.
 Changelog
 ---------
 
-- **November 17, 2010**: 1.4.1 release
+- **November 23, 2010**: 1.4.1 release
     - Initial public release
 
 Copyright
