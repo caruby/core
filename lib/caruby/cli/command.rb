@@ -42,29 +42,43 @@ module CaRuby
       #
       # @param [(<Symbol>, <String, Class>)] specs the arguments and options
       #   described above
-      # @yield [hash] the command executor
-      # @yieldparam [{Symbol => Object}] the argument and option symbol => value hash
+      # @yield (see #run)
+      # @yieldparam (see #run)
       def initialize(specs=[], &executor)
-        unless block_given? then
-          raise ArgumentError.new("Command #{self.class} is missing the required execution block" )
-        end
         @executor = executor
         @opt_specs, @arg_specs = specs.partition { |spec| spec[1][0, 1] == '-' }
         @opt_specs.concat(DEF_OPTS)
         super($0)
       end
   
-      # Runs this command by calling the +execute+ method on the parsed command line
+      # Runs this command by calling the block given to this method, if provided,
+      # otherwise the block given to {#initialize}
       # option or argument symbol => value hash.
+      # @yield [hash] the command execution block
+      # @yieldparam [{Symbol => Object}] hash the argument and option symbol => value hash
       def run
         # the option => value hash
-        hash = get_opts
+        opts = get_opts
         # this base class's options
-        handle_caruby_options(hash)
+        handle_options(opts)
         # add the argument => value hash
-        hash.merge!(get_args)
+        opts.merge!(get_args)
         # call the block
-        @executor.call(hash)
+        block_given? ? yield(opts) : call_executor(opts)
+      end
+  
+      private
+      
+      DEF_OPTS = [
+        [:help, "--help", "Displays this help message"],
+        [:file, "--file FILE", "Configuration file containing other options"],
+        [:log, "--log FILE", "Log file"],
+        [:debug, "--debug", "Displays debug log messages"],
+      ]
+      
+      def call_executor(opts)
+         if @executor.nil? then raise CommandError.new("Command #{self} does not have an execution block") end
+         @executor.call(opts)
       end
       
       # Collects the command line options.
@@ -104,15 +118,6 @@ module CaRuby
         end
         args
       end
-  
-      private
-      
-      DEF_OPTS = [
-        [:help, "--help", "Displays this help message"],
-        [:file, "--file FILE", "Configuration file containing other options"],
-        [:log, "--log FILE", "Log file"],
-        [:debug, "--debug", "Displays debug log messages"],
-      ]
       
       # @param [OptionParser] parser the option parser
       # @return [{Symbol => Object}] the option => value hash
@@ -129,7 +134,7 @@ module CaRuby
       # Processes the built-in options.
       #
       # @param [{Symbol => Object}] the option => value hash
-      def handle_caruby_options(opts)
+      def handle_options(opts)
         # if help, then print usage and exit
         if opts[:help] then halt end
         
@@ -139,7 +144,7 @@ module CaRuby
         if log then
           CaRuby::Log.instance.open(log, :debug => debug)
         elsif debug then
-          CaRuby::logger.level = Logger::DEBUG
+          logger.level = Logger::DEBUG
         end
         
         # if there is a file option, then load additional options from the file

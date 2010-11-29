@@ -7,7 +7,7 @@
   <meta name="keywords" content="caRuby, caTissue" />
   <meta name="description" content="caRuby Tissue page." />
   <meta name="robots" content="all" />
-  <title>caRuby: Quick Start</title>
+  <title>caRuby Tissue</title>
 
   <!-- to correct the unsightly Flash of Unstyled Content. http://www.bluerobot.com/web/css/fouc.asp -->
   <script type="text/javascript"></script>
@@ -35,7 +35,18 @@
     <img src="images/logo.png"/>
   </div>
 
+  <div id="features">
+    <h3>Features</h3>
+    <ul>
+      <li><a href="api.html">API</a></li>
+      <li><span class="currentPage">Tissue</li>
+      <li><a href="migrator.html">Migrator</a></li>
+      <li><a href="casmall.html">caSmall</a></li>
+    </ul>
+  </div>
+
   <div id="supportingText">
+    <h3>caRuby Tissue</h3>
     <p>
       The caRuby Tissue component applies the caRuby facade to the
       <a href="https://cabig-kc.nci.nih.gov/Biospecimen/KC/index.php/CaTissue_Suite">caTissue</a>
@@ -62,17 +73,10 @@
         <li>works around caCORE and caTissue bugs and traps</li>
         <li>provides helper methods for common tasks, e.g. aliquoting</li>
       </ul>
+      The migration capability is described in the <a href="migrator.html">Migrator</a> page.
     </p>
     <p>
-      The sole configuration is the migration mapping file and a small caTissue server access properties file.
-      The defaults and other metadata are defined in Ruby declarations rather than a configuration.
-      These declarations express basic model characteristics, and are expected to be stable and sufficient for most uses.
-      They can, however, be modified in small Ruby shim files.
-      Special-purpose migration code can be added in the shim files as well, as described in the
-      <a href='shims.html'>Shims</a> description.
-    </p>
-    <p>
-      There is almost no class-specific caRuby business logic code similar to that found in caTissue.
+      There is little class-specific caRuby business logic code similar to that found in caTissue.
       Rather, there are basic design patterns driven by the model characteristics defined in the Ruby declarations.
     </p>
     <div id="footer">

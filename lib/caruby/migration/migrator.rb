@@ -27,11 +27,12 @@ module CaRuby
     # Creates a new Migrator.
     #
     # @param [{Symbol => Object}] opts the migration options
-    # @option opts [String] :database target application {CaRuby::Database}
+    # @option opts [String] :database required application {CaRuby::Database}
     # @option opts [String] :target required target domain class
+    # @option opts [String] :mapping required input field => caTissue attribute mapping file
     # @option opts [String] :input required source file to migrate
     # @option opts [String] :shims optional array of shim files to load
-    # @option opts [String] :bad write each invalid record to the given file and continue migration
+    # @option opts [String] :bad optional invalid record file
     # @option opts [String] :offset zero-based starting source record number to process (default 0)
     def initialize(opts)
       parse_options(opts)
@@ -57,7 +58,7 @@ module CaRuby
     # @yield [target] operation performed on the migration target
     # @yieldparam [Resource] target the migrated target domain object
     def migrate(&block)
-      raise MigrationError.new("No migration block") unless block_given?
+      raise MigrationError.new("The caRuby Migrator migrate block is missing") unless block_given?
       migrate_rows(&block)
     end
 
@@ -307,7 +308,7 @@ module CaRuby
             logger.warn("Migration not performed on record #{rec_no}.")
             @loader.reject(row)
           else
-            raise MigrationError.new("Migration not performed on record #{rec_no}.")
+            raise MigrationError.new("Migration not performed on record #{rec_no}")
           end
         end
         rec_cnt += 1
@@ -437,7 +438,7 @@ module CaRuby
     # @return [Resource, nil] obj if the save is successful, nil otherwise
     def save(obj, database)
       logger.debug { "Migrator saving #{obj}..." }
-      database.create(obj)
+      database.save(obj)
       logger.debug { "Migrator saved #{obj}." }
     end
 

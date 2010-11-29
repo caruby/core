@@ -131,7 +131,7 @@ module CaRuby
       # Raises DatabaseError if obj could not be created.
       # The return value is undefined.
       def ensure_exists(obj)
-        raise ArgumentError.new("Database ensure_exists is missing a domain object argument.") if obj.nil_or_empty?
+        raise ArgumentError.new("Database ensure_exists is missing a domain object argument") if obj.nil_or_empty?
         obj.enumerate { |ref| find(ref, :create) unless ref.identifier }
       end
 

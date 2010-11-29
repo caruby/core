@@ -102,7 +102,8 @@ module CaRuby
     # for the _attribute_ to modify.
     #
     # The migratable reference attributes consist of the non-collection
-    # {ResourceAttributes#saved_independent_attributes} which don't already have a value.
+    # {ResourceAttributes#saved_independent_attributes} and 
+    # {ResourceAttributes#unidirectional_dependent_attributes} which don't already have a value.
     # For each such migratable attribute, if there is a single instance of the attribute
     # type in the given migrated domain objects, then the attribute is set to that
     # migrated instance.
@@ -118,6 +119,10 @@ module CaRuby
     #   attributes to migration method names
     def migrate_references(row, migrated, mth_hash=nil)
       self.class.saved_independent_attributes.each do |attr|
+        ref = migratable__reference_value(attr, migrated) 
+        migratable__set_reference(attr, ref, row, mth_hash) if ref
+      end
+      self.class.unidirectional_dependent_attributes.each do |attr|
         ref = migratable__reference_value(attr, migrated) 
         migratable__set_reference(attr, ref, row, mth_hash) if ref
       end

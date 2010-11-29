@@ -7,7 +7,7 @@
   <meta name="keywords" content="caRuby" />
   <meta name="description" content="caRuby Quick Start page." />
   <meta name="robots" content="all" />
-  <title>caRuby: Quick Start</title>
+  <title>caRuby Quick Start</title>
 
   <!-- to correct the unsightly Flash of Unstyled Content. http://www.bluerobot.com/web/css/fouc.asp -->
   <script type="text/javascript"></script>
@@ -26,11 +26,11 @@
     <h1><a href="index.html">caRuby:</a></h1>
     <h2><a href="http://cabig.nci.nih.gov">caBIG&reg;</a> Simplified</h2>
     <ul>
-      <li><a href="/index.html">Home</a></li>
+      <li><a href="index.html">Home</a></li>
       <li><span class="currentPage"><em>Quick Start</em></li>
       <li><a href='http://caruby.tenderapp.com/'>Help</a></li>
       <li><a href='http://github.com/caruby'>Source</a></li>
-      <li><a href='/about.html'>About</a></li>
+      <li><a href='about.html'>About</a></li>
     </ul>
     <img src="images/logo.png"/>
   </div>
@@ -38,45 +38,41 @@
   <div id="features">
     <h3>Features</h3>
     <ul>
-      <li><a href="/api.html">API</a></li>
-      <li><a href="/tissue.html">Tissue</a></li>
-      <li><a href="/migrator.html">Migrator</a></li>
-      <li><a href="/casmall.html">caSmall</a></li>
+      <li><a href="api.html">API</a></li>
+      <li><a href="tissue.html">Tissue</a></li>
+      <li><a href="migrator.html">Migrator</a></li>
+      <li><a href="casmall.html">caSmall</a></li>
     </ul>
   </div>
   
   <div id="supportingText">
+    <h3>Quick Start</h3>
+    <table align="center" border="1px">
+     <tr>
+       <td width=20% color="blue">1</td>
+       <td width=20%>2</td>
+       <td width=20%>3</td>
+       <td width=20%>4</td>
+       <td width=20%>5</td>
+       <td width=20%>6</td>
+     </tr>
+     <tr>
+      <td>Install the caBIG app client</td>
+      <td>Install <a href="http://jruby.org"><span color="red">JRuby</span></a></td>
+      <td>Install the caRuby gem, e.g.: <pre>gem install caruby-tissue</pre></td>
+      <td>Define your connection, e.g.:
+<pre>
+ user: cab@test.com
+ password: hackme
+ path: /path/to/catissue/lib ...
+</pre>
+      </td>
+      <td>Run the smoke test: <pre>crtsmoke</pre> </td>
+      <td>Look at the Galena Migration <a href="http://rubydoc.info/gems/caruby-tissue/frames">Example</a>.</td>
+    </table>
+    
     <p>
-      Each caRuby <a href="/components.html">component</a> is packaged as a standard Ruby <a href="http://docs.rubygems.org/shelf/index">gem</a>.
-      Once you've installed <a href="http://jruby.org">JRuby</a> and the target caBIG application API, installing a caRuby gem is done with a one-line
-      command. caRuby runs on any on any workstation or server that supports the target caBIG application Java API.
-      Set up a caRuby environment as follows:
-      <ol>
-        <li>Install the target caBIG application Java API client.
-            Consult the caBIG application Technical Guide for details, available from the caBIG application
-            <a href="https://cabig-kc.nci.nih.gov/MediaWiki/index.php/Knowledge_Center_Index">Knowledge Center</a>.
-        </li>
-        <li>Install <a href="http://jruby.org">JRuby</a>.</li>
-        <li>Open a command console and enter the following:
-          <pre>
-            gem install rubygems
-          </pre>
-        </li>
-      </ol>
-    </p>
-    <p>
-      The preceding steps set up a standard JRuby environment. Now the desired caRuby gem is installed using the <code>gem install</code> command, e.g.:
-      <pre>
-        gem install caruby-tissue
-      </pre>
-    </p>
-    <p>
-      and updated using the <code>gem update</code> command, e.g.:
-      <pre>
-        gem update caruby-tissue
-      </pre>
-    </p>
-    <p>The caRuby gem is now ready for use. Consult the gem <a href="/documentation.html">documentation</a> for usage and examples.
+      See the installation <a href="http://caruby.tenderapp.com/faqs/getting-started/how-do-i-install-caruby">FAQ</a> for details.
     </p>
     <div id="footer">
     </div>

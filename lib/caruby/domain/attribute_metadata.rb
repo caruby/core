@@ -77,6 +77,11 @@ module CaRuby
     def inverse
       @inv_md.to_sym if @inv_md
     end
+    
+    # @return [Boolean] whether this attribute does not have an inverse
+    def unidirectional?
+      inverse.nil?
+    end
 
     # Creates a new declarer attribute which restricts this attribute {#type} to the given type.
     #

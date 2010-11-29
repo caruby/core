@@ -129,6 +129,14 @@ module CaRuby
       add_alias(aliaz, attribute)
     end
 
+    # Makes a new synthetic attribute for each _method_ => _original_ hash entry.
+    #
+    # @param (see Class#offset_attr_accessor)
+    def offset_attribute(hash, offset=nil)
+      offset_attr_accessor(hash, offset)
+      hash.each { |attr, original| add_attribute(attr, attribute_metadata(original).type) }
+    end
+
     # Modifies the given attribute writer method if necessary to update the given inverse_attr value.
     # This method is called on dependent and attributes qualified as inversible.
     #

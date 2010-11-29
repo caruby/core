@@ -139,7 +139,7 @@ module CaRuby
         elsif obj.collection? then
           obj.all? { |item| exists?(item) }
         else
-          obj.identifier or find(obj)
+          obj.identifier or (obj.searchable? and find(obj))
         end
       end
 

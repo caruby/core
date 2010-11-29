@@ -306,7 +306,7 @@ class Visitor
     def visit(*nodes)
       if nodes.size == 1 then
         nodes = nodes.first
-        raise ArgumentError.new("Sync visitor requires a pair of entry nodes.") unless nodes.size == 2
+        raise ArgumentError.new("Sync visitor requires a pair of entry nodes") unless nodes.size == 2
       end
       super(nodes)
     end
@@ -318,7 +318,7 @@ class Visitor
     def to_enum(*nodes)
       if nodes.size == 1 then
         nodes = nodes.first
-        raise ArgumentError.new("Sync visitor requires a pair of entry nodes.") unless nodes.size == 2
+        raise ArgumentError.new("Sync visitor requires a pair of entry nodes") unless nodes.size == 2
       end
       super(nodes)
     end

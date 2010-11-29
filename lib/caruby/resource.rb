@@ -84,6 +84,11 @@ module CaRuby
       @validated = true
       self
     end
+    
+    # @return [Boolean] whether this domain object has {#searchable_attributes}
+    def searchable?
+      not searchable_attributes.nil?
+    end
 
     # Returns the attributes to use for a search using this domain object as a template, determined
     # as follows:

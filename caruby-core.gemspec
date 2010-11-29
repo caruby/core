@@ -12,11 +12,12 @@ SPEC = Gem::Specification.new do |s|
   s.email         = "caruby.org@gmail.com"
   s.homepage      = "http://rubyforge.org/projects/caruby"
   s.platform      = Gem::Platform::RUBY
-  s.files         = Dir.glob("{conf,doc/website,lib,test/{bin,fixtures,lib}}/**/*") + ['History.txt', 'LEGAL', 'LICENSE', 'README.md']
+  s.files         = Dir.glob("{conf,lib,test/{bin,lib}}/**/*") + ['History.txt', 'LEGAL', 'LICENSE', 'README.md']
   s.require_paths = ['lib']
   s.add_dependency('dbi')
   s.add_dependency('fastercsv')
   s.add_dependency('uom')
-  s.has_rdoc      = 'caruby'
+  s.has_rdoc      = 'yard'
+  s.license       = 'MIT'
   s.rubyforge_project = 'caruby'
 end

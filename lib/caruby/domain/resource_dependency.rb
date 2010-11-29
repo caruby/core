@@ -106,7 +106,7 @@ module CaRuby
     def add_owner(klass, attribute=nil, inverse=nil)
       logger.debug { "Adding #{qp} owner #{klass.qp}..." }
       if @owner_attr_hash then
-        raise MetadataError.new("Can't add #{qp} owner #{klass.qp} after dependencies have been accessed.")
+        raise MetadataError.new("Can't add #{qp} owner #{klass.qp} after dependencies have been accessed")
       end
       @local_owner_attr_hash ||= {}
       @local_owner_attr_hash[klass] = attribute ||= detect_owner_attribute(klass, inverse)
