@@ -118,7 +118,8 @@ module CaRuby
     def changed_attributes
       if @snapshot then
         ovh = value_hash(self.class.updatable_attributes)
-        @snapshot.diff(ovh).keys
+        diff = @snapshot.diff(ovh) { |attr, v, ov| Resource.value_equal?(v, ov) }
+        diff.keys
       else
         self.class.updatable_attributes
       end
@@ -284,6 +285,17 @@ module CaRuby
     def snapshot_equal_content?
       vh = @snapshot
       ovh = value_hash(self.class.updatable_attributes)
+      
+      
+      # KLUDGE TODO - fix
+      # In Galena frozen migration example, SpecimenPosition snapshot doesn't include identifier; work around this here
+      if ovh[:identifier] and not @snapshot[:identifier] then
+        @snapshot[:identifier] = ovh[:identifier]
+      end
+      # END OF KLUDGE
+      
+      
+      
       if vh.size < ovh.size then
         attr, oval = ovh.detect { |a, v| not vh.has_key?(a) }
         logger.debug { "#{qp} is missing snapshot #{attr} compared to the current value #{oval.qp}." }

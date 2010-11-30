@@ -343,14 +343,21 @@ module CaRuby
       match_in(others) or others.detect { |other| match_without_owner_attribute(other) }
     end
 
+    # Returns whether the other domain object matches this domain object on a secondary
+    # key without owner attributes. Defaults are added to this object in order to pick up
+    # potential secondary key values.
+    # 
     # @param [<Resource>] other the domain object to match against
-    # @return [Boolean] whether the other domain object matches this domain object on a secondary
-    #   key without owner attributes
+    # @return [Boolean] whether the other domain object matches this domain object on a
+    #   secondary key without owner attributes
     def match_without_owner_attribute(other)
       oattrs = self.class.owner_attributes
       return if oattrs.empty?
+      # add defaults to pick up potential secondary key value
+      add_defaults_local
+      # match on the secondary key
       self.class.secondary_key_attributes.all? do |attr|
-        matches_attribute_value?(other, attr, send(attr))
+        oattrs.include?(attr) or matches_attribute_value?(other, attr, send(attr))
       end
     end
 

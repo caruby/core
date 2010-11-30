@@ -2,3 +2,7 @@
 
 * Initial public release
 
+=== 1.4.2 / 2010-11-30
+
+* Minor Migrator fixes
+

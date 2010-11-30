@@ -7,7 +7,7 @@ SPEC = Gem::Specification.new do |s|
     caRuby is a JRuby facade for interaction with caBIG applications.
   eof
   s.version       = CaRuby::VERSION
-  s.date          = "2010-10-17"
+  s.date          = "2010-11-30"
   s.author        = "OHSU"
   s.email         = "caruby.org@gmail.com"
   s.homepage      = "http://rubyforge.org/projects/caruby"
