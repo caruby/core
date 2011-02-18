@@ -26,6 +26,10 @@ public class Address extends DomainObject
 	 * The Street zip code.
 	 */
 	private String zipCode;
+	
+	public Address()
+	{
+	}
 
 	/**
 	 * @return the street of the address

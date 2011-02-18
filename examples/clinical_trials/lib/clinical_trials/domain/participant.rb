@@ -1,5 +1,3 @@
-require 'caruby/util/validation'
-
 module ClinicalTrials
   # import the Java class into Ruby
   java_import('clinicaltrials.domain.Participant')
@@ -7,6 +5,8 @@ module ClinicalTrials
   # Extends the Participant domain class.
   class Participant
     include Resource
+    
+    add_mandatory_attributes(:name)
     
     add_mandatory_attributes(:name, :address)
     

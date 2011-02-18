@@ -6,7 +6,7 @@ begin
   gem 'caruby-core'
 rescue LoadError
   # if the gem is not available, then try a local development source
-  $:.unshift '../caruby/lib/caruby'
+  $:.unshift 'lib'
 end
 
 require 'caruby'

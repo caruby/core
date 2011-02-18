@@ -1,6 +1,6 @@
 package clinicaltrials.domain;
 
-public class DomainObject
+public abstract class DomainObject
 {
     private Long id;
 
