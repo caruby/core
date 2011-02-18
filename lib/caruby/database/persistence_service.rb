@@ -13,7 +13,12 @@ module CaRuby
     # The {Util::Stopwatch} which captures the time spent in database operations performed by the application service.
     attr_reader :timer
 
-    # Creates a new PersistenceService with the specified application service name.
+    # Creates a new PersistenceService with the specified application service name and options.
+    #
+    # @param [String] the caBIG application service name
+    # @param [{Symbol => Object}] opts the options
+    # @option opts :host the service host (default +localhost+)
+    # @option opts :version the caTissue version identifier
     def initialize(name, opts={})
       @name = name
       ver_opt = opts[:version]
@@ -74,7 +79,7 @@ module CaRuby
       end
     end
 
-    # Returns the CaCORE ApplicationServiceProvider wrapped by this PersistenceService.
+    # @return [ApplicationServiceProvider] the CaCORE service provider wrapped by this PersistenceService
     def app_service
       url = "http://#{@host}:8080/#{name}/http/remoteService"
       logger.debug { "Connecting to service provider at #{url}..." }
@@ -87,13 +92,22 @@ module CaRuby
     ASSOCIATION_SUPPORT_VERSION = "4".to_version
 
     # Calls the block given to this method. The execution duration is captured in the {#timer}.
-    # Returns the block result.
-    def dispatch
+    #
+    # @return the block result
+    def time
       result = nil
-      seconds = @timer.run { result = yield app_service }.elapsed
+      seconds = @timer.run { result = yield }.elapsed
       millis = (seconds * 1000).round
       logger.debug { "Database operation took #{millis} milliseconds." }
       result
+    end
+
+    # Calls the block given to this method on the #{app_service}.
+    # The execution duration is captured in the {#timer}.
+    #
+    # @return the block result
+    def dispatch
+      time { yield app_service }
     end
 
     def query_hql(hql)
@@ -103,7 +117,7 @@ module CaRuby
       # TODO caCORE 4 - remove target parameter
       target = hql[/from\s+(\S+)/i, 1]
       raise DatabaseError.new("HQL does not contain a FROM clause: #{hql}") unless target
-      logger.debug { "Calling application service query on target class #{target} with following HQL:\n#{hql}" }
+      logger.debug { "Submitting search on target class #{target} with the following HQL:\n  #{hql}" }
       begin
         dispatch { |svc| svc.query(criteria, target) }
       rescue Exception => e
@@ -128,7 +142,7 @@ module CaRuby
       # the caCORE app service search path is in reverse path traversal order (go figure!)
       reverse_class_name_path = class_name_path.reverse << template.java_class
       # call the caCORE app service search
-      logger.debug { "Calling application service search with template #{template.qp}, target-first class path #{reverse_class_name_path.pp_s(:single_line)}, criterion:\n#{dump(template)}" }
+      logger.debug { "Submitting search with template #{template.qp}, target-first class path #{reverse_class_name_path.pp_s(:single_line)}, criterion:\n#{dump(template)}" }
       begin
         dispatch { |svc| svc.search(reverse_class_name_path.join(','), template) }
       rescue Exception => e

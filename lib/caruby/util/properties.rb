@@ -97,8 +97,8 @@ module CaRuby
     # or nil if key is neither a String nor a Symbol.
     def alternate_key(key)
       case key
-      when String then key.to_sym
-      when Symbol then key.to_s
+        when String then key.to_sym
+        when Symbol then key.to_s
       end
     end
 

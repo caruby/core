@@ -44,7 +44,7 @@ module CaRuby
       # Loads the properties in the following low-to-high precedence order:
       # * the home file +.+_application_+.yaml+, where _application_ is the application name
       # * the given property file
-      # * the environment varialables
+      # * the environment variables
       def load_properties(file)
         # canonicalize the file path
         file = File.expand_path(file)

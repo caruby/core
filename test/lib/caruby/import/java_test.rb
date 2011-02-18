@@ -2,22 +2,22 @@ $:.unshift 'lib'
 $:.unshift '../caruby/lib'
 
 require "test/unit"
-
-require 'caruby/import/java'
+require 'caruby'
 
 class JavaTest < Test::Unit::TestCase
   def test_ruby_to_java_date_conversion
     ruby_date = DateTime.now
     java_date = Java::JavaUtil::Date.from_ruby_date(ruby_date)
     actual = java_date.to_ruby_date
-    assert_equal(ruby_date.to_s, actual.to_s, 'Date conversion not idempotent')
+    assert(CaRuby::Resource.value_equal?(ruby_date, actual), 'Ruby->Java->Ruby date conversion not idempotent')
   end
 
   def test_java_to_ruby_date_conversion
     java_date = Java::JavaUtil::Calendar.instance.time
     ruby_date = java_date.to_ruby_date
     actual = Java::JavaUtil::Date.from_ruby_date(ruby_date)
-    assert_equal(java_date.to_s, actual.to_s, 'Date conversion not idempotent')
+    assert_equal(java_date.to_s, actual.to_s, 'Java->Ruby->Java date conversion not idempotent')
+    assert_equal(java_date.to_ruby_date, ruby_date, 'Java->Ruby date reconversion not equal')
   end
 
   def test_to_ruby

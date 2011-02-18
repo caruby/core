@@ -9,7 +9,7 @@
 #   module Queued
 #     attr_reader :queue
 #     def <=>(other)
-#       raise TypeError.new("Comparison argument is not another Queued item") unless Queued == other
+#       raise TypeError.new("Comparison argument is not another Queued item") unless Queued === other
 #       queue.index(self) <=> queue.index(other) if queue.equal?(other.queue)
 #     end
 #   end

@@ -27,8 +27,8 @@ module CaRuby
     # @yield [ref] selects which attributes to visit next
     # @yieldparam [Resource] ref the currently visited domain object
     def initialize(options=nil, &selector)
-      # use the default attributes if no block given
-      @slctr = selector || Proc.new { |obj| obj.class.saved_domain_attributes }
+      raise ArgumentError.new("Reference visitor missing domain reference selector") unless block_given?
+      @selector = selector
       # delegate to Visitor with the visit selector block
       super { |parent| references_to_visit(parent) }
       # the visited reference => parent attribute hash
@@ -74,8 +74,8 @@ module CaRuby
     # @yield [ref, others] matches ref in others (optional)
     # @yieldparam [Resource] ref the domain object to match
     # @yieldparam [<Resource>] the candidates for matching ref
-    def sync
-      block_given? ? super : super { |ref, others| ref.match_in(others) }
+    def sync(&matcher)
+      MatchVisitor.new(:matcher => matcher, &@selector)
     end
 
     protected
@@ -86,13 +86,20 @@ module CaRuby
     end
 
     private
+    
+    # @param [Resource] parent the referencing domain object
+    # @return [<Resource>] the domain attributes to visit next
+    def attributes_to_visit(parent)
+       @selector.call(parent)
+    end
 
-    # @return the domain objects to visit next for the given parent
+    # @param [Resource] parent the referencing domain object
+    # @return [<Resource>] the referenced domain objects to visit next for the given parent
     def references_to_visit(parent)
-      attributes = @slctr.call(parent)
-      if attributes.nil? then return Array::EMPTY_ARRAY end
+      attrs = attributes_to_visit(parent)
+      if attrs.nil? then return Array::EMPTY_ARRAY end
       refs = []
-      attributes.each do | attr|
+      attrs.each do | attr|
         # the reference(s) to visit
         value = parent.send(attr)
         # associate each reference to visit with the current visited attribute
@@ -104,45 +111,44 @@ module CaRuby
       if DETAIL_DEBUG then
         logger.debug { "Visiting #{parent.qp} references: #{refs.qp}" }
         logger.debug { " lineage: #{lineage.qp}" }
-        logger.debug { " attributes: #{@ref_attr_hash.qp}..." }
+        logger.debug { " attributes: #{attrs.qp}..." }
       end
+      
       refs
     end
   end
-
-  # A MergeVisitor merges a domain object's visitable attributes transitive closure into a target.
-  class MergeVisitor < ReferenceVisitor
+  
+  # A MatchVisitor visits two domain objects' visitable attributes transitive closure in lock-step.
+  class MatchVisitor < ReferenceVisitor
 
     attr_reader :matches
 
-    # Creates a new MergeVisitor on domain attributes.
+    # Creates a new visitor which matches source and target domain object references.
     # The domain attributes to visit are determined by calling the selector block given to
-    # this initializer as described in {ReferenceVisitor#initialize}.
+    # this initializer. The selector arguments consist of the match source and target.
     #
-    # @param [Hash] options the visit options
-    # @option options [Proc] :mergeable the mergeable domain attribute selector
-    # @option options [Proc] :matcher the match block
-    # @option options [Proc] :copier the unmatched source copy block
-    # @yield [source, target] the visit domain attribute selector block
-    # @yieldparam [Resource] source the current merge source domain object
-    # @yieldparam [Resource] target the current merge target domain object
-    def initialize(options=nil, &selector)
+    # @param (see ReferenceVisitor#initialize)
+    # @option opts [Proc] :mergeable the block which determines which attributes are merged
+    # @option opts [Proc] :matchable the block which determines which attributes to match
+    #   (default is the visit selector)
+    # @option opts [Proc] :matcher the block which matches sources to targets
+    # @option opts [Proc] :copier the block which copies an unmatched source
+    # @yield (see ReferenceVisitor#initialize)
+    # @yieldparam [Resource] source the matched source object
+    def initialize(opts=nil)
       raise ArgumentError.new("Reference visitor missing domain reference selector") unless block_given?
-      options = Options.to_hash(options)
-      @mergeable = options.delete(:mergeable) || selector
-      @matcher = options.delete(:matcher) || Resource.method(:match_all)
-      @copier = options.delete(:copier)
+      opts = Options.to_hash(opts)
+      @matcher = opts.delete(:matcher) || Resource.method(:match_all)
+      @matchable = opts.delete(:matchable)
+      @copier = opts.delete(:copier)
       # the source => target matches
       @matches = {}
       # the class => {id => target} hash
       @id_mtchs = LazyHash.new { Hash.new }
-      super do |src|
-        tgt = @matches[src]
-        yield(src, tgt) if tgt
-      end
+      super { |src| yield(src) if @matches[src] }
     end
 
-    # Visits the source and target and returns a recursive copy of obj and each of its visitable references.
+    # Visits the source and target.
     #
     # If a block is given to this method, then this method returns the evaluation of the block on the visited
     # source reference and its matching copy, if any. The default return value is the target which matches
@@ -150,15 +156,15 @@ module CaRuby
     #
     # caCORE alert = caCORE does not enforce reference identity integrity, i.e. a search on object _a_
     # with database record references _a_ => _b_ => _a_, the search result might be _a_ => _b_ => _a'_,
-    # where _a.identifier_ == _a'.identifier_. This visit method remedies the caCORE defect by matching source
-    # references on a previously matched identifier where possible.
+    # where _a.identifier_ == _a'.identifier_. This visit method remedies this caCORE defect by matching
+    # source references on a previously matched identifier where possible.
     #
-    # @param [Resource] target the domain object to merge into 
-    # @param [Resource] source the domain object to merge from
-    # @yield [target, source] the optional block to call on the visited source domain object and its matching target
-    # @yieldparam [Resource] target the domain object which matches the visited source
+    # @param [Resource] source the match visit source
+    # @param [Resource] target the match visit target
+    # @yield [target, source] the optional block to call on the matched source and target
     # @yieldparam [Resource] source the visited source domain object
-    def visit(target, source)
+    # @yieldparam [Resource] target the domain object which matches the visited source
+    def visit(source, target, &block)
       # clear the match hashes
       @matches.clear
       @id_mtchs.clear
@@ -166,57 +172,96 @@ module CaRuby
       add_match(source, target)
       # visit the source reference. the visit block merges each source reference into
       # the matching target reference.
-      super(source) do |src|
-        tgt = match(src) || next
-        merge(tgt, src)
-        block_given? ? yield(tgt, src) : tgt
-      end
+      super(source) { |src| visit_matched(src, &block) }
     end
 
     private
-
-    # Merges the given source object into the target object.
+    
+    # Visits the given source domain object.
     #
-    # @param [Resource] target thedomain object to merge into
-    # @param [Resource] source the domain object to merge from
-    def merge(target, source)
-      # the domain attributes to merge; non-domain attributes are always merged
-      attrs = @mergeable.call(source, target)
-      # Match each source reference to a target reference.
-      target.merge_match(source, attrs, &method(:match_all))
+    # @param [Resource] source the match visit source
+    # @yield [target, source] the optional block to call on the matched source and target
+    # @yieldparam [Resource] source the visited source domain object
+    # @yieldparam [Resource] target the domain object which matches the visited source
+    def visit_matched(source)
+      target = match_for_visited(source)
+      # match the matchable references, if any
+      if @matchable then
+        attrs = @matchable.call(source) - attributes_to_visit(source)
+        attrs.each { |attr| match_reference(source, target, attr) }
+      end
+      block_given? ? yield(source, target) : target
+    end
+
+    # @param source (see #match_visited)
+    # @return [<Resource>] the domain objects referenced by the source to visit next
+    def references_to_visit(source)
+      # the source match
+      target = match_for_visited(source)
+      # the attributes to visit
+      attrs = attributes_to_visit(source)
+      # the matched source references
+      match_references(source, target, attrs).keys
+    end
+    
+    # @param source (see #match_visited)
+    # @return [<Resource>] the source match
+    # @raise [ValidationError] if there is no match
+    def match_for_visited(source)
+      target = @matches[source]
+      if target.nil? then raise ValidationError.new("Match visitor target not found for #{source}") end
       target
     end
 
-    # Matches the given sources to targets. The match is performed by this visitor's matcher Proc.
+    # @param [Resource] source (see #match_visited)
+    # @param [Resource] target the source match
+    # @param [<Symbol>] attributes the attributes to match on
+    # @return [{Resource => Resource}] the referenced attribute matches
+    def match_references(source, target, attributes)
+      # collect the references to visit
+      matches = {}
+      attributes.each do |attr|
+        matches.merge!(match_reference(source, target, attr))
+      end
+      matches
+    end
+    
+    # Matches the given source and target attribute references.
+    # The match is performed by this visitor's matcher Proc.
     #
-    # @param [<Resource>] sources the domain objects to match
-    # @param [<Resource>] targets the match candidates
-    # @return [{Resource => Resource}] the source => target matches
-    def match_all(sources, targets)
-     # the match targets
+    # @param source (see #visit)
+    # @param target (see #visit)
+    # @return [{Resource => Resource}] the referenced source => target matches
+    def match_reference(source, target, attribute)
+      srcs = source.send(attribute).to_enum
+      tgts = target.send(attribute).to_enum
+      
+      # the match targets
       mtchd_tgts = Set.new
       # capture the matched targets and the the unmatched sources
-      unmtchd_srcs = sources.reject do |src|
+      unmtchd_srcs = srcs.reject do |src|
         # the prior match, if any
-        tgt = match(src)
+        tgt = match_for(src)
         mtchd_tgts << tgt if tgt
       end
+      
       # the unmatched targets
-      unmtchd_tgts = targets.difference(mtchd_tgts)
-
+      unmtchd_tgts = tgts.difference(mtchd_tgts)
       # match the residual targets and sources
       rsd_mtchs = @matcher.call(unmtchd_srcs, unmtchd_tgts)
       # add residual matches
       rsd_mtchs.each { |src, tgt| add_match(src, tgt) }
+      
       # The source => target match hash.
       # If there is a copier, then copy each unmatched source.
-      matches = sources.to_compact_hash { |src| match(src) or copy_unmatched(src) }
-      logger.debug { "Merge visitor matched #{matches.qp}." } unless matches.empty?
+      matches = srcs.to_compact_hash { |src| match_for(src) or copy_unmatched(src) }
+      logger.debug { "Match visitor matched #{matches.qp}." } unless matches.empty?
+      
       matches
     end
 
     # @return the target matching the given source
-    def match(source)
+    def match_for(source)
       @matches[source] or identifier_match(source)
     end
     
@@ -232,7 +277,8 @@ module CaRuby
       @matches[source] = tgt if tgt
     end
 
-    # @return [Resource, nil] a copy of the given source if this ReferenceVisitor has a copier, nil otherwise
+    # @return [Resource, nil] a copy of the given source if this ReferenceVisitor has a copier,
+    #   nil otherwise
     def copy_unmatched(source)
       return unless @copier
       copy = @copier.call(source)
@@ -240,13 +286,99 @@ module CaRuby
     end
   end
 
+  # A MergeVisitor merges a domain object's visitable attributes transitive closure into a target.
+  class MergeVisitor < MatchVisitor
+    # Creates a new MergeVisitor on domain attributes.
+    # The domain attributes to visit are determined by calling the selector block given to
+    # this initializer as described in {ReferenceVisitor#initialize}.
+    #
+    # @param (see MatchVisitor#initialize)
+    # @option opts [Proc] :mergeable the block which determines which attributes are merged
+    # @option opts [Proc] :matcher the block which matches sources to targets
+    # @option opts [Proc] :copier the block which copies an unmatched source
+    # @yield (see MatchVisitor#initialize)
+    # @yieldparam (see MatchVisitor#initialize)
+    def initialize(opts=nil, &selector)
+      opts = Options.to_hash(opts)
+      # Merge is depth-first, since the source references must be matched, and created if necessary,
+      # before they can be merged into the target.
+      opts[:depth_first] = true
+      @mergeable = opts.delete(:mergeable) || selector
+      # each mergeable attribute is matchable
+      unless @mergeable == selector then
+        opts[:matchable] = @mergeable
+      end
+      super
+    end
+
+    # Visits the source and target and returns a recursive copy of obj and each of its visitable references.
+    #
+    # If a block is given to this method, then this method returns the evaluation of the block on the visited
+    # source reference and its matching copy, if any. The default return value is the target which matches
+    # source.
+    #
+    # caCORE alert = caCORE does not enforce reference identity integrity, i.e. a search on object _a_
+    # with database record references _a_ => _b_ => _a_, the search result might be _a_ => _b_ => _a'_,
+    # where _a.identifier_ == _a'.identifier_. This visit method remedies the caCORE defect by matching source
+    # references on a previously matched identifier where possible.
+    #
+    # @param [Resource] source the domain object to merge from
+    # @param [Resource] target the domain object to merge into 
+    # @yield [target, source] the optional block to call on the visited source domain object and its matching target
+    # @yieldparam [Resource] target the domain object which matches the visited source
+    # @yieldparam [Resource] source the visited source domain object
+    def visit(source, target)
+      # visit the source reference. the visit block merges each source reference into
+      # the matching target reference.
+      super(source, target) do |src, tgt|
+         merge(src, tgt)
+         block_given? ? yield(src, tgt) : tgt
+      end
+    end
+
+    private
+
+    # Merges the given source object into the target object.
+    #
+    # @param [Resource] source the domain object to merge from
+    # @param [Resource] target the domain object to merge into
+    # @return [Resource] the merged target
+    def merge(source, target)
+      # the domain attributes to merge
+      attrs = @mergeable.call(source)
+      logger.debug { format_merge_log_message(source, target, attrs) }
+      # merge the non-domain attributes
+      target.merge_attributes(source)
+      # merge the source domain attributes into the target
+      target.merge(source, attrs, @matches)
+    end
+    
+    # @param source (see #merge)
+    # @param target (see #merge)
+    # @param attributes (see Mergeable#merge)
+    # @return [String] the log message
+    def format_merge_log_message(source, target, attributes)
+      attr_clause = " including domain attributes #{attributes.to_series}" unless attributes.empty?
+      "Merging #{source.qp} into #{target.qp}#{attr_clause}..."
+    end
+  end
+
   # A CopyVisitor copies a domain object's visitable attributes transitive closure.
   class CopyVisitor < MergeVisitor
     # Creates a new CopyVisitor with the options described in {MergeVisitor#initialize}.
     # The default :copier option is {Resource#copy}.
-    def initialize(options=nil) # :yields: source
-      options = Options.to_hash(options)
-      options[:copier] ||= Proc.new { |src| src.copy }
+    #
+    # @param (see MergeVisitor#initialize)
+    # @option opts [Proc] :mergeable the mergeable domain attribute selector
+    # @option opts [Proc] :matcher the match block
+    # @option opts [Proc] :copier the unmatched source copy block
+    # @yield (see MergeVisitor#initialize)
+    # @yieldparam (see MergeVisitor#initialize)
+    def initialize(opts=nil)
+      opts = Options.to_hash(opts)
+      opts[:copier] ||= Proc.new { |src| src.copy }
+      # no match forces a copy
+      opts[:matcher] = Proc.new { Hash::EMPTY_HASH }
       super
     end
 
@@ -254,9 +386,13 @@ module CaRuby
     #
     # If a block is given to this method, then the block is called with the visited
     # source reference and its matching copy target.
-    def visit(source, &block) # :yields: target, source
+    #
+    # @param (see MergeVisitor#visit)
+    # @yield (see MergeVisitor#visit)
+    # @yieldparam (see MergeVisitor#visit)
+    def visit(source, &block)
       target = @copier.call(source)
-      super(target, source, &block)
+      super(source, target, &block)
     end
   end
 

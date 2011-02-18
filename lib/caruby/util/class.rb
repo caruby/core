@@ -3,7 +3,7 @@ require 'enumerator'
 class Class
   # Returns an Enumerable on this class and its ancestors.
   def class_hierarchy
-    @hierarchy ||= Enumerable::Enumerator.new(self, :each_class_in_hierarchy)
+    @class__hierarchy ||= Enumerable::Enumerator.new(self, :each_class_in_hierarchy)
   end
 
   # Returns this class's superclass, thereby enabling class ranges, e.g.
@@ -58,6 +58,53 @@ class Class
     end
   end
 
+  # Defines an instance variable accessor attribute whose reader calls the block given
+  # to this method to create a new instance variable on demand, if necessary.
+  #
+  # For example, the declaration
+  #   class AlertHandler
+  #     attr_create_on_demand_accessor(:pings) { Array.new }
+  #   end
+  # is equivalent to:
+  #   class AlertHandler
+  #     attr_writer :pings
+  #     def pings
+  #       instance_variable_defined?(@pings) ? @pings : Array.new
+  #     end
+  #   end
+  #
+  # This method is useful either as a short-hand for the create-on-demand idiom
+  # as shown in the example above, or when it is desirable to dynamically add a
+  # mix-in attribute to a class at runtime whose name is not known when the class
+  # is defined.
+  #
+  # @example
+  #   class AlertHandler
+  #     def self.handle(alert)
+  #       attr_create_on_demand_accessor(alert) { AlertQueue.new }
+  #     end
+  #   end
+  #   ...
+  #   AlertHandler.handle(:pings)
+  #   AlertHandler.new.pings #=> empty AlertQueue
+  #
+  # @param [Symbol] symbol the attribute to define
+  # @yield [obj] factory to create the new attribute value for the given instance
+  # @yieldparam obj the class instance for which the attribute will be set
+  def attr_create_on_demand_accessor(symbol)
+    attr_writer(symbol)
+    wtr = "#{symbol}=".to_sym
+    iv = "@#{symbol}".to_sym
+    # the attribute reader creates a new proxy on demand
+    define_method(symbol) do
+      instance_variable_defined?(iv) ? instance_variable_get(iv) : send(wtr, yield(self))
+    end
+  end
+
+  # Enumerates each class in the hierarchy.
+  #
+  # @yield [klass] the enumeration block
+  # @yieldparam [Class] klass the class in the hierarchy
   def each_class_in_hierarchy
     current = self
     until current.nil?

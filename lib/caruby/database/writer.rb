@@ -1,7 +1,7 @@
 require 'caruby/util/collection'
 require 'caruby/util/pretty_print'
 require 'caruby/domain/reference_visitor'
-require 'caruby/database/saved_merger'
+require 'caruby/database/saved_matcher'
 require 'caruby/database/store_template_builder'
 
 module CaRuby
@@ -11,9 +11,17 @@ module CaRuby
       # Adds store capability to this Database.
       def initialize
         super
-        @cr_tmpl_bldr = StoreTemplateBuilder.new(self) { |ref| ref.class.creatable_domain_attributes }
+        @ftchd_vstr = ReferenceVisitor.new { |tgt| tgt.class.fetched_domain_attributes }
+        @cr_tmpl_bldr = StoreTemplateBuilder.new(self) { |ref| creatable_domain_attributes(ref) }
         @upd_tmpl_bldr = StoreTemplateBuilder.new(self) { |ref| updatable_domain_attributes(ref) }
-        @svd_mrgr = SavedMerger.new(self)
+        # the save result => argument reference matcher
+        svd_mtchr = SavedMatcher.new
+        # the save (result, argument) synchronization visitor
+        @svd_sync_vstr = MatchVisitor.new(:matcher => svd_mtchr) { |ref| ref.class.dependent_attributes }
+        # the attributes to merge from the save result
+        mgbl = Proc.new { |ref| ref.class.domain_attributes } 
+        # the save result => argument merge visitor
+        @svd_mrg_vstr = MergeVisitor.new(:matcher => svd_mtchr, :mergeable => mgbl) { |ref| ref.class.dependent_attributes }
       end
 
       # Creates the specified domain object obj and returns obj. The pre-condition for this method is as
@@ -106,8 +114,6 @@ module CaRuby
       # @raise [DatabaseError] if the database operation fails
       def save(obj)
         logger.debug { "Storing #{obj}..." }
-        # add defaults now, since a default key value could be used in the existence check
-        obj.add_defaults
         # if obj exists then update it, otherwise create it
         exists?(obj) ? update(obj) : create(obj)
       end
@@ -134,7 +140,7 @@ module CaRuby
         raise ArgumentError.new("Database ensure_exists is missing a domain object argument") if obj.nil_or_empty?
         obj.enumerate { |ref| find(ref, :create) unless ref.identifier }
       end
-
+      
       # Returns whether there is already the given obj operation in progress that is not in the scope of
       # an operation performed on a dependent obj owner, i.e. a second obj save operation of the same type
       # is only allowed if the obj operation was delegated to an owner save which in turn saves the dependent
@@ -144,8 +150,8 @@ module CaRuby
       # @param [Symbol] operation the +:create+ or +:update+ save operation
       # @return [Boolean] whether the save operation is redundant
       def recursive_save?(obj, operation)
-        @operations.detect { |op| op.type == operation and op.subject == obj } and
-        @operations.last.subject != obj.owner
+        @operations.any? { |op| op.type == operation and op.subject == obj } and
+          not obj.owner_ancestor?(@operations.last.subject)
       end
 
       private
@@ -167,8 +173,8 @@ module CaRuby
           # A dependent of an uncreated owner can be created by creating the owner.
           # Otherwise, create obj from a template.
           create_as_dependent(obj) or
-          create_from_template(obj) or
-          raise DatabaseError.new("#{obj.class.qp} is not creatable in context #{print_operations}")
+            create_from_template(obj) or
+            raise DatabaseError.new("#{obj.class.qp} is not creatable in context #{print_operations}")
         ensure
           # since obj now has an id, removed from transients set
           @transients.delete(obj)
@@ -188,17 +194,16 @@ module CaRuby
       # @return [Resource] dep
       def create_as_dependent(dep)
         # bail if not dependent or owner is not set
-        owner = dep.owner || return
-        unless owner.identifier then
-          logger.debug { "Adding #{owner.qp} dependent #{dep.qp} defaults..." }
-          dep.add_defaults
-          logger.debug { "Ensuring that dependent #{dep.qp} owner #{owner.qp} exists..." }
-          ensure_exists(owner)
+        ownr = dep.owner || return
+        unless ownr.identifier then
+          logger.debug { "Adding #{ownr.qp} dependent #{dep.qp} defaults..." }
+          logger.debug { "Ensuring that dependent #{dep.qp} owner #{ownr.qp} exists..." }
+          ensure_exists(ownr)
         end
 
         # If the dependent was created as a side-effect of creating the owner, then we are done.
         if dep.identifier then
-          logger.debug { "Created dependent #{dep.qp} by saving owner #{owner.qp}." }
+          logger.debug { "Created dependent #{dep.qp} by saving owner #{ownr.qp}." }
           return dep
         end
 
@@ -274,10 +279,9 @@ module CaRuby
         # The create template. Independent saved references are created as necessary.
         tmpl = build_create_template(obj)        
         save_with_template(obj, tmpl) { |svc| svc.create(tmpl) }
-        
         # If obj is a top-level create, then ensure that remaining references exist.
         if @operations.first.subject == obj then
-          refs = obj.suspend_lazy_loader { obj.references.reject { |ref| ref.identifier } }
+          refs = obj.references.reject { |ref| ref.identifier }
           logger.debug { "Ensuring that created #{obj.qp} references exist: #{refs.qp}..." } unless refs.empty?
           refs.each { |ref| ensure_exists(ref) }
         end
@@ -285,8 +289,10 @@ module CaRuby
         obj
       end
       
+      # @param (see #create)
+      # @return (see #build_save_template)
       def build_create_template(obj)
-        @cr_tmpl_bldr.build_template(obj)
+        build_save_template(obj, @cr_tmpl_bldr)
       end
 #
       # caCORE alert - application create logic might ignore a non-domain attribute value,
@@ -313,19 +319,64 @@ module CaRuby
         end
       end
       
-      # Returns the {MetadataAttributes#updatable_domain_attributes} which are either
-      # {AttributeMetadata#cascade_update_to_create?} or have identifiers for all
-      # references in the attribute value.
+      # Returns the {MetadataAttributes#creatable_domain_attributes} which are not contravened by a
+      # one-to-one independent pending create.
+      # 
+      # @param (see #create)
+      # @return [<Symbol>] the attributes to include in the create template
+      def creatable_domain_attributes(obj)
+        # filter the creatable attributes
+        obj.class.creatable_domain_attributes.compose do |attr_md|
+          if exclude_pending_create_attribute?(obj, attr_md) then
+            # Avoid printing duplicate log message.
+            if obj != @cr_dom_attr_log_obj then
+              logger.debug { "Excluded #{obj.qp} #{attr_md} in the create template since it references a 1:1 bidirectional independent pending create." }
+              @cr_dom_attr_log_obj = obj
+            end
+            false
+          else
+            true
+          end
+        end
+      end
+      
+      # Returns whether the given creatable domain attribute with value obj is a 
+      # {AttributeMetadata#one_to_one_bidirectional_independent?}
+      # unsaved optional attribute without an obj {#pending_create?} save context.
+      #
+      # @param obj (see #create)
+      # @param [AttributeMetadata] attr_md candidate attribute metadata
+      # @return [Boolean] whether the attribute should not be included in the create template
+      def exclude_pending_create_attribute?(obj, attr_md)
+        attr_md.one_to_one_bidirectional_independent? and
+          obj.identifier.nil? and
+          not obj.mandatory_attributes.include?(attr_md.to_sym) and
+          ref = obj.send(attr_md.to_sym) and
+          ref.identifier.nil? and
+          pending_create?(ref)
+      end
+      
+      # @param [Resource] obj the object to check
+      # @return [Boolean] whether the penultimate create operation is on the object
+      def pending_create?(obj)
+        op = penultimate_create_operation
+        op and op.subject == obj
+      end
+      
+      # @return [Operation] the create operation which scopes the innermost create operation
+      def penultimate_create_operation
+        @operations.reverse_each { |op| return op if op.type == :create and op != @operations.last }
+        nil
+      end
+      
+      # Returns the {MetadataAttributes#updatable_domain_attributes}.
       # 
       # @param (see #update)
       # @return the attributes to include in the update template
       def updatable_domain_attributes(obj)
-        obj.class.updatable_domain_attributes.filter do |attr|
-          obj.class.attribute_metadata(attr).cascade_update_to_create? or
-          obj.send(attr).to_enum.all? { |ref| ref.identifier }
-        end
+        obj.class.updatable_domain_attributes
       end
-
+      
       # @param (see #update)
       def update_object(obj)
         # database identifier is required for update
@@ -389,8 +440,16 @@ module CaRuby
       end
       
       # @param (see #update)
+      # @return (see #build_save_template)
       def build_update_template(obj)
-        @upd_tmpl_bldr.build_template(obj)
+        build_save_template(obj, @upd_tmpl_bldr)
+      end
+      
+      # @param obj (see #save)
+      # @param [StoreTemplateBuilder] builder the builder to use
+      # @return [Resource] the template to use as the save argument
+      def build_save_template(obj, builder)
+        builder.build_template(obj)
       end
 
       # @param (see #delete)
@@ -421,48 +480,189 @@ module CaRuby
         sync_saved(obj, result)
       end
       
-      def sync_saved(obj, result)
-        # delegate to the merge visitor
-        src = @svd_mrgr.merge(obj, result)
-        # make the saved object persistent, if not already so
-        persistify(obj)
+      # Synchronizes the content of the given saved domain object and the save result source as follows:
+      # 1. The save result source is first synchronized with the database content as necessary.
+      # 2. Then the source is merged into the target.
+      # 3. If the target must be resaved based on the call to {#update_saved?}, then the source
+      #    result is resaved.
+      # 4. Each target dependent which differs from the corresponding source dependent is saved.
+      #
+      # @param [Resource] target the saved domain object
+      # @param [Resource] source the caCORE save result
+      def sync_saved(target, source)
+        # clear the toxic source attributes
+        detoxify(source)
+        # sync the save result source with the database
+        sync_saved_result_with_database(source, target)
+        # merge the source into the target
+        merge_saved(target, source)
 
         # If saved must be updated, then update recursively.
         # Otherwise, save dependents as needed.
-        if update_saved?(obj, src) then
-          logger.debug { "Updating saved #{obj} to store unsaved attributes..." }
-          # call update_savedect(saved) rather than update(saved) to bypass the redundant update check
-          perform(:update, obj) { update_object(obj) }
+        if update_saved?(target, source) then
+          logger.debug { "Updating saved #{target} to store unsaved attributes..." }
+          # call update_object(saved) rather than update(saved) to bypass the redundant update check
+          perform(:update, target) { update_object(target) }
         else
           # recursively save the dependents
-          save_dependents(obj)
+          save_changed_dependents(target)
         end
       end
-
+      
+      # Synchronizes the given saved target result source with the database content.
+      # The source is synchronized by {#sync_save_result}.
+      #
+      # @param (see #sync_saved)
+      def sync_saved_result_with_database(source, target)
+        @svd_sync_vstr.visit(source, target) { |src, tgt| sync_save_result(src, tgt) }
+      end
+      
+      # Merges the database content into the given saved domain object.
+      # Dependents are merged recursively.
+      #
+      # caTissue alert - the auto-generated references are not necessarily valid, e.g. the auto-generated
+      # SpecimenRequirement characteristics tissue site is nil rather than the default 'Not Specified'.
+      # This results in an obscure downstream error when creating an CPR which auto-generates a SCG
+      # which auto-generates a Specimen which copies the invalid characteristics. The work-around for
+      # this bug is to add defaults to auto-generated references. Then, if the content differs from
+      # the database, the difference induces an update of the reference.
+      #
+      # @param (see #sync_saved)
+      # @return [Resource] the merged target object
+      def merge_saved(target, source)
+        logger.debug { "Merging saved result #{source} into saved #{target.qp}..." }
+        # Update each saved reference snapshot to reflect the database state and add a lazy loader if necessary.
+        @svd_mrg_vstr.visit(source, target) do |src, tgt|
+          # capture the id
+          prev_id = tgt.identifier
+          persistify_object(tgt, src)
+          # if tgt is an auto-generated reference, then add defaults
+          if target != tgt and prev_id.nil? then tgt.add_defaults end
+        end
+        logger.debug { "Merged saved result #{source} into saved #{target.qp}." }
+      end
+      
+      # Synchronizes the given save result source object to reflect the database content, as follows:
+      # * If the save result has autogenerated non-domain attributes, then the source is refetched.
+      # * Each of the dependent {#synchronization_attributes} is fetched.
+      # * Inverses are set consistently within the save result object graph.
+      #
+      # @param (see #sync_saved)
+      def sync_save_result(source, target)
+        logger.debug { "Synchronizing #{target} save result #{source} with the database..." }
+        # If the target was created, then refetch and merge the source if necessary to reflect auto-generated
+        # non-domain attribute values.
+       if target.identifier.nil? then sync_created_result_object(source) end
+        # If there are auto-generated attributes, then merge them into the save result.
+        sync_save_result_references(source, target)
+        # Set inverses consistently in the source object graph
+        set_inverses(source)
+        logger.debug { "Synchronized #{target} save result #{source} with the database." }
+      end
+      
+      # Refetches the given create result source if there are any {ResourceAttributes#autogenerated_nondomain_attributes}
+      # which must be fetched to reflect the database state.
+      #
+      # @param source (see #sync_saved)
+      def sync_created_result_object(source)
+        attrs = source.class.autogenerated_nondomain_attributes
+        return if attrs.empty?
+        logger.debug { "Refetch #{source} to reflect auto-generated database content for attributes #{attrs.to_series}..." }
+        find(source)
+      end
+      
+      # Fetches the {#synchronization_attributes} into the given target save result source.
+      #
+      # @param (see #sync_saved)
+      def sync_save_result_references(source, target)
+        attrs = synchronization_attributes(source, target)
+        return if attrs.empty?
+        logger.debug { "Fetching the saved #{target.qp} attributes #{attrs.to_series} into save result #{source.qp}..." }
+        attrs.each { |attr| sync_save_result_attribute(source, attr) }
+        logger.debug { "Fetched the saved #{target.qp} attributes #{attrs.to_series} into the save result #{source.qp}." }
+      end
+      
+      # @see #sync_save_result_references
+      def sync_save_result_attribute(source, attribute)
+        # fetch the value
+        fetched = fetch_association(source, attribute)
+        # set the attribute
+        source.set_attribute(attribute, fetched)
+      end
+      
+      # Returns the saved target attributes which must be fetched to reflect the database content, consisting
+      # of the following:
+      # * {Persistable#saved_fetch_attributes}
+      # * {ResourceAttributes#domain_attributes} which include a source reference without an identifier
+      #
+      # @param (see #sync_saved)
+      # @return [<Symbol>] the attributes which must be fetched
+      def synchronization_attributes(source, target)
+        # the target save operation
+        op = @operations.last
+        # the attributes to fetch
+        attrs = target.saved_fetch_attributes(op).to_set
+        # the pending create, if any
+        pndg_op = penultimate_create_operation
+        pndg = pndg_op.subject if pndg_op
+        # add in the domain attributes whose identifier was not set in the result
+        source.class.saved_domain_attributes.select do |attr|
+          srcval = source.send(attr)
+          tgtval = target.send(attr)
+          if Persistable.unsaved?(srcval) then
+            logger.debug { "Fetching save result #{source.qp} #{attr} since a referenced object identifier was not set in the result..." }
+            attrs << attr
+          elsif srcval.nil_or_empty? and Persistable.unsaved?(tgtval) and tgtval != pndg then
+            logger.debug { "Fetching save result #{source.qp} #{attr} since the target #{target.qp} value #{tgtval.qp} is missing an identifier..." }
+            attrs << attr
+          end
+        end
+        attrs
+      end
+      
       # Saves the given domain object dependents.
       #
       # @param [Resource] obj the owner domain object
-      def save_dependents(obj)
-        obj.dependents.each { |dep| save_dependent(obj, dep) }
+      def save_changed_dependents(obj)
+        # JRuby alert - copy the Resource dependents call result to an array, since iteration based on
+        # Forwardable enum_for breaks here with an obscure Java ConcurrentModificationException
+        # in the CaTissue SCG save test case. TODO - isolate and fix at source.
+        obj.class.dependent_attributes.each do |attr|
+          deps = obj.send(attr).to_enum
+          logger.debug { "Saving the #{obj} #{attr} dependents #{deps.qp} which have changed..." } unless deps.empty?
+          deps.each { |dep| save_dependent_if_changed(obj, attr, dep) }
+        end
       end
       
       # Saves the given dependent domain object if necessary.
       # Recursively saves the obj dependents as necessary.
       #
       # @param [Resource] obj the dependent domain object to save
-      def save_dependent(owner, dep)
-        if dep.identifier.nil? then
-          logger.debug { "Creating dependent #{dep.qp}..." }
-          return create(dep)
+      def save_dependent_if_changed(owner, attribute, dependent)
+        if dependent.identifier.nil? then
+          logger.debug { "Creating #{owner.qp} #{attribute} dependent #{dependent.qp}..." }
+          return create(dependent)
         end
-        changes = dep.changed_attributes
-        logger.debug { "#{owner.qp} dependent #{dep.qp} changed for attributes #{changes.to_series}." } unless changes.empty?
-        if changes.any? { |attr| not dep.class.attribute_metadata(attr).dependent? } then
-          logger.debug { "Updating changed #{owner.qp} dependent #{dep.qp}..." }
-          update(dep)
+        changes = dependent.changed_attributes
+        logger.debug { "#{owner.qp} #{attribute} dependent #{dependent.qp} changed for attributes #{changes.to_series}." } unless changes.empty?
+        if changes.any? { |attr| not dependent.class.attribute_metadata(attr).dependent? } then
+          # the owner save operation
+          op = operations.last
+          # The dependent is auto-generated if the owner was created or auto-generated and
+          # the dependent attribute is auto-generated.
+          ag = (op.type == :create or op.autogenerated?) && owner.class.attribute_metadata(attribute).autogenerated?
+          logger.debug { "Updating the changed #{owner.qp} #{attribute} dependent #{dependent.qp}..." }
+          perform(:update, dependent, :autogenerated => ag) { update_object(dependent) }
         else
-          save_dependents(dep)
+          save_changed_dependents(dependent)
         end
+      end
+      
+      # Creates the given dependent domain object.
+      #
+      # @param (see #save_dependent)
+      def create_dependent(owner, dep)
+        create(dep)
       end
     end
   end

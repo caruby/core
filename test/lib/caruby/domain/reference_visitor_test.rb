@@ -42,8 +42,22 @@ class ReferenceVisitorTest < Test::Unit::TestCase
     assert_equal([@study, @pnt, @pnt.address], visitor.to_enum(@study).to_a, "Enumeration incorrect")
   end
 
+  def test_id_match
+    # set the source ids
+    @study.identifier = 1
+    @event.identifier = 2
+    # make a match target
+    target = CaRuby::CopyVisitor.new { |ref| ref.class.dependent_attributes }.visit(@study)
+    # match the source to the target
+    matcher = CaRuby::MatchVisitor.new { |ref| ref.class.dependent_attributes }
+    matcher.visit(@study, target)
+    expected = {@study => target, @event => target.events.first}
+    # validate the match
+    assert_equal(expected, matcher.matches, "Match incorrect")
+  end
+
   def test_copy
-    visitor = CaRuby::CopyVisitor.new { |src, tgt| src.class.dependent_attributes }
+    visitor = CaRuby::CopyVisitor.new { |ref| ref.class.dependent_attributes }
     copy = visitor.visit(@study)
     assert_not_nil(copy, "Study not copied")
     assert_not_nil(visitor.visited[@study], "#{@study.qp} copy #{copy.qp} not captured in visited #{visitor.visited.qp}")
@@ -51,6 +65,7 @@ class ReferenceVisitorTest < Test::Unit::TestCase
     assert_not_same(copy, @study, "#{@study.qp} not copied into #{copy.qp} as new object")
     assert_equal(@study.name, copy.name, "#{@study.qp} attribute not copied")
     assert_nil(copy.coordinator, "#{@study.qp} coordinator incorrectly copied into #{copy.qp} as a dependent")
+    assert(!@study.events.empty?, "#{@study.qp} events cleared by copy")
     assert(!copy.events.empty?, "#{@study.qp} events #{@study.events.qp} not copied into #{copy.qp}")
     assert_equal(1, copy.events.size, "#{@study.qp} events copy #{copy.qp} size incorrect")
     assert_not_same(copy.events.first, @study.events.first, "#{@study.qp} event #{@study.events.first} not copied into #{copy.qp} as new object")
@@ -59,19 +74,19 @@ class ReferenceVisitorTest < Test::Unit::TestCase
 
   def test_merge
     # make a merge target
-    target = CaRuby::CopyVisitor.new { |src, tgt| src.class.dependent_attributes }.visit(@study)
+    target = CaRuby::CopyVisitor.new { |ref| ref.class.dependent_attributes }.visit(@study)
     # set the source ids
     @study.identifier = 1
     @event.identifier = 2
     
     # merge into the copy
-    merger = CaRuby::MergeVisitor.new { |src, tgt| tgt.class.dependent_attributes }
-    merger.visit(target, @study)
+    merger = CaRuby::MergeVisitor.new { |ref| ref.class.dependent_attributes }
+    merger.visit(@study, target)
     
     # validate that the ids are copied
-    assert_equal(target.identifier, @study.identifier, "Merge didn't copy study identifier")
+    assert_equal(@study.identifier, target.identifier, "Merge didn't copy the study identifier")
     assert_not_nil(target.events.first, "Merge didn't copy #{@study.qp} event #{@event.qp} to #{target.qp}")
-    assert_equal(@event.identifier, target.events.first.identifier, "Merge didn't copy #{@study.qp} event #{@event.qp} event identifier to  #{target.qp}")
+    assert_equal(target.events.first.identifier, @event.identifier, "Merge didn't copy #{@study.qp} event #{@event.qp} event identifier to  #{target.qp}")
   end
 
   def test_copy_id_match
@@ -85,7 +100,7 @@ class ReferenceVisitorTest < Test::Unit::TestCase
     @study.events << @event
     
     # copy the mutated source
-    copier = CaRuby::CopyVisitor.new { |src, tgt| src.class.dependent_attributes }
+    copier = CaRuby::CopyVisitor.new { |ref| ref.class.dependent_attributes }
     copy = copier.visit(@study)
     
     # validate the copy
@@ -94,7 +109,7 @@ class ReferenceVisitorTest < Test::Unit::TestCase
   end
 
   def test_copy_with_visit_block
-    visitor = CaRuby::CopyVisitor.new { |src, tgt| src.class.domain_attributes }
+    visitor = CaRuby::CopyVisitor.new { |ref| ref.class.domain_attributes }
     id = visitor.visit(@study) { |src, tgt| src.identifier }
     assert_equal(@study.identifier, id, "Visit didn't return block result")
   end
@@ -106,7 +121,7 @@ class ReferenceVisitorTest < Test::Unit::TestCase
     @study.coordinator = nil
     @study.enrollment.clear
     # visit all references, starting at an event, with traversal event -> study -> other event -> study
-    visitor = CaRuby::CopyVisitor.new { |src, tgt| src.class.domain_attributes }
+    visitor = CaRuby::CopyVisitor.new { |ref| ref.class.domain_attributes }
     visited = visitor.visit(@event)
     studies = visitor.visited.select { |ref, copy| ClinicalTrials::Study === ref }
     assert(!studies.empty?, "No study copied")

@@ -151,6 +151,8 @@ module Enumerable
   # Note, however, that unlike select, filter does not return an Array.
   # The default filter block returns the passed item.
   #
+  # @yield [item] filter the selection filter
+  # @yieldparam item the collection member to filter
   # @return [Enumerable] the filtered result
   # @example
   #   [1, nil, 3].filter.to_a #=> [1, 3]
@@ -174,7 +176,7 @@ module Enumerable
   # Returns an Enumerable which iterates over items in this Enumerable and the other Enumerable in sequence, e.g.:
   #   [1, 2, 3] + [3, 4] #=> [1, 2, 3, 3, 4]
   #
-  # Unlike Array#+, {#union} reflects changes to the underlying enumerators.
+  # Unlike the Array plus (+) operator, {#union} reflects changes to the underlying enumerators.
   #
   # @example
   #   a = [1, 2]
@@ -183,7 +185,8 @@ module Enumerable
   #   ab #=> [1, 2, 4, 5]
   #   a << 3
   #   ab #=> [1, 2, 3, 4, 5]
-  # @return [Enumerable] self followed by other
+  # @param [Enumerable] other the Enumerable to compose with this Enumerable
+  # @return [Enumerable] an enumerator over self followed by other
   def union(other)
     MultiEnumerator.new(self, other)
   end
@@ -207,16 +210,31 @@ module Enumerable
   # Returns a new Enumerable that iterates over the base Enumerable applying the transformer block to each item, e.g.:
   #   [1, 2, 3].transform { |n| n * 2 }.to_a #=> [2, 4, 6]
   #
-  # Unlike #collect, {#wrap} reflects changes to the base Enumerable, e.g.:
+  # Unlike Array.map, {#wrap} reflects changes to the base Enumerable, e.g.:
   #   a = [2, 4, 6]
 ``#   transformed = a.wrap { |n| n * 2 }
   #   a << 4
   #   transformed.to_a #=> [2, 4, 6, 8]
   #
   # In addition, transform has a small, fixed storage requirement, making it preferable to select for large collections.
-  # Note, however, that unlike collect, transform does not return an Array.
-  def wrap(&transformer) # :yields: item
-    Transformer.new(self, &transformer)
+  # Note, however, that unlike map, transform does not return an Array.
+  #
+  # @yield [item] the transformer on the enumerated items
+  # @yieldparam item an enumerated item
+  # @return [Enumerable] an enumeration on the transformed values
+  def wrap(&mapper)
+    Transformer.new(self, &mapper)
+  end
+  
+  def join(other)
+    Joiner.new(self, other)
+  end
+  
+  # @yield [item] the transformer on the enumerated items
+  # @yieldparam item an enumerated item
+  # @return [Enumerable] the mapped values excluding null values
+  def compact_map(&mapper)
+    wrap(&mapper).compact
   end
 
   private
@@ -229,30 +247,45 @@ module Enumerable
       @filter = filter
     end
 
-    # Calls block on each item which passes this Filter's filter test.
-    def each(&block)
+    # Calls the given block on each item which passes this Filter's filter test.
+    #
+    # @yield [item] the block called on each item
+    # @yieldparam item the enumerated item
+    def each
       @base.each { |item| yield(item) if @filter ? @filter.call(item) : item }
     end
 
     # Optimized for a Set base.
+    #
+    # @param [item] the item to check
+    # @return [Boolean] whether the item is a member of this Enumerable
     def include?(item)
       return false if Set === @base and not @base.include?(item)
       super
     end
 
-    # Adds value to the base Enumerable, if the base supports it.
-    def <<(value)
+    # Adds an item to the base Enumerable, if thif Filter's base supports it.
+    #
+    # @param item the item to add
+    # @return [Filter] self
+    def <<(item)
       @base << value
+      self
     end
 
-    # @return a new Array consisting of this Filter's filtered content merged with the other Enumerable
+    # @param [Enumerable] other the Enumerable to merge
+    # @return [Array] this Filter's filtered content merged with the other Enumerable
     def merge(other)
-      to_a.merge(other)
+      to_a.merge!(other)
     end
 
     # Merges the other Enumerable into the base Enumerable, if the base supports it.
+    #
+    # @param other (see #merge)
+    # @return [Filter, nil] this Filter's filtered content merged with the other Enumerable
     def merge!(other)
       @base.merge!(other)
+      self
     end
   end
 
@@ -272,7 +305,7 @@ module Enumerable
       self
     end
 
-    # Calls block on each item after this Transformer's transformer block is applied.
+    # Calls the block on each item after this Transformer's transformer block is applied.
     def each
       @base.each { |item| yield(item.nil? ? nil : @xfm.call(item)) }
     end
@@ -400,7 +433,7 @@ end
 module Hashable
   include Enumerable
 
-  # @see Hash#each
+  # @see Hash#each_pair
   def each_pair(&block)
     each(&block)
   end
@@ -992,15 +1025,18 @@ class Array
     base__flatten
   end
 
-  # Adds the other Enumerable to this array.
+  # Concatenates the other Enumerable to this array.
   #
-  # Raises ArgumentError if other does not respond to the +to_a+ method.
+  # @param [#to_a] other the other Enumerable
+  # @raise [ArgumentError] if other does not respond to the +to_a+ method
   def add_all(other)
     return concat(other) if Array === other
     begin
-      return add_all(other.to_a)
+      add_all(other.to_a)
+    rescue NoMethodError
+      raise
     rescue
-      raise ArgumentError.new("Can't convert #{other.class.name} to array") unless other.respond_to?(:to_a)
+      raise ArgumentError.new("Can't convert #{other.class.name} to array")
     end
   end
 

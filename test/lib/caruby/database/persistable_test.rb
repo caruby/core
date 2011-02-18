@@ -27,16 +27,16 @@ class PersistableTest < Test::Unit::TestCase
     }
   end
 
-#  def test_independent_reference
-#    assert_not_nil(@study.coordinator, "Independent reference not loaded")
-#    assert_not_nil(@study.coordinator.identifier, "Independent reference loaded but identifier not set")
-#  end
-#
-#  def test_dependent_reference
-#    assert_not_nil(@study.events.first, "Dependent events reference not loaded")
-#    assert_not_nil(@study.events.first.identifier, "Dependent events reference loaded but identifier not set")
-#  end
-#
+  def test_independent_reference
+    assert_not_nil(@study.coordinator, "Independent reference not loaded")
+    assert_not_nil(@study.coordinator.identifier, "Independent reference loaded but identifier not set")
+  end
+
+  def test_dependent_reference
+    assert_not_nil(@study.events.first, "Dependent events reference not loaded")
+    assert_not_nil(@study.events.first.identifier, "Dependent events reference loaded but identifier not set")
+  end
+
   def test_unidirectional_dependent
     assert_nil(@study.consents.first, "Unidirectional dependent consents reference incorrectly loaded")
     # explicitly set the consents loader
@@ -68,12 +68,12 @@ class PersistableTest < Test::Unit::TestCase
     assert_equal(3, @study.consents.size, "Ambiguous dependent consent not added")
     assert_nil(@consent.identifier, "Consent identifier incorrectly merged from ambiguous dependent consent")
   end
-#
-#  # Verifies that the loader is disabled when an attribute is set.
-#  def test_setter_disable
-#    @study.coordinator = @coord
-#    assert_nil(@study.coordinator.identifier, "Independent reference loaded after set")
-#  end
+
+  # Verifies that the loader is disabled when an attribute is set.
+  def test_setter_disable
+    @study.coordinator = @coord
+    assert_nil(@study.coordinator.identifier, "Independent reference loaded after set")
+  end
   
   private
 

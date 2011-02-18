@@ -1,61 +1,50 @@
 require 'caruby/util/options'
 require 'caruby/util/collection'
-require 'caruby/util/cache'
-require 'caruby/util/pretty_print'
-require 'caruby/domain/reference_visitor'
-require 'caruby/database/search_template_builder'
 
 module CaRuby
   class Database
     # Proc that matches fetched sources to targets.
     class FetchedMatcher < Proc
       # Initializes a new FetchedMatcher.
-      #
-      # @param [{Symbol => Object}, Symbol, nil] opts the match options
-      # @option [Boolean] opts :relaxed flag indicating whether a {Resource#minimal_match?} is
-      #   used in the match on the fetched content
-      def initialize(opts=nil)
-        super() { |srcs, tgts| match_fetched(srcs, tgts) }
-        @relaxed = Options.get(:relaxed, opts)
+      def initialize
+        super { |srcs, tgts| match_fetched(srcs, tgts) }
       end
       
       private
 
-      # Returns a target => source match hash for the given targets and sources.
+      # Returns a target => source match hash for the given targets and sources using
+      # {Resource#match_in_owner_scope}.
+      #
+      # @param [<Resource>] sources the domain objects to match with targets
+      # @param [<Resource>] targets the domain objects to match with targets
+      # @return [{Resource => Resource}] the source => target matches
       def match_fetched(sources, targets)
         return Hash::EMPTY_HASH if sources.empty? or targets.empty?
-        logger.debug { "Matching database content #{sources.qp} to #{targets.qp}..." }
-
-        # match source => target based on the key
+        # the domain class
+        klass = sources.first.class
+        # the non-owner secondary key domain attributes
+        attrs = klass.secondary_key_attributes.select do |attr|
+          attr_md = klass.attribute_metadata(attr)
+          attr_md.domain? and not attr_md.owner?
+        end
+        # fetch the non-owner secondary key domain attributes as necessary 
+        unless attrs.empty? then
+          sources.each do |src|
+            attrs.each do |attr|
+              next if src.send(attr)
+              logger.debug { "Fetching #{src.qp} #{attr} in order to match on the secondary key..." }
+              ref = src.query(attr).first || next
+              src.set_attribute(attr, ref)
+              logger.debug { "Set fetched #{src.qp} secondary key attribute #{attr} to fetched #{ref}." }
+            end
+          end
+        end
+        # match source => target based on the secondary key
         unmatched = Set === sources ? sources.dup : sources.to_set
         matches = {}
         targets.each do |tgt|
           src = tgt.match_in_owner_scope(unmatched)
           next unless src
-          matches[src] = tgt
-          unmatched.delete(src)
-        end
-        
-        # match residual targets, if any, on a relaxed criterion
-        if @relaxed and matches.size != targets.size then
-          unmtchd_tgts = targets.to_set - matches.keys.delete_if { |tgt| tgt.identifier }
-          unmtchd_srcs = sources.to_set - matches.values
-          min_mtchs = match_minimal(unmtchd_srcs, unmtchd_tgts)
-          matches.merge!(min_mtchs)
-        end
-        
-        logger.debug { "Matched database sources to targets #{matches.qp}." } unless matches.empty?
-        matches
-      end
-      
-      #@param [<Resource>] sources the source objects to match
-      #@param [<Resource>] targets the potential match target objects
-      # @return (see #match_saved)
-      def match_minimal(sources, targets)
-        matches = {}
-        unmatched = Set === sources ? sources.to_set : sources.dup
-        targets.each do |tgt|
-          src = unmatched.detect { |src| tgt.minimal_match?(src) } || next
           matches[src] = tgt
           unmatched.delete(src)
         end

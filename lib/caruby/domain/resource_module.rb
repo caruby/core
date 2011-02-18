@@ -47,21 +47,23 @@ module CaRuby
   module ResourceModule
     # Adds the given klass to this ResourceModule. The class is extended with ResourceMetadata methods.
     def add_class(klass)
-      @resource_module__loaded ||= Set.new
+      @rsc_classes ||= Set.new
       # add superclass if necessary
-      unless @resource_module__loaded.include?(klass.superclass) or klass.superclass == Java::JavaLang::Object then
+      unless @rsc_classes.include?(klass.superclass) or klass.superclass == Java::JavaLang::Object then
         # the domain module includes the superclass on demand
         const_get(klass.superclass.name[/\w+$/].to_sym)
       end
       ResourceMetadata.extend_class(klass, self)
-      @resource_module__loaded << klass
+      @rsc_classes << klass
     end
     
-    # Reinclude the mixin in all loaded classes.
-    def mixin_changed
-      @resource_module__loaded.each { |klass| klass.instance_eval { include CaRuby::Resource } }
+    # @return [Module] the resource mix-in module (default {Resouce})
+    def mixin
+      @mixin || Resource
     end
 
+    # @return [{Symbol => Object}] the caBIG application access properties
+    # @see #load_access_properties
     def access_properties
       @resource_module__props ||= load_access_properties
     end
@@ -70,9 +72,9 @@ module CaRuby
     # The default file path is a period followed by the lower-case application name in the home directory,
     # e.g. +~/.clincaltrials+.
     #
-    # The property file format is a series of property definitions in the form _property_ +=+ _value_.
+    # The property file format is a series of property definitions in the form _property_: _value_.
     # The supported properties include the following:
-    # * +path+ - the application client Java jar file directories
+    # * +path+ - the application client Java directories
     # * +user+ - the application service login
     # * +password+ - the application service password
     # * +database+ - the application database name
@@ -82,8 +84,13 @@ module CaRuby
     # * +database_type+ - the application database type, + mysql+ or +oracle+ (default +mysql+)
     # * +database_driver+ - the application database connection driver (default is the database type default)
     # * +database_port+ - the application database connection port
-    # # The +path+ value is one or more directories separated by a semi-colon(;) or colon (:)
-    # # The jar files in the +path+ directory are added to the caRuby execution Java classpath.
+    #
+    # The +path+ value is one or more directories separated by a semi-colon(;) or colon (:)
+    # Each path directory and all jar files within the directory are added to the caRuby execution
+    # Java classpath.
+    #
+    # @param [String, nil] file the property file, or nil for the default location
+    # @return [{Symbol => Object}] the loaded caBIG application access properties
     def load_access_properties(file=nil)
       # If a file was specified, then it must exist.
       if file and not File.exists?(file) then
@@ -146,7 +153,7 @@ module CaRuby
         sym = base_name.camelize.to_sym
         sym_file_hash[sym] = file
         autoload(sym, file)
-     end
+      end
 
       # load the domain class definitions
       sym_file_hash.each do |sym, file|
@@ -163,9 +170,28 @@ module CaRuby
     end
 
     # Extends the mod module with Java class support. See the class documentation for details.
+    #
+    # @param [Symbol] symbol the missing constant
     def const_missing(symbol)
       autoload?(symbol) ? super : import_domain_class(symbol)
     end
+
+    # Returns the domain class for class_name, or nil if none in this module.
+    def domain_type_with_name(class_name)
+      pkg, base = split_class_name(class_name)
+      return unless pkg.nil? or pkg == @java_package
+      begin
+        type = const_get(base)
+      rescue JavaIncludeError
+        # no such domain type; not an error.
+        # other exceptions indicate that there was a domain type but could not be loaded; these exceptions propagate up the call stack
+        logger.debug("#{base} is not a #{qp} Java class.")
+        return
+      end
+      type if type < Resource
+    end
+
+    private
 
     # Imports the domain Java class with specified class name_or_sym.
     # This method enables the domain class extensions for storing and retrieving domain objects.
@@ -218,10 +244,10 @@ module CaRuby
       # the Resource import stack
       @import_stack ||= []
       @import_stack.push klass
-      # include the Resource mixin into the imported class
-      mixin = @mixin
-      klass.instance_eval { include mixin }
-      logger.info("Imported #{qp} class #{klass.qp}")
+      # include the Resource mixin in the imported class
+      inc = "include #{mixin}"
+      klass.instance_eval(inc)
+      
       # if we are back to top of the stack, then print the imported Resources
       if klass == @import_stack.first then
         # a referenced class could be imported on demand in the course of printing a referencing class;
@@ -234,23 +260,6 @@ module CaRuby
       end
       klass
     end
-
-    # Returns the domain class for class_name, or nil if none in this module.
-    def domain_type_with_name(class_name)
-      pkg, base = split_class_name(class_name)
-      return unless pkg.nil? or pkg == @java_package
-      begin
-        type = const_get(base)
-      rescue JavaIncludeError
-        # no such domain type; not an error.
-        # other exceptions indicate that there was a domain type but could not be loaded; these exceptions propagate up the call stack
-        logger.debug("#{base} is not a #{qp} Java class.")
-        return
-      end
-      type if type < Resource
-    end
-
-    private
 
     # The property/value matcher, e.g.:
     #   host: jacardi
@@ -273,7 +282,7 @@ module CaRuby
       end
     end
     
-    # Returns the [package prefix, base class symbol] pair.
+    # @return [(String, Symbol)] the [package prefix, base class symbol] pair
     def split_class_name(class_name)
       # the package prefix, including the period
       package = Java.java_package_name(class_name)

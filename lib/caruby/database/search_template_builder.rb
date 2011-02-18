@@ -31,7 +31,7 @@ module CaRuby
       # the searchable attribute => value hash
       ref_hash, nonref_hash = hash.hash_partition { |attr, value| Resource === value }
       # make the search template from the non-reference attributes
-      tmpl = obj.class.new(nonref_hash)
+      tmpl = obj.class.new.merge_attributes(nonref_hash)
       # get references for the search template
       unless ref_hash.empty? then
         logger.debug { "Collecting search reference parameters for #{obj.qp} from attributes #{ref_hash.keys.to_series}..." }

@@ -17,4 +17,11 @@ class String
   def capitalize_first
     sub(/(?:^)(.)/) { $1.upcase }
   end
+  
+  # @return this String with the first letter decapitalized and other letters preserved.
+  # @example
+  #   "RosesAreRed".decapitalize #=> "rosesAreRed"
+  def decapitalize
+    sub(/(?:^)(.)/) { $1.downcase }
+  end
 end

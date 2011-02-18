@@ -1,9 +1,10 @@
 require 'caruby/util/collection'
 require 'caruby/import/java'
 require 'caruby/domain/java_attribute_metadata'
-require 'caruby/domain/resource_attributes'
 require 'caruby/domain/resource_introspection'
+require 'caruby/domain/resource_inverse'
 require 'caruby/domain/resource_dependency'
+require 'caruby/domain/resource_attributes'
 
 module CaRuby
   # Exception raised if a meta-data setting is missing or invalid.
@@ -11,7 +12,7 @@ module CaRuby
   
   # Adds introspected metadata to a Class.
   module ResourceMetadata
-    include ResourceIntrospection, ResourceDependency, ResourceAttributes
+    include ResourceIntrospection, ResourceInverse, ResourceDependency, ResourceAttributes
 
     attr_reader :domain_module
 
@@ -21,7 +22,6 @@ module CaRuby
     # by the {#domain_module} method.
     def add_metadata(mod)
       @domain_module = mod
-      init_attributes # in ResourceAttributes
       introspect # in ResourceIntrospection
     end
 
@@ -31,8 +31,43 @@ module CaRuby
       attr_md.type if attr_md.domain?
     end
 
+    # Returns an empty value for the given attribute.
+    # * If this class is not abstract, then the empty value is the initialized value.
+    # * Otherwise, if the attribute is a Java primitive number then zero.
+    # * Otherwise, if the attribute is a Java primitive boolean then +false+.
+    # * Otherwise, the empty value is nil.
+    #
+    # @param [Symbol] attribute the target attribute
+    # @return [Numeric, Boolean, Enumerable, nil] the empty attribute value
+    def empty_value(attribute)
+      if abstract? then
+        attr_md = attribute_metadata(attribute)
+        # the Java property type
+        jtype = attr_md.property_descriptor.property_type if JavaAttributeMetadata === attr_md
+        # A primitive is either a boolean or a number (String is not primitive).
+        if jtype and jtype.primitive? then
+          type.name == 'boolean' ? false : 0
+        end
+      else
+        # Since this class is not abstract, create a prototype instance on demand and make
+        # a copy of the initialized collection value from that instance.
+        @prototype ||= new
+        value = @prototype.send(attribute) || return
+        value.class.new
+      end
+    end
+    
    # Prints this classifier's content to the log.
     def pretty_print(q)
+      
+      
+      # KLUDGE - if not inited then bail
+      if @attr_md_hash.nil? then
+        q.text(qp)
+        return
+      end
+      
+      
       # the Java property descriptors
       property_descriptors = java_attributes.wrap { |attr| attribute_metadata(attr).property_descriptor }
       # build a map of relevant display label => attributes
@@ -71,16 +106,6 @@ module CaRuby
     end
 
     protected
-    
-    # Adds the given subclass to this class's {ResourceMetadata#domain_module}.
-    def introspect_subclass(klass)
-      # introspect this class if necessary
-      unless @domain_module then
-        raise TypeError.new("Can't introspect #{qp}") unless superclass and superclass.include?(Resource)
-        superclass.introspect_subclass(self) 
-      end
-      @domain_module.add_class(klass)
-    end
 
     def self.extend_class(klass, mod)
       klass.extend(self)
@@ -105,12 +130,9 @@ module CaRuby
 
     def format_print_value(value)
       case value
-      when String then
-        value
-      when Class then
-        value.qp
-      else
-        value.pp_s(:single_line)
+        when String then value
+        when Class then value.qp
+        else value.pp_s(:single_line)
       end
     end
   end

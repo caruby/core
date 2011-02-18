@@ -48,13 +48,16 @@ class CsvIOTest < Test::Unit::TestCase
     input = File.join(FIXTURES_DIR, 'variety.csv')
     output = File.join(OUTPUT_DIR, 'variety.csv')
     headers = records = nil
+    # Read the input file content.
     File.open(input) do |file|
       headers = file.readline.chomp.split(/,\s*/)
       records = file.map { |line| line.chomp.split(/,\s*/) }
     end
+    # Write the output file.
     CsvIO.open(output, :mode => 'w', :headers => headers) do |csvio|
-       records.each { |rec| csvio << rec }
+      records.each { |rec| csvio << rec }
     end
+    # Compare the output to the input.
     File.open(output) do |file|
       assert_equal(headers, file.readline.chomp.split(/,\s*/), "Headers don't match")
       file.each_with_index do |line, i|

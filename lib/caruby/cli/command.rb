@@ -13,22 +13,22 @@ module CaRuby
       # specifications as follows:
       #
       # Each option specification is an array in the form:
-      #   [:option, short, long, class, description]
+      #   [option, short, long, class, description]
       # where:
-      # * :option is the option symbol, e.g. +:output+
+      # * option is the option symbol, e.g. +:output+
       # * short is the short option form, e.g. "-o"
       # * long is the long option form, e.g. "--output FILE"
       # * class is the option value class, e.g. Integer
       # * description is the option usage, e.g. "Output file"
-      # The :option, long and description items are required; the short and class items can
+      # The option, long and description items are required; the short and class items can
       # be omitted.
       #
       # Each command line argument specification is an array in the form:
-      #   [:arg, text]
+      #   [arg, text]
       # where:
-      # * :arg is the argument symbol, e.g. +:input+
+      # * arg is the argument symbol, e.g. +:input+
       # * text is the usage message text, e.g. 'input', '[input]' or 'input ...' 
-      # Both items are required.
+      # The arg and description items are required.
       #
       # Built-in options include the following:
       # * --help : print the help message and exit
@@ -36,6 +36,7 @@ module CaRuby
       # * --log FILE : log file
       # * --debug : print debug messages to the log
       # * --file FILE: configuration file containing other options
+      # * --quiet: suppress printing messages to stdout
       # This class processes these built-in options, with the exception of +--version+,
       # which is a subclass responsibility. Subclasses are responsible for
       # processing any remaining options.
@@ -70,10 +71,11 @@ module CaRuby
       private
       
       DEF_OPTS = [
-        [:help, "--help", "Displays this help message"],
+        [:help, "-h", "--help", "Display this help message"],
         [:file, "--file FILE", "Configuration file containing other options"],
         [:log, "--log FILE", "Log file"],
-        [:debug, "--debug", "Displays debug log messages"],
+        [:debug, "--debug", "Display debug log messages"],
+        [:quiet, "-q", "--quiet", "Suppress printing messages to stdout"]
       ]
       
       def call_executor(opts)

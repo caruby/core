@@ -42,7 +42,8 @@ module CaRuby
     end
 
     # Connects to the database, yields the DBI handle to the given block and disconnects.
-    # Returns the execution result.
+    #
+    # @return [Array] the execution result
     def execute
       logger.debug { "Connecting to database with user #{@username}, address #{@address}..." }
       result = DBI.connect(@address, @username, @password, "driver"=>"com.mysql.jdbc.Driver") { |dbh| yield dbh }
@@ -54,17 +55,17 @@ module CaRuby
 
     def default_driver_string(db_type)
       case db_type.downcase
-      when 'mysql' then 'jdbc:mysql'
-      when 'oracle' then 'Oracle'
-      else raise CaRuby::ConfigurationError.new("Default database connection driver string could not be determined for database type #{db_type}")
+        when 'mysql' then 'jdbc:mysql'
+        when 'oracle' then 'Oracle'
+        else raise CaRuby::ConfigurationError.new("Default database connection driver string could not be determined for database type #{db_type}")
       end
     end
 
     def default_port(db_type)
       case db_type.downcase
-      when 'mysql' then 3306
-      when 'oracle' then 1521
-      else raise CaRuby::ConfigurationError.new("Default database connection port could not be determined for database type #{db_type}")
+        when 'mysql' then 3306
+        when 'oracle' then 1521
+        else raise CaRuby::ConfigurationError.new("Default database connection port could not be determined for database type #{db_type}")
       end
     end
 

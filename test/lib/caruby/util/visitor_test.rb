@@ -2,6 +2,7 @@ $:.unshift 'lib'
 
 require 'generator'
 require "test/unit"
+require 'caruby/util/collection'
 require 'caruby/util/visitor'
 
 class Node
@@ -33,7 +34,7 @@ class VistorTest < Test::Unit::TestCase
     parent = Node.new(1)
     child = Node.new(2, parent)
     multiplier = 1
-    result = Visitor.new { |node| node.children }.visit(parent) { |node| node.value *= (multiplier *= 2) }
+    result = CaRuby::Visitor.new { |node| node.children }.visit(parent) { |node| node.value *= (multiplier *= 2) }
     assert_equal(2, parent.value, "Visit parent value incorrect")
     assert_equal(8, child.value, "Visit child value incorrect")
     assert_equal(2, result, "Visit result incorrect")
@@ -44,7 +45,7 @@ class VistorTest < Test::Unit::TestCase
     child = Node.new(2, parent)
     child.children << parent
     multiplier = 2
-    Visitor.new { |node| node.children }.visit(parent) { |node| node.value *= multiplier }
+    CaRuby::Visitor.new { |node| node.children }.visit(parent) { |node| node.value *= multiplier }
     assert_equal(2, parent.value, "Cycle parent value incorrect")
     assert_equal(4, child.value, "Cycle child value incorrect")
   end
@@ -53,7 +54,7 @@ class VistorTest < Test::Unit::TestCase
     parent = Node.new(1)
     child = Node.new(2, parent)
     multiplier = 1
-    Visitor.new(:depth_first) { |node| node.children }.visit(parent) { |node| node.value *= (multiplier *= 2) }
+    CaRuby::Visitor.new(:depth_first) { |node| node.children }.visit(parent) { |node| node.value *= (multiplier *= 2) }
     assert_equal(4, parent.value, "Depth-first parent value incorrect")
     assert_equal(4, child.value, "Depth-first child value incorrect")
   end
@@ -72,7 +73,7 @@ class VistorTest < Test::Unit::TestCase
     child = Node.new(2, parent)
     c2 = Node.new(3, parent)
     c2.children << child
-    result = Visitor.new { |node| node.children }.visit(parent) { |node| node.value += 1 }
+    result = CaRuby::Visitor.new { |node| node.children }.visit(parent) { |node| node.value += 1 }
     assert_equal(3, child.value, "Child visited twice")
   end
 
@@ -86,13 +87,13 @@ class VistorTest < Test::Unit::TestCase
     gc12.children << c1
     gc121 = Node.new(6, gc12)
     gc121.children << parent
-    visitor = Visitor.new { |node| node.children }
+    visitor = CaRuby::Visitor.new { |node| node.children }
     result = visitor.visit(parent)
     assert_equal([[2, 5, 2], [1, 2, 5, 6, 1], [1, 3, 1]], visitor.cycles.map { |cycle| cycle.map { |node| node.value } }, "Root cycles incorrect")
   end
 
   def increment(parent, limit)
-    Visitor.new { |node| node.children }.visit(parent) { |node| node.value < limit ? node.value += 1 : return }
+    CaRuby::Visitor.new { |node| node.children }.visit(parent) { |node| node.value < limit ? node.value += 1 : return }
   end
 
   def test_collection
@@ -100,7 +101,7 @@ class VistorTest < Test::Unit::TestCase
     child = Node.new(2, p1)
     p2 = Node.new(3)
     p2.children << child
-    result = Visitor.new { |pair| SyncEnumerator.new(pair.first.children, pair.last.children).to_a }.to_enum([p1, p2]).map { |pair| [pair.first.value, pair.last.value] }
+    result = CaRuby::Visitor.new { |pair| SyncEnumerator.new(pair.first.children, pair.last.children).to_a }.to_enum([p1, p2]).map { |pair| [pair.first.value, pair.last.value] }
     assert_equal([[1, 3], [2, 2]], result.to_a, "Collection visit result incorrect")
   end
 
@@ -112,7 +113,7 @@ class VistorTest < Test::Unit::TestCase
     parent = Node.new(1)
     c1 = Node.new(2, parent)
     c2 = Node.new(3, parent)
-    result = Visitor.new { |node| node.children }.to_enum(parent).map { |node| node.value }
+    result = CaRuby::Visitor.new { |node| node.children }.to_enum(parent).map { |node| node.value }
     assert_equal([1, 2, 3], result, "Enumeration result incorrect")
   end
 
@@ -124,7 +125,7 @@ class VistorTest < Test::Unit::TestCase
     c2 = Node.new(4, parent)
     gc21 = Node.new(5, c2)
     gc21.children << parent
-    result = Visitor.new(:prune_cycle) { |node| node.children }.to_enum(parent).map { |node| node.value }
+    result = CaRuby::Visitor.new(:prune_cycle) { |node| node.children }.to_enum(parent).map { |node| node.value }
     assert_equal([1, 2, 3], result, "Exclude result incorrect")
   end
 
@@ -132,7 +133,7 @@ class VistorTest < Test::Unit::TestCase
     parent = Node.new(1)
     c1 = Node.new(2, parent)
     c2 = Node.new(3, parent)
-    visitor = Visitor.new { |node| node.children }
+    visitor = CaRuby::Visitor.new { |node| node.children }
     visitor.visit(parent)
     assert_equal([parent, c1, c2], visitor.visited.values.sort, "Missing visit operator result incorrect")
   end
@@ -143,7 +144,7 @@ class VistorTest < Test::Unit::TestCase
     c2 = Node.new(3, parent)
     gc1 = Node.new(4, c1)
     gc2 = Node.new(5, c1)
-    visitor = Visitor.new { |node| node.children }.filter { |parent, children| children.first if parent.value < 4 }
+    visitor = CaRuby::Visitor.new { |node| node.children }.filter { |parent, children| children.first if parent.value < 4 }
     result = visitor.to_enum(parent).map { |node| node.value }
     assert_equal([1, 2, 4], result, "Filter result incorrect")
   end
@@ -158,7 +159,7 @@ class VistorTest < Test::Unit::TestCase
     c21 = Node.new(7, p2)
     c22 = Node.new(8, p2)
     gc211 = Node.new(9, c21)
-    visitor = Visitor.new { |node| node.children }.sync
+    visitor = CaRuby::Visitor.new { |node| node.children }.sync
     result = visitor.to_enum(p1, p2).map { |pair| pair.map { |node| node.value unless node.nil? } }
     assert_equal([[1, 6], [2, 7], [4, 9], [3, 8], [5, nil]], result, "Sync without block result incorrect")
   end
@@ -173,8 +174,8 @@ class VistorTest < Test::Unit::TestCase
     c21 = Node.new(2, p2)
     c22 = Node.new(3, p2)
     gc211 = Node.new(5, c21)
-    visitor = Visitor.new { |node| node.children }
-    synced = visitor.sync { |node, others| others.detect { |other| node.value == other.value } }
+    visitor = CaRuby::Visitor.new { |node| node.children }
+    synced = visitor.sync { |nodes, others| nodes.to_compact_hash { |n| others.detect { |o| n.value == o.value } } }
     result = synced.to_enum(p1, p2).map { |pair| pair.map { |node| node.value if node } }
     assert_equal([[1, 1], [2, 2], [4, nil], [3, 3], [5, nil]], result, "Sync with block result incorrect")
   end
@@ -184,7 +185,7 @@ class VistorTest < Test::Unit::TestCase
     child = Node.new(2, p1)
     p2 = Node.new(3)
     p2.children << child
-    visitor = Visitor.new { |node| node.children.first }.sync
+    visitor = CaRuby::Visitor.new { |node| node.children.first }.sync
     value_hash = {}
     result = visitor.visit(p1, p2) { |first, last| value_hash[node_value(first)] = node_value(last) }
     assert_equal({1 => 3, 2 => 2}, value_hash, "Sync with non-collection children result incorrect")
@@ -198,7 +199,7 @@ class VistorTest < Test::Unit::TestCase
     c1 = Node.new(3, p1)
     c2 = Node.new(4, p2)
     gcren = Node.new(5, c2)
-    visitor = Visitor.new { |node| node.children.first }.sync
+    visitor = CaRuby::Visitor.new { |node| node.children.first }.sync
     result = visitor.to_enum(p1, p2).map { |pair| [node_value(pair.first), node_value(pair.last)] }
     assert_equal([[1, 2], [3, 4]], result.to_a, "Sync with missing children result incorrect")
   end
@@ -207,7 +208,7 @@ class VistorTest < Test::Unit::TestCase
     parent = Node.new(1)
     child = Node.new(2, parent)
     multiplier = 2
-    Visitor.new { |node| node.children unless node == child }.visit(parent) { |node| node.value *= multiplier }
+    CaRuby::Visitor.new { |node| node.children unless node == child }.visit(parent) { |node| node.value *= multiplier }
     assert_equal(2, parent.value, "Missing node parent value incorrect")
     assert_equal(4, child.value, "Missing node child value incorrect")
   end
@@ -216,7 +217,7 @@ class VistorTest < Test::Unit::TestCase
     parent = Node.new(1)
     child = Node.new(2, parent)
     multiplier = 2
-    Visitor.new { |node| node.parent }.visit(child) { |node| node.value *= multiplier }
+    CaRuby::Visitor.new { |node| node.parent }.visit(child) { |node| node.value *= multiplier }
     assert_equal(2, parent.value, "Non-collection parent value incorrect")
     assert_equal(4, child.value, "Non-collection child value incorrect")
   end
@@ -226,7 +227,7 @@ class VistorTest < Test::Unit::TestCase
     c1 = Node.new(2, parent)
     c2 = Node.new(3, parent)
     gc = Node.new(4, c1)
-    visitor = Visitor.new { |node| node.children }
+    visitor = CaRuby::Visitor.new { |node| node.children }
     visitor.visit(parent) { |node| node.value = visitor.parent.nil? ? 0 : visitor.parent.value + 1 }
     assert_equal(0, parent.value, "Parent value incorrect")
     assert_equal(1, c1.value, "Child value incorrect")
@@ -240,7 +241,7 @@ class VistorTest < Test::Unit::TestCase
     c1 = Node.new(2, parent)
     c2 = Node.new(3, parent)
     gc = Node.new(4, c1)
-    visitor = Visitor.new(:depth_first) { |node| node.children }
+    visitor = CaRuby::Visitor.new(:depth_first) { |node| node.children }
     visitor.visit(parent) { |node| node.value = visitor.parent.nil? ? 0 : visitor.parent.value + 1 }
     assert_equal(0, parent.value, "Parent value incorrect")
     assert_equal(2, c1.value, "Child value incorrect")
@@ -253,7 +254,7 @@ class VistorTest < Test::Unit::TestCase
     c1 = Node.new(nil, parent)
     c2 = Node.new(nil, parent)
     gc = Node.new(nil, c1)
-    visitor = Visitor.new { |node| node.children }
+    visitor = CaRuby::Visitor.new { |node| node.children }
     visitor.visit(parent) { |node| node.value ||= visitor.visited[node.parent] + 1 }
     assert_equal(1, parent.value, "Parent value incorrect")
     assert_equal(2, c1.value, "Child value incorrect")
@@ -266,7 +267,7 @@ class VistorTest < Test::Unit::TestCase
     c1 = Node.new(2, parent)
     c2 = Node.new(3, parent)
     gc = Node.new(4, c1)
-    visitor = Visitor.new { |node| node.children }
+    visitor = CaRuby::Visitor.new { |node| node.children }
     visitor.visit(parent) { |node| node.value + 1 }
     assert_equal(2, visitor.visited[parent], "Parent visited value incorrect")
     assert_equal(3, visitor.visited[c1], "Child visited value incorrect")

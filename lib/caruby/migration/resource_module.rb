@@ -1,5 +1,3 @@
-require 'caruby/domain/resource_module'
-
 module CaRuby
   module ResourceModule
     # Declares the given classes which will be dynamically modified for migration.

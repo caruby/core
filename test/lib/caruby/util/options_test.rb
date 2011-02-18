@@ -40,10 +40,20 @@ class OptionsTest < Test::Unit::TestCase
   def test_collection_value
     assert_equal([:a], Options.get(:key, {:key => [:a]}, []), "Option array value not returned")
   end
-
-  def test_merge
-    assert(Options.merge(nil, :create)[:create], "Option not merged into nil options")
-    assert_equal(:a, Options.merge(:create, :optional => :a)[:optional], "Option not merged into symbol options")
-    assert_equal([:b, :c], Options.merge({:required => [:b]}, :required => [:c])[:required], "Option not merged into hash options")
+  
+  def test_empty_to_hash
+    assert_equal({}, Options.to_hash(), "Option to_hash with empty argument list not an empty hash")
+  end
+  
+  def test_nil_to_hash
+    assert_equal({}, Options.to_hash(nil), "Option to_hash with nil argument list not an empty hash")
+  end
+  
+  def test_hash_to_hash
+    assert_equal({:a => 1}, Options.to_hash({:a => 1}), "Option to_hash with hash argument list not an empty hash")
+  end
+  
+  def test_lish_to_hash
+    assert_equal({:a => 1, :b => true, :c => [2, 3]}, Options.to_hash(:a, 1, :b, :c, 2, 3), "Option to_hash with list argument list incorrect")
   end
 end

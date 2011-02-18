@@ -42,42 +42,46 @@ class Options
     end
   end
 
-  # Merges the others options with options and returns the new merged option hash.
+  # Returns the given argument list as a hash, determined as follows:
+  # * If the sole argument member is a hash, then that hash is the options.
+  # * An argument list of option symbols followed by zero, one or more non-option parameters is composed as the option hash.
+  # * An empty argument list is a new empty option hash.
   #
   # @example
-  #   Options.merge(nil, :create) #=> {:create => :true}
-  #   Options.merge(:create, :optional => :a, :required => :b) #=> {:create => :true, :optional => :a, :required => :b}
-  #   Options.merge({:required => [:b]}, :required => [:c]) #=> {:required => [:b, :c]}
-  def self.merge(options, others)
-    options = options.dup if Hash === options
-    self.merge!(options, others)
-  end
-
-  # Merges the others options into the given options and returns the created or modified option hash.
-  # This method differs from {Options.merge} by modifying an existing options hash.
-  def self.merge!(options, others)
-    to_hash(options).merge!(to_hash(others)) { |key, oldval, newval| oldval.respond_to?(:merge) ? oldval.merge(newval) : newval }
-  end
-
-  # Returns the options as a hash. If options is already a hash, then this method returns hash.
-  # * If options is a Symbol _s_, then this method returns +{+_s_+=>true}+.
-  # * An Array of Symbols is enumerated as individual Symbol options.
-  # * If options is nil, then this method returns a new empty hash.
-  def self.to_hash(options)
-    return Hash.new if options.nil?
-    case options
-    when Hash then
-      options
-    when Array then
-      options.to_hash { |item| Symbol === item or raise ArgumentError.new("Option is not supported; expected Symbol, found: #{options.class}") }
-    when Symbol then
-      {options => true}
-    else
-      raise ArgumentError.new("Options argument type is not supported; expected Hash or Symbol, found: #{options.class}")
+  #   Options.to_hash() #=> {}
+  #   Options.to_hash(nil) #=> {}
+  #   Options.to_hash(:a => 1) #=> {:a => 1}
+  #   Options.to_hash(:a) #=> {:a => true}
+  #   Options.to_hash(:a, 1, :b, 2) #=> {:a => 1, :b => 2}
+  #   Options.to_hash(:a, 1, :b, :c, 2, 3) #=> {:a => 1, :b => true, :c => [2, 3]}
+  # @param [Array] args the option list
+  # @return [Hash] the option hash
+  def self.to_hash(*args)
+    unless Enumerable === args then
+      raise ArgumentError.new("Expected Enumerable, found #{args.class.qp}")
     end
+    oargs = {}
+    opt = args.first
+    return oargs if opt.nil?
+    return opt if oargs.empty? and Hash === opt
+    unless Symbol === opt then
+      raise ArgumentError.new("Expected Symbol as first argument, found #{args.first.class.qp}")
+    end
+    args.inject(nil) do |list, item|
+      Symbol === item ? oargs[item] = Array.new : list << item
+    end
+    # convert the value list to true, a single value or leave as an array
+    oargs.transform do |list|
+      case list.size
+        when 0 then true
+        when 1 then list.first
+        else list
+      end
+    end.to_hash
   end
 
-  # Raises a ValidationError if the given options are not in the given allowable choices.
+  # @param [Hash, Symbol, nil] opts the options to validate
+  # @raise [ValidationError] if the given options are not in the given allowable choices
   def self.validate(options, choices)
     to_hash(options).each_key do |opt|
       raise ValidationError.new("Option is not supported: #{opt}") unless choices.include?(opt)

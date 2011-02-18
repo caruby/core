@@ -4,36 +4,42 @@ require 'benchmark'
 class Stopwatch
   # Time accumulates elapsed real time and total CPU time.
   class Time
-    # The Benchmark::Tms wrapped by this Time.
+    # @return [Benchmark::Tms] the Tms wrapped by this Time
     attr_reader :tms
 
+    # @param [Benchmark::Tms, nil] the starting time (default is now)
     def initialize(tms=nil)
       @tms = tms || Benchmark::Tms.new
     end
 
-    # Returns the cumulative elapsed real clock time.
+    # @return [Numeric] the cumulative elapsed real clock time
     def elapsed
       @tms.real
     end
 
-    # Returns the cumulative CPU total time.
+    #  @return [Numeric] the cumulative CPU total time
     def cpu
       @tms.total
     end
 
-    # Adds the time to execute the given block to this time. Returns the split execution Time.
+    # Adds the time to execute the given block to this time.
+    #
+    #  @return [Numeric] the split execution Time
     def split(&block)
       stms = Benchmark.measure(&block)
       @tms += stms
       Time.new(stms)
     end
 
+    # Sets this benchmark timer to zero.
     def reset
       @tms = Benchmark::Tms.new
     end
   end
   
-  # Executes the given block. Returns the execution Time.
+  # Executes the given block
+  #
+  # @return [Numeric] the execution Time
   def self.measure(&block)
     new.run(&block)
   end
@@ -44,17 +50,19 @@ class Stopwatch
   end
 
   # Executes the given block. Accumulates the execution time in this Stopwatch. 
-  # Returns the execution Time.
+  #
+  #  @return [Numeric] the execution run Time
   def run(&block)
     @time.split(&block)
   end
 
-  # Returns the cumulative elapsed real clock time spent in {#run} executions.
+  # @return [Numeric] the cumulative elapsed real clock time spent in {#run} executions
   def elapsed
     @time.elapsed
   end
 
-  # Returns the cumulative CPU total time spent in {#run} executions for the current process and its children.
+  # @return [Numeric] the cumulative CPU total time spent in {#run} executions for the
+  #  current process and its children
   def cpu
     @time.cpu
   end

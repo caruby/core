@@ -12,17 +12,10 @@ module CaRuby
       # Adds query capability to this Database.
       def initialize
         super
-        # the demand loader
-        @lazy_loader = lambda { |obj, attr| lazy_load(obj, attr) }
         # the query template builder
         @srch_tmpl_bldr = SearchTemplateBuilder.new(self)
         # the fetch result matcher
         @matcher = FetchedMatcher.new
-
-        # cache not yet tested - TODO: test and replace copier below with cacher
-        # the fetched object cacher
-        #cacher = Proc.new { |src| @cache[src] }
-
         # the fetched copier
         copier = Proc.new do |src|
           copy = src.copy
@@ -30,10 +23,7 @@ module CaRuby
           copy
         end
         # visitor that merges the fetched object graph
-        @ftchd_vstr = ReferenceVisitor.new { |tgt| tgt.class.fetched_domain_attributes }
-        @ftchd_mrg_vstr = MergeVisitor.new(:matcher => @matcher, :copier => copier) { |src, tgt| tgt.class.fetched_domain_attributes }
-        # visitor that copies the fetched object graph
-        @detoxifier = CopyVisitor.new(:copier => copier) { |src, tgt| src.class.fetched_domain_attributes }
+        @ftchd_mrg_vstr = MergeVisitor.new(:matcher => @matcher, :copier => copier) { |ref| ref.class.fetched_domain_attributes }
       end
 
       # Returns an array of objects matching the specified query template and attribute path.
@@ -66,41 +56,6 @@ module CaRuby
         result = query_safe(obj_or_hql, *path)
         # enable change tracking and lazy-loading
         persistify(result)
-      end
-
-      # Queries the given obj_or_hql as described in {#query} and makes a detoxified copy of the
-      # toxic caCORE search result.
-      #
-      # caCORE alert - The query result consists of new domain objects whose content is copied
-      # from the caBIG application search result. The caBIG result is Hibernate-enhanced but
-      # sessionless. This result contains toxic broken objects whose access methods fail.
-      # Therefore, this method sanitizes the toxic caBIG result to reflect the persistent state
-      # of the domain objects. Persistent references are loaded on demand from the database if
-      # necessary.
-      #
-      # @param (see #query)
-      # @return (see #query)
-      def query_safe(obj_or_hql, *path)
-        # the caCORE search result
-        toxic = query_toxic(obj_or_hql, *path)
-        logger.debug { "Copying caCORE query toxic #{toxic.qp}..." } unless toxic.empty?
-        # detoxify the toxic caCORE result
-        detoxify(toxic)
-      end
-
-      # Queries the given obj_or_hql as described in {#query} and returns the toxic caCORE search result.
-      #
-      # @param (see #query)
-      # @return (see #query)
-      def query_toxic(obj_or_hql, *path)
-        # the attribute path as a string
-        path_s = path.join('.') unless path.empty?
-        # guard against recursive call back into the same operation
-        if query_redundant?(obj_or_hql, path_s) then
-          raise DatabaseError.new("Query #{obj_or_hql.qp} #{path_s} recursively called in context #{print_operations}")
-        end
-        # perform the query
-        perform(:query, obj_or_hql, path_s) { query_with_path(obj_or_hql, path) }
       end
 
       # Fetches the given domain object from the database.
@@ -142,17 +97,44 @@ module CaRuby
           obj.identifier or (obj.searchable? and find(obj))
         end
       end
-
+      
       private
 
-      RESULT_PRINTER = PrintWrapper.new { |obj| obj.qp }
-      
-      def lazy_load(obj, attribute)
-        value = fetch_association(obj, attribute)
-        # add a lazy loader and snapshot to each fetched reference
-        persistify(value) if value
+      RESULT_PRINTER = PrintWrapper.new { |obj| obj.pp_s }
+
+      # Queries the given obj_or_hql as described in {#query} and makes a detoxified copy of the
+      # toxic caCORE search result.
+      #
+      # caCORE alert - The query result consists of new domain objects whose content is copied
+      # from the caBIG application search result. The caBIG result is Hibernate-enhanced but
+      # sessionless. This result contains toxic broken objects whose access methods fail.
+      # Therefore, this method sanitizes the toxic caBIG result to reflect the persistent state
+      # of the domain objects.
+      #
+      # @param (see #query)
+      # @return (see #query)
+      def query_safe(obj_or_hql, *path)
+        # the caCORE search result
+        toxic = query_toxic(obj_or_hql, *path)
+        # detoxify the toxic caCORE result
+        detoxify(toxic)
       end
 
+      # Queries the given obj_or_hql as described in {#query} and returns the toxic caCORE search result.
+      #
+      # @param (see #query)
+      # @return (see #query)
+      def query_toxic(obj_or_hql, *path)
+        # the attribute path as a string
+        path_s = path.join('.') unless path.empty?
+        # guard against recursive call back into the same operation
+        if query_redundant?(obj_or_hql, path_s) then
+          raise DatabaseError.new("Query #{obj_or_hql.qp} #{path_s} recursively called in context #{print_operations}")
+        end
+        # perform the query
+        perform(:query, obj_or_hql, :attribute => path_s) { query_with_path(obj_or_hql, path) }
+      end
+      
       def query_redundant?(obj_or_hql, path)
         @operations.detect { |op| op.type == :query and query_subject_redundant?(op.subject, obj_or_hql) and op.attribute == path }
       end
@@ -183,9 +165,9 @@ module CaRuby
       def query_with_attribute(obj_or_hql, attribute=nil)
         toxic = if String === obj_or_hql then
           hql = obj_or_hql
-          # if there is an attribute, then compose the hql query with an attribute query
+          # if there is an attribute, then compose an hql query with a recursive object query
           if attribute then
-            query_safe(hql).map { |parent| query_toxic(parent, attribute) }.flatten
+            query_safe(hql).map { |ref| query_with_attribute(ref, attribute) }.flatten
           else
             query_hql(hql)
           end
@@ -196,33 +178,13 @@ module CaRuby
         logger.debug { print_query_result(toxic) }
         toxic
       end
-
-      # caCORE alert - post-process the +caCORE+ search result to fix the following problem:
-      # * de-referencing a search result domain object raises a Hibernate missing session error
-      #
-      # caCORE alert - The caCORE search result does not set the obvious inverse attributes,
-      # e.g. the children fetched with a parent do not have the children inverse parent attribute
-      # set to the parent. Rather, it is a toxic caCORE reference which must be purged. This
-      # leaves an empty reference which must be lazy-loaded, which is inefficient and inconsistent.
-      # This situation is rectified in this detoxify method by setting the dependent owner
-      # attribute to the fetched owner in the detoxification {ReferenceVisitor} copy-match-merge.
-      #
-      # This method copies each result domain object into a new object of the same type.
-      # The copy nondomain attribute values are set to the fetched object values.
-      # The copy fetched reference attribute values are set to a copy of the result references.
-      #
-      # Returns the detoxified copy.
-      def detoxify(toxic)
-        return toxic.map { |obj| detoxify(obj) } if toxic.collection?
-        @detoxifier.visit(toxic)
-      end
-
+      
       # Merges fetched into target. The fetched references are recursively merged.
       #
-      # @param [Resource] target the domain object find argument
       # @param [Resource] source the fetched domain object result
-      def merge_fetched(target, source)
-        @ftchd_mrg_vstr.visit(target, source) { |src, tgt| tgt.copy_volatile_attributes(src) }
+      # @param [Resource] target the domain object find argument
+      def merge_fetched(source, target)
+        @ftchd_mrg_vstr.visit(source, target) { |src, tgt| tgt.copy_volatile_attributes(src) }
       end
 
       def print_query_result(result)
@@ -253,12 +215,10 @@ module CaRuby
       # @param [Symbol, nil] attribute the optional attribute to fetch
       # @return [<Resource>] the query result
       def query_object(obj, attribute=nil)
-       if invertible_query?(obj, attribute) then
-          # caCORE alert - search with attribute ignores id (cf. caTissue Bug #79);
-          # inverted query is safer if possible
-          query_with_inverted_reference(obj, attribute)
-        elsif obj.identifier then
+        if obj.identifier then
           query_on_identifier(obj, attribute)
+        elsif invertible_query?(obj, attribute) then
+          query_with_inverted_reference(obj, attribute)
         else
           tmpl = @srch_tmpl_bldr.build_template(obj)
           return Array::EMPTY_ARRAY if tmpl.nil?
@@ -274,8 +234,10 @@ module CaRuby
         attribute ? service.query(template, attribute) : service.query(template)
       end
 
-      # Queries the given obj and attribute by issuing a HQL query with an identifier condition.
-      def query_on_identifier(obj, attribute)
+      # Queries on the given template and attribute by issuing a HQL query with an identifier condition.
+      #
+      # @param (see #query_object)
+      def query_on_identifier(obj, attribute=nil)
         # the source class
         source = obj.class.java_class.name
         # the source alias is the lower-case first letter of the source class name without package prefix
@@ -288,15 +250,19 @@ module CaRuby
           pd = obj.class.attribute_metadata(attribute).property_descriptor
           hql.insert(0, "select #{sa}.#{pd.name} ")
         end
-        logger.debug { "Querying on #{obj.qp} #{attribute} using HQL #{hql}..." }
+        logger.debug { "Querying on #{obj} #{attribute} using HQL identifier criterion..." }
 
         query_hql(hql)
       end
 
-      # Returns whether the query specified by obj and attribute can be inverted as a query
-      # on a template of type attribute which references obj. This condition holds if obj
-      # has a key and attribute is a non-abstract reference with a searchable inverse.
-      def invertible_query?(obj, attribute)
+      # Returns whether the query specified by the given search object and attribute can be
+      # inverted as a query on a template of type attribute which references the object.
+      # This condition holds if the search object has a key and attribute is a non-abstract
+      # reference with a searchable inverse.
+      #
+      # @param (see #query_object)
+      # @return [Boolean] whether the query can be inverted
+      def invertible_query?(obj, attribute=nil)
         return false if attribute.nil?
         attr_md = obj.class.attribute_metadata(attribute)
         return false if attr_md.type.abstract?
@@ -304,11 +270,13 @@ module CaRuby
         inv_md and inv_md.searchable? and finder_parameters(obj)
       end
 
-      # Queries the given obj attribute by querying an attribute type template which references obj.
-      def query_with_inverted_reference(obj, attribute)
+      # Queries the given query object attribute by querying an attribute type template which references obj.
+      #
+      # @param (see #query_object)
+      def query_with_inverted_reference(obj, attribute=nil)
         attr_md = obj.class.attribute_metadata(attribute)
         logger.debug { "Querying on #{obj.qp} #{attribute} by inverting the query as a #{attr_md.type.qp} #{attr_md.inverse} reference query..." }
-        # an obj template
+        # the search reference template
         ref = finder_template(obj)
         # the attribute inverse query template
         tmpl = attr_md.type.new
@@ -327,18 +295,20 @@ module CaRuby
         persistence_service(tmpl).query(tmpl)
       end
 
-      # Finds the object matching the specified object obj from the database and merges
-      # the matching database values into obj. The find uses the obj secondary or
-      # alternate key for the search.
+      # Finds the database content matching the given search object and merges the matching
+      # database values into the object. The find uses the search object secondary or alternate
+      # key for the search.
       #
-      # Returns nil if obj does not have a complete secondary or alternate key or if
-      # there is no matching database object.
+      # Returns nil if the search object does not have a complete secondary or alternate key or if
+      # there is no matching database record.
       #
-      # If a match is found, then each missing obj non-domain-valued attribute is set to the
-      # fetched attribute value and this method returns obj.
+      # If a match is found, then each missing search object non-domain-valued attribute is set to
+      # the fetched attribute value and this method returns the search object.
       #
-      # Raises DatabaseError if more than object matches the obj attribute values or if
-      # obj is a dependent entity that does not reference an owner.
+      # @param obj (see #find)
+      # @return [Resource, nil] obj if there is a matching database record, nil otherwise
+      # @raise [DatabaseError] if more than object matches the obj attribute values or if
+      #   the search object is a dependent entity that does not reference an owner
       def find_object(obj)
        if @transients.include?(obj) then
           logger.debug { "Find #{obj.qp} obviated since the search was previously unsuccessful in the current database operation context." }
@@ -356,10 +326,10 @@ module CaRuby
         # caCORE alert - there is no caCORE find utility method to update a search target with persistent content,
         # so it is done manually here.
         # recursively copy the nondomain attributes, esp. the identifer, of the fetched domain object references
-        merge_fetched(obj, fetched)
+        merge_fetched(fetched, obj)
 
-        # caCORE alert - see query method alerts
-        # inject the lazy loader for loadable domain reference attributes
+        # caCORE alert - see query method alerts.
+        # Inject the lazy loader for loadable domain reference attributes.
         persistify(obj, fetched)
         obj
       end
@@ -388,15 +358,9 @@ module CaRuby
         # a fetch query which returns more than one result is an error.
         # possible cause is an incorrect secondary key.
         if result.size > 1 then
-          # caCORE alert - annotations are not easily searchable; allow but bail out
-          # TODO Annotation - always disable annotation find?
-#          if CaRuby::Annotation === obj then
-#            logger.debug { "Annotation #{obj} search unsuccessful with template #{template}." }
-#            return
-#          end
           msg = "More than one match for #{obj.class.qp} find with template #{template}."
           # it is an error to have an ambiguous result
-          logger.error("Fetch error - #{msg}:\n#{obj.dump}")
+          logger.error("Fetch error - #{msg}:\n#{obj}")
           raise DatabaseError.new(msg)
         end
 
@@ -405,28 +369,39 @@ module CaRuby
 
       # If obj is a dependent, then returns the obj owner dependent which matches obj.
       # Otherwise, returns nil.
+      #
+      # @param [Resource] the domain object to fetch
+      # @return [Resource, nil] the domain object if it matches a dependent, nil otherwise 
       def fetch_object_by_fetching_owner(obj)
         owner = nil
         oattr = obj.class.owner_attributes.detect { |attr| owner = obj.send(attr) }
         return unless owner
 
-        logger.debug { "Querying #{obj.qp} by matching on the fetched owner #{owner.qp} #{oattr} dependents..." }
-        inverse = obj.class.attribute_metadata(oattr).inverse
-        if inverse.nil? then
-          raise DatabaseError.new("#{dep.class.qp} owner attribute #{oattr} does not have a #{obj.class.qp} inverse attribute")
+        logger.debug { "Querying #{obj.qp} by matching on the owner #{owner.qp} #{oattr} dependents..." }
+        inv_md = obj.class.attribute_metadata(oattr)
+        if inv_md.nil? then
+          raise DatabaseError.new("#{dep.class.qp} owner attribute #{oattr} does not have a #{owner.class.qp} inverse dependent attribute.")
         end
+        inverse = inv_md.inverse
         # fetch the owner if necessary
         unless owner.identifier then
           find(owner) || return
           # if obj dependent was fetched with owner, then done
-          return obj if obj.identifier
+          if obj.identifier then
+            logger.debug { "Found #{obj.qp} by fetching the owner #{owner}." }
+            return obj
+          end
         end
 
-        deps = query(owner, inverse)
-        logger.debug { "Owner #{owner.qp} has #{deps.size} #{inverse} dependents: #{deps.qp}." }
-        # If the dependent can be unambiguously matched to one of the results,
-        # then return the matching result.
-        obj.match_in_owner_scope(deps) unless deps.empty?
+        # try to match a fetched owner dependent
+        deps = lazy_loader.enable { owner.send(inverse) }
+        if obj.identifier then
+          logger.debug { "Found #{obj.qp} by fetching the owner #{owner} #{inverse} dependent #{deps.qp}." }
+          return obj
+        else
+          logger.debug { "#{obj.qp} does not match a fetched owner #{owner} #{inverse} dependent #{deps.qp}." }
+          nil
+        end
       end
 
       # Returns a copy of obj containing only those key attributes used in a find operation.
@@ -459,26 +434,28 @@ module CaRuby
       # in separate parent copies. There is no recognition that the children reference the parent
       # which generated the query. This anomaly is partially rectified in this fetch_association
       # method by setting the fetched objects inverse to the given search target object. The
-      # inconsistent and inefficient caCORE behavior is further corrected by setting dependent
-      # owners in the fetch result, as described in {#query_safe}.
+      # inconsistent and inefficient caCORE behavior is further corrected by setting inverse
+      # owners when the fetch result is persistified, as described in {Persistifier#persistify}.
+      # Callers who do not persistify the result should call {Persistifier#set_inverses} on the
+      # result.
       #
       # @param [Resource] obj the search target object
       # @param [Symbol] attribute the association to fetch
       # @raise [DatabaseError] if the search target object does not have an identifier
       def fetch_association(obj, attribute)
-        logger.debug { "Fetching association #{attribute} for #{obj.qp}..." }
+        logger.debug { "Fetching association #{attribute} for #{obj}..." }
         # load the object if necessary
         unless exists?(obj) then
           raise DatabaseError.new("Can't fetch an association since the referencing object is not found in the database: #{obj}")
         end
         # fetch the reference
         result = query_safe(obj, attribute)
-        # set inverse references
+        # set the result inverse references
         inv_md = obj.class.attribute_metadata(attribute).inverse_attribute_metadata
         if inv_md and not inv_md.collection? then
-          inv_obj = obj.copy
+          inv_obj = obj.copy(:identifier)
           result.each do |ref|
-            logger.debug { "Setting fetched #{obj} #{attribute} inverse #{inv_md} to #{obj.qp} copy #{inv_obj.qp}..." }
+            logger.debug { "Setting fetched #{obj} #{attribute} value #{ref} inverse #{inv_md} to #{obj} copy #{inv_obj.qp}..." }
             ref.send(inv_md.writer, inv_obj)
           end
         end
@@ -546,53 +523,6 @@ module CaRuby
         ref.clear_attribute(inverse) if inverse
         logger.debug { "Search reference parameter #{attribute} for #{template.qp} set to #{ref} copied from #{source.qp}" }
         ref
-      end
-
-      # Takes a {Persistable#snapshot} of obj to track changes and adds a lazy loader.
-      # If obj already has a snapshot, then this method is a no-op.
-      # If the other fetched source object is given, then the obj snapshot is updated
-      # with values from other which were not previously in obj.
-      #
-      # @param [Resource] obj the domain object to make persistable
-      # @param [Resource] other the domain object with the snapshot content
-      # @return [Resource] obj
-      # @raise [ArgumentError] if obj is a collection and other is not nil
-      def persistify(obj, other=nil)
-        if obj.collection? then
-          if other then raise ArgumentError.new("Database reader persistify other argument not supported") end
-          obj.each { |ref| persistify(ref) }
-          return obj
-        end
-        # merge or take a snapshot if necessary
-        snapshot(obj, other) unless obj.snapshot_taken?
-        # recurse to dependents before adding lazy loader to owner
-        obj.dependents.each { |dep| persistify(dep) if dep.identifier }
-        # add lazy loader to the unfetched attributes
-        add_lazy_loader(obj)
-        obj
-      end
-
-      # Adds this database's lazy loader to the given fetched domain object obj.
-      def add_lazy_loader(obj)
-        obj.add_lazy_loader(@lazy_loader, &@matcher)
-      end
-
-      # If obj has a snapshot and other is given, then merge any new fetched attribute values into the obj snapshot
-      # which does not yet have a value for the fetched attribute.
-      # Otherwise, take an obj snapshot.
-      #
-      # @param [Resource] obj the domain object to snapshot
-      # @param [Resource] the source domain object
-      # @return [Resource] the obj snapshot, updated with source content if necessary
-      def snapshot(obj, other=nil)
-        if obj.snapshot_taken? then
-          if other then
-            ovh = other.value_hash(other.class.fetched_attributes)
-            obj.snapshot.merge(ovh) { |v, ov| v.nil? ? ov : v }
-          end
-        else
-          obj.take_snapshot
-        end
       end
     end
   end

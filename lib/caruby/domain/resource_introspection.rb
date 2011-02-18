@@ -4,7 +4,7 @@ require 'caruby/domain/java_attribute_metadata'
 module CaRuby
   # ResourceMetadata mix-in to infer attribute meta-data from Java properties.
   module ResourceIntrospection
-
+    
     private
 
     # Defines the Java property attribute and standard attribute methods, e.g.
@@ -106,6 +106,13 @@ module CaRuby
       alias_method(writer, pwtr)
     end
 
+    # Makes a standard attribute for the given property descriptor.
+    # Adds a camelized Java-like alias to the standard attribute.
+    #
+    # caTissue alert - DE annotation collection attributes are often misnamed,
+    # e.g. +histologic_grade+ for a +HistologicGrade+ collection attribute.
+    # This is fixed by adding a pluralized alias, e.g. +histologic_grades+.
+    #
     # @return a new attribute symbol created for the given PropertyDescriptor pd
     def create_java_attribute(pd)
       # make the attribute metadata
@@ -115,6 +122,19 @@ module CaRuby
       std_attr = attr_md.to_sym
       prop_attr = pd.name.to_sym
       delegate_to_attribute(prop_attr, std_attr) unless prop_attr == std_attr
+      
+      # alias a misnamed collection attribute, if necessary
+      if attr_md.collection? then
+        name = std_attr.to_s
+        if name.singularize == name then
+          aliaz = name.pluralize.to_sym
+          if aliaz != name then
+            logger.debug { "Adding annotation #{qp} alias #{aliaz} to the misnamed collection attribute #{std_attr}..." }
+            delegate_to_attribute(aliaz, std_attr)
+          end
+        end
+      end
+
       std_attr
     end
 
@@ -135,33 +155,6 @@ module CaRuby
     def offset_attribute(hash, offset=nil)
       offset_attr_accessor(hash, offset)
       hash.each { |attr, original| add_attribute(attr, attribute_metadata(original).type) }
-    end
-
-    # Modifies the given attribute writer method if necessary to update the given inverse_attr value.
-    # This method is called on dependent and attributes qualified as inversible.
-    #
-    # @see ResourceDependency#add_owner
-    # @see ResourceAttributes#set_attribute_inverse
-    def add_inverse_updater(attribute, inverse)
-      attr_md = attribute_metadata(attribute)
-      # the reader and writer methods
-      reader, writer = attr_md.accessors
-      logger.debug { "Injecting inverse #{inverse} updater into #{qp}.#{attribute} writer method #{writer}..." }
-      # the inverse atttribute metadata
-      inv_attr_md = attr_md.inverse_attribute_metadata
-      # the inverse attribute reader and writer
-      inv_rdr, inv_wtr = inv_accessors = inv_attr_md.accessors
-      # redefine the writer method to update the inverse
-      # by delegating to the Resource instance set_inversible_attribute
-      redefine_method(writer) do |old_wtr|
-        # the attribute reader and (superseded) writer
-        accessors = [reader, old_wtr]
-        if inv_attr_md.collection? then
-          lambda { |owner| add_to_inverse_collection(owner, accessors, inv_rdr) }
-        else
-          lambda { |owner| set_inversible_noncollection_attribute(owner, accessors, inv_wtr) }
-        end
-      end
     end
   end
 end

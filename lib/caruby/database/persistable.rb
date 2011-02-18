@@ -5,20 +5,33 @@ require 'caruby/util/collection'
 require 'caruby/util/validation'
 
 module CaRuby
-  # The Persistable mixin adds persistance capability.
+  # The Persistable mixin adds persistance capability. Every instance which includes Persistable
+  # must respond to an overrided {#database} method.
   module Persistable
     include Validation
-
-    # @return [LazyLoader] the loader which fetches references on demand
-    attr_reader :lazy_loader
 
     # @return [{Symbol => Object}] the content value hash at the point of the last
     #  take_snapshot call
     attr_reader :snapshot
-
-    # @return [#query, #find, #store, #create, #update, #delete] the data access mediator
-    #   for this Persistable
-    # @raise [NotImplementedError] if the subclass does not define this method
+      
+    # @param [Resource, <Resource>, nil] obj the object(s) to check
+    # @return [Boolean] whether the given object(s) have an identifier, or the object is nil or empty
+    def self.saved?(obj)
+      if obj.collection? then
+        obj.all? { |ref| saved?(ref) }
+      else
+        obj.nil? or obj.identifier
+      end
+    end
+    
+    # @param [Resource, <Resource>, nil] obj the object(s) to check
+    # @return [Boolean] whether at least one of the given object(s) does not have an identifier
+    def self.unsaved?(obj)
+      not saved?(obj)
+    end
+    
+    # @return [Database] the data access mediator for this Persistable
+    # @raise [NotImplementedError] if the Persistable subclass does not define this method
     def database
       raise NotImplementedError.new("Database operations are not available for #{self}")
     end
@@ -91,7 +104,7 @@ module CaRuby
     alias :== :equal?
 
     alias :eql? :==
-
+    
     # Captures the Persistable's updatable attribute base values.
     # The snapshot is subsequently accessible using the {#snapshot} method.
     #
@@ -104,7 +117,27 @@ module CaRuby
     def snapshot_taken?
       not @snapshot.nil?
     end
-
+    
+    # Merges the other domain object non-domain attribute values into this domain object's snapshot,
+    # An existing snapshot value is replaced by the corresponding other attribute value.
+    #
+    # @param [Resource] other the source domain object
+    # @raise [ValidationError] if this domain object does not have a snapshot
+    def merge_into_snapshot(other)
+      unless snapshot_taken? then
+        raise ValidationError.new("Cannot merge #{other.qp} content into #{qp} snapshot, since #{qp} does not have a snapshot.")
+      end
+      # the non-domain attribute => [target value, other value] difference hash
+      delta = diff(other)
+      # the difference attribute => other value hash, excluding nil other values
+      dvh = delta.transform { |d| d.last }
+      return if dvh.empty?
+      logger.debug { "#{qp} differs from database content #{other.qp} as follows: #{delta.filter_on_key { |attr| dvh.has_key?(attr) }.qp}" }
+      logger.debug { "Setting #{qp} snapshot values from other #{other.qp} values to reflect the database state: #{dvh.qp}..." }
+      # update the snapshot from the other value to reflect the database state
+      @snapshot.merge!(dvh)
+    end
+    
     # Returns whether this Persistable either doesn't have a snapshot or has changed since the last snapshot.
     # This is a conservative condition test that returns false if there is no snaphsot for this Persistable
     # and therefore no basis to determine whether the content changed.
@@ -118,7 +151,8 @@ module CaRuby
     def changed_attributes
       if @snapshot then
         ovh = value_hash(self.class.updatable_attributes)
-        diff = @snapshot.diff(ovh) { |attr, v, ov| Resource.value_equal?(v, ov) }
+        diff = @snapshot.diff(ovh) { |attr, v, ov|
+        Resource.value_equal?(v, ov) }
         diff.keys
       else
         self.class.updatable_attributes
@@ -132,84 +166,41 @@ module CaRuby
     # Each of the attributes which does not already hold a non-nil or non-empty value
     # will be loaded from the database on demand.
     # This method injects attribute value initialization into each loadable attribute reader.
-    # The initializer is given by either the loader Proc argument or the block provided
-    # to this method. The loader takes two arguments, the target object and the attribute to load.
+    # The initializer is given by either the loader Proc argument.
+    # The loader takes two arguments, the target object and the attribute to load.
     # If this Persistable already has a lazy loader, then this method is a no-op.
     #
     # Lazy loading is disabled on an attribute after it is invoked on that attribute or when the
     # attribute setter method is called.
     #
     # @param loader [LazyLoader] the lazy loader to add
-    # @yield [sources, targets] source => target matcher
-    # @yieldparam [<Resource>] sources the fetched domain object match candidates
-    # @yieldparam [<Resource>] targets the search target domain objects to match
-    # @raise [ValidationError] if this domain object does not have an identifier
-    def add_lazy_loader(loader, &matcher)
+    def add_lazy_loader(loader, attributes=nil)
       # guard against invalid call
-      raise ValidationError.new("Cannot add lazy loader to an unfetched domain object: #{self}") if identifier.nil?
-      # no-op if there is already a loader
-      return if @lazy_loader
+      if identifier.nil? then raise ValidationError.new("Cannot add lazy loader to an unfetched domain object: #{self}") end
 
       # the attributes to lazy-load
-      attrs = self.class.loadable_attributes
-      return if attrs.empty?
-
-      # make the lazy loader
-      @lazy_loader = LazyLoader.new(self, loader, &matcher)
+      attributes ||= loadable_attributes
+      return if attributes.empty?
       # define the reader and writer method overrides for the missing attributes
-      loaded = attrs.select { |attr| persistable__add_loader(attr) }
+      loaded = attributes.select { |attr| inject_lazy_loader(attr) }
       logger.debug { "Lazy loader added to #{qp} attributes #{loaded.to_series}." } unless loaded.empty?
     end
     
-    # Returns the attributes to load on demand. The base attribute list is given by
-    # {ResourceAttributes#loadable_attributes}. In additon, if this Persistable has
-    # more than one {ResourceDependency#owner_attributes} and one is non-nil, then
-    # none of the owner attributes are loaded on demand, since there can be at most
-    # one owner and ownership cannot change.
+    # Returns the attributes to load on demand. The base attribute list is given by the
+    # {ResourceAttributes#loadable_attributes} whose value is nil or empty.
+    # In addition, if this Persistable has more than one {ResourceDependency#owner_attributes}
+    # and one is non-nil, then none of the owner attributes are loaded on demand,
+    # since there can be at most one owner and ownership cannot change.
     #
     # @return [<Symbol>] the attributes to load on demand
     def loadable_attributes
+      attrs = self.class.loadable_attributes.select { |attr| send(attr).nil_or_empty? }
       ownr_attrs = self.class.owner_attributes
-      if ownr_attrs.size == 2 and ownr_attrs.detect { |attr| send(ownr_attr) } then
-        self.class.loadable_attributes - ownr_attrs
+      # If there is an owner, then variant owners are not loaded.
+      if ownr_attrs.size > 1 and ownr_attrs.any? { |attr| not send(attr).nil_or_empty? } then
+        attrs - ownr_attrs
       else
-        self.class.loadable_attributes
-      end
-    end
-
-    # Disables this Persistable's lazy loader, if one exists. If a block is given to this
-    # method, then the loader is only disabled while the block is executed.
-    #
-    # @yield the block to call while the loader is suspended
-    # @return the result of calling the block, or self if no block is given
-    def suspend_lazy_loader
-      unless @lazy_loader and @lazy_loader.enabled? then
-        return block_given? ? yield : self
-      end
-      @lazy_loader.disable
-      return self unless block_given?
-      begin
-        yield
-      ensure
-        @lazy_loader.enable
-      end
-    end
-
-    # Enables this Persistable's lazy loader, if one exists. If a block is given to this
-    # method, then the loader is only enabled while the block is executed.
-    #
-    # @yield the block to call while the loader is enabled
-    # @return the result of calling the block, or self if no block is given
-    def resume_lazy_loader
-       unless @lazy_loader and @lazy_loader.disabled? then
-        return block_given? ? yield : self
-      end
-      @lazy_loader.enable
-      return self unless block_given?
-      begin
-        yield
-      ensure
-        @lazy_loader.disable
+        attrs
       end
     end
 
@@ -219,13 +210,9 @@ module CaRuby
     #
     # @param [Symbol] the attribute to remove from the load list, or nil if to remove all attributes
     def remove_lazy_loader(attribute=nil)
-      return if @lazy_loader.nil?
       if attribute.nil? then
-        self.class.domain_attributes.each { |attr| remove_lazy_loader(attr) }
-        @lazy_loader = nil
-        return
+        return self.class.domain_attributes.each { |attr| remove_lazy_loader(attr) }
       end
-      
       # the modified accessor method
       reader, writer = self.class.attribute_metadata(attribute).accessors
       # remove the reader override
@@ -235,23 +222,108 @@ module CaRuby
     end
     
     # Returns whether this domain object must be fetched to reflect the database state.
-    # This default implementation returns whether there are any autogenerated attributes.
-    # Subclasses can override with more restrictive conditions.
+    # This default implementation returns whether this domain object was created and
+    # there are any autogenerated attributes. Subclasses can override to relax or restrict
+    # the condition.
     #
-    # caBIG alert - the auto-generated criterion is a sufficient but not necessary condition
-    # to determine whether a save caCORE result does not necessarily accurately reflect the
-    # database state. Examples:
-    # * caTissue SCG name is auto-generated on SCG create but not SCG update.
+    # caCORE alert - the auto-generated criterion is a necessary but not sufficient condition
+    # to determine whether a save caCORE result reflects the database state. Example:
     # * caTissue SCG event parameters are not auto-generated on SCG create if the SCG collection
     #   status is Pending, but are auto-generated on SCG update if the SCG status is changed
-    #   to Complete.
+    #   to Complete. By contrast, the SCG specimens are auto-generated on SCG create, even if
+    #   the status is +Pending+.
     # The caBIG application can override this method in a Database subclass to fine-tune the
     # fetch criteria. Adding a more restrictive {#fetch_saved?} condition will will improve
-    # performance but not change functionality. 
+    # performance but not change functionality.
+    #
+    # caCORE alert - a saved attribute which is cascaded but not fetched must be fetched in
+    # order to reflect the database identifier in the saved object.
     #
     # @return [Boolean] whether this domain object must be fetched to reflect the database state
     def fetch_saved?
-      not self.class.autogenerated_attributes.empty?
+      # only fetch a create, not an update (note that subclasses can override this condition)
+      return false if identifier
+      # Check for an attribute with a value that might need to be changed in order to
+      # reflect the auto-generated database content.
+      ag_attrs = self.class.autogenerated_attributes
+      return false if ag_attrs.empty?
+      ag_attrs.any? { |attr| not send(attr).nil_or_empty? }
+    end
+    
+    # Returns this domain object's attributes which must be fetched to reflect the database state.
+    # This default implementation returns the {ResourceAttributes#autogenerated_logical_dependent_attributes}
+    # if this domain object does not have an identifier, or an empty array otherwise.
+    # Subclasses can override to relax or restrict the condition.
+    #
+    # caCORE alert - the auto-generated criterion is a necessary but not sufficient condition
+    # to determine whether a save caCORE result reflects the database state. Example:
+    # * caTissue SCG event parameters are not auto-generated on SCG create if the SCG collection
+    #   status is Pending, but are auto-generated on SCG update if the SCG status is changed
+    #   to Complete. By contrast, the SCG specimens are auto-generated on SCG create, even if
+    #   the status is +Pending+.
+    # The caBIG application can override this method in a Database subclass to fine-tune the
+    # fetch criteria. Adding a more restrictive {#fetch_saved?} condition will will improve
+    # performance but not change functionality.
+    #
+    # caCORE alert - a saved attribute which is cascaded but not fetched must be fetched in
+    # order to reflect the database identifier in the saved object.
+    #
+    # @param [Database::Operation] the save operation
+    # @return [<Symbol>] whether this domain object must be fetched to reflect the database state
+    def saved_fetch_attributes(operation)
+      # only fetch a create, not an update (note that subclasses can override this condition)
+      if operation.type == :create or operation.autogenerated? then
+        # Filter the class saved fetch attributes for content.
+        self.class.saved_fetch_attributes.select { |attr| not send(attr).nil_or_empty? }
+     else
+        Array::EMPTY_ARRAY
+      end
+    end
+    
+    # Relaxes the {CaRuby::Persistable#saved_fetch_attributes} condition for a SCG as follows:
+    # * If the SCG status was updated from +Pending+ to +Collected+, then fetch the saved SCG event parameters.
+    # 
+    # @param (see CaRuby::Persistable#saved_fetch_attributes)
+    # @return (see CaRuby::Persistable#saved_fetch_attributes)
+    def autogenerated?(operation)
+      operation == :update && status_changed_to_complete? ? EVENT_PARAM_ATTRS : super
+    end
+    
+    def fetch_autogenerated?(operation)
+      # only fetch a create, not an update (note that subclasses can override this condition)
+      operation == :update
+      # Check for an attribute with a value that might need to be changed in order to
+      # reflect the auto-generated database content.
+      self.class.autogenerated_logical_dependent_attributes.select { |attr| not send(attr).nil_or_empty? }
+    end
+    
+    # Returns whether this domain object must be fetched to reflect the database state.
+    # This default implementation returns whether this domain object was created and
+    # there are any autogenerated attributes. Subclasses can override to relax or restrict
+    # the condition.
+    #
+    # caCORE alert - the auto-generated criterion is a necessary but not sufficient condition
+    # to determine whether a save caCORE result reflects the database state. Example:
+    # * caTissue SCG event parameters are not auto-generated on SCG create if the SCG collection
+    #   status is Pending, but are auto-generated on SCG update if the SCG status is changed
+    #   to Complete. By contrast, the SCG specimens are auto-generated on SCG create, even if
+    #   the status is +Pending+.
+    # The caBIG application can override this method in a Database subclass to fine-tune the
+    # fetch criteria. Adding a more restrictive {#fetch_saved?} condition will will improve
+    # performance but not change functionality.
+    #
+    # caCORE alert - a saved attribute which is cascaded but not fetched must be fetched in
+    # order to reflect the database identifier in the saved object.
+    #
+    # @return [Boolean] whether this domain object must be fetched to reflect the database state
+    def fetch_saved?
+      # only fetch a create, not an update (note that subclasses can override this condition)
+      return false if identifier
+      # Check for an attribute with a value that might need to be changed in order to
+      # reflect the auto-generated database content.
+      ag_attrs = self.class.autogenerated_attributes
+      return false if ag_attrs.empty?
+      ag_attrs.any? { |attr| not send(attr).nil_or_empty? }
     end
 
     # Sets the {ResourceAttributes#volatile_nondomain_attributes} to the other fetched value,
@@ -259,7 +331,10 @@ module CaRuby
     #
     # @param [Resource] other the fetched domain object reflecting the database state
     def copy_volatile_attributes(other)
-      self.class.volatile_nondomain_attributes.each do |attr|
+      attrs = self.class.volatile_nondomain_attributes
+      return if attrs.empty?
+      logger.debug { "Merging volatile attributes #{attrs.to_series} from #{other.qp} into #{qp}..." }
+      attrs.each do |attr|
         val = send(attr)
         oval = other.send(attr)
         # set the attribute to the other value if it differs from the current value
@@ -287,8 +362,10 @@ module CaRuby
       ovh = value_hash(self.class.updatable_attributes)
       
       
-      # KLUDGE TODO - fix
+      # KLUDGE TODO - confirm this is still a problem and fix
       # In Galena frozen migration example, SpecimenPosition snapshot doesn't include identifier; work around this here
+      # This could be related to the problem of an abstract DomainObject not being added as a domain module class. See the
+      # ClinicalTrials::Resource for more info.
       if ovh[:identifier] and not @snapshot[:identifier] then
         @snapshot[:identifier] = ovh[:identifier]
       end
@@ -316,54 +393,43 @@ module CaRuby
       end
     end
     
-    # Adds this Persistable lazy loader to the given attribute unless the attribute already holds a fetched reference.
-    # Returns the loader if the loader was added to attribute.
-    def persistable__add_loader(attribute)
-      # bail if there is already a fetched reference
-      return if send(attribute).to_enum.any? { |ref| ref.identifier }
-      
+    # Adds this Persistable lazy loader to the given attribute unless the attribute already holds a
+    # fetched reference.
+    #
+    # @param [Symbol] attribute the attribute to mod
+    # @return [Boolean] whether a loader was added to the attribute
+    def inject_lazy_loader(attribute)
+      # bail if there is already a value
+      send(attribute).enumerate { |ref| return false unless ref.identifier }
       # the accessor methods to modify
-      attr_md = self.class.attribute_metadata(attribute)
-      reader, writer = attr_md.accessors
-      raise NotImplementedError.new("Missing writer method for #{self.class.qp} attribute #{attribute}") if writer.nil?
-      
-      # define the singleton attribute reader method
-      instance_eval "def #{reader}; @lazy_loader ? persistable__load_reference(:#{attribute}) : super; end"
-      # define the singleton attribute writer method
+      reader, writer = self.class.attribute_metadata(attribute).accessors
+      # The singleton attribute reader method loads the reference once and thenceforth calls the
+      # standard reader.
+      instance_eval "def #{reader}; load_reference(:#{attribute}); end"
+      # The singleton attribute writer method removes the lazy loader once and thenceforth calls
+      # the standard writer.
       instance_eval "def #{writer}(value); remove_lazy_loader(:#{attribute}); super; end"
-      
-      @lazy_loader
+      true
     end
 
     # Loads the reference attribute database value into this Persistable.
     #
     # @param [Symbol] attribute the attribute to load
     # @return the attribute value merged from the database value
-    def persistable__load_reference(attribute)
-      attr_md = self.class.attribute_metadata(attribute)
+    def load_reference(attribute)
+      ldr = database.lazy_loader
       # bypass the singleton method and call the class instance method if the lazy loader is disabled
-      unless @lazy_loader.enabled? then
-        # the modified accessor method
-        reader, writer = attr_md.accessors
-        return self.class.instance_method(reader).bind(self).call
+      unless ldr.enabled? then
+        return self.class.instance_method(attribute).bind(self).call
       end
-
-      # Disable lazy loading first for the attribute, since the reader method might be called in
-      # the sequel, resulting in an infinite loop when the lazy loader is retriggered.
-      remove_lazy_loader(attribute)
-      logger.debug { "Lazy-loading #{qp} #{attribute}..." }
-      # the current value
-      oldval = send(attribute)
-      # load the fetched value
-      fetched = @lazy_loader.load(attribute)
-      # nothing to do if nothing fetched
-      return oldval if fetched.nil_or_empty?
       
-      # merge the fetched into the attribute
-      logger.debug { "Merging #{qp} fetched #{attribute} value #{fetched.qp}#{' into ' + oldval.qp if oldval}..." }
-      matcher = @lazy_loader.matcher
-      merged = merge_attribute_value(attribute, oldval, fetched, &matcher)
-      # update the snapshot of dependents
+      # Disable lazy loading first for the attribute, since the reader method is called by the loader.
+      remove_lazy_loader(attribute)
+      # load the fetched value
+      merged = ldr.call(self, attribute)
+      
+      # update dependent snapshots if necessary
+      attr_md = self.class.attribute_metadata(attribute)
       if attr_md.dependent? then
         # the owner attribute
         oattr = attr_md.inverse
@@ -373,11 +439,12 @@ module CaRuby
           merged.enumerate do |dep|
             if dep.snapshot_taken? then
               dep.snapshot[oattr] = self
-              logger.debug { "Updated #{qp} #{attribute} fetched dependent #{dep.qp} snapshot with #{oattr} value #{qp}." }
+              logger.debug { "Updated the #{qp} fetched #{attribute} dependent #{dep.qp} snapshot with #{oattr} value #{qp}." }
             end
           end
         end
       end
+      
       merged
     end
 
@@ -394,50 +461,6 @@ module CaRuby
       if singleton_methods.include?(name_or_sym.to_s) then
         args = (1..method.arity).map { |argnum| "arg#{argnum}" }.join(', ')
         instance_eval "def #{name_or_sym}(#{args}); super; end"
-      end
-    end
-
-    class LazyLoader
-      # @return [Proc] the source => target matcher
-      attr_reader :matcher
-      
-      # Creates a new LazyLoader which calls the loader Proc on the subject.
-      #
-      # @raise [ArgumentError] if the loader is not given to this initializer
-      def initialize(subject, loader=nil, &matcher)
-        @subject = subject
-        # the loader proc from either the argument or the block
-        @loader = loader
-        @matcher = matcher
-        raise ArgumentError.new("Neither a loader nor a block is given to the LazyLoader initializer") if @loader.nil?
-        @enabled = true
-      end
-
-      # Returns whether this loader is enabled.
-      def enabled?
-        @enabled
-      end
-
-      # Returns whether this loader is disabled.
-      def disabled?
-        not @enabled
-      end
-
-      # Disable this loader.
-      def disable
-        @enabled = false
-      end
-
-      # Enables this loader.
-      def enable
-        @enabled = true
-      end
-
-      # Returns the attribute value loaded from the database.
-      # Raises DatabaseError if this loader is disabled.
-      def load(attribute)
-        raise DatabaseError.new("#{qp} lazy load called on disabled loader") unless enabled?
-        @loader.call(@subject, attribute)
       end
     end
   end

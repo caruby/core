@@ -1,7 +1,7 @@
 # load the required gems
 require 'rubygems'
 
-# the UOM gem
+# the Units of Measurement gem
 gem 'uom'
 
 require 'enumerator'
@@ -15,7 +15,7 @@ require 'caruby/util/options'
 require 'caruby/util/pretty_print'
 require 'caruby/util/properties'
 require 'caruby/util/collection'
-require 'caruby/migration/resource'
+require 'caruby/migration/migratable'
 
 module CaRuby
   class MigrationError < RuntimeError; end
@@ -33,7 +33,8 @@ module CaRuby
     # @option opts [String] :input required source file to migrate
     # @option opts [String] :shims optional array of shim files to load
     # @option opts [String] :bad optional invalid record file
-    # @option opts [String] :offset zero-based starting source record number to process (default 0)
+    # @option opts [Integer] :offset zero-based starting source record number to process (default 0)
+    # @option opts [Boolean] :quiet suppress output messages
     def initialize(opts)
       parse_options(opts)
       build
@@ -72,6 +73,7 @@ module CaRuby
         migrate do |target|
           save(target, db)
           yield target if block_given?
+          db.clear
         end
       end
     end
@@ -97,12 +99,14 @@ module CaRuby
       @offset = opts[:offset] ||= 0
       @input = Options.get(:input, opts)
       raise MigrationError.new("Migrator missing required source file parameter") if @input.nil?
-      @database = Options.get(:database, opts)
+      @database = opts[:database]
       raise MigrationError.new("Migrator missing required database parameter") if @database.nil?
-      @target_class = Options.get(:target, opts)
+      @target_class = opts[:target]
       raise MigrationError.new("Migrator missing required target class parameter") if @target_class.nil?
       @bad_rec_file = opts[:bad]
       logger.info("Migration options: #{opts.reject { |option, value| value.nil_or_empty? }.pp_s}.")
+      # flag indicating whether to print a progress monitor
+      @print_progress = !opts[:quiet]
     end
 
     def build
@@ -282,6 +286,7 @@ module CaRuby
         rec_cnt += 1 && next if rec_cnt < @offset
         begin
           # migrate the row
+          logger.debug { "Migrating record #{rec_no}..." }
           target = migrate_row(row)
           # call the block on the migrated target
           if target then
@@ -298,6 +303,7 @@ module CaRuby
           logger.debug { "Migrated record #{rec_no}." }
           #memory_usage = `ps -o rss= -p #{Process.pid}`.to_f / 1024 # in megabytes
           #logger.debug { "Migrated rec #{@rec_cnt}; memory usage: #{sprintf("%.1f", memory_usage)} MB." }
+          if @print_progress then print_progress(mgt_cnt) end
           mgt_cnt += 1
           # clear the migration state
           clear(target)
@@ -314,6 +320,13 @@ module CaRuby
         rec_cnt += 1
       end
       logger.info("Migrated #{mgt_cnt} of #{rec_cnt} records.")
+    end
+    
+    # Prints a +\++ progress indicator to stdout.
+    #
+    # @param [Integer] count the progress step count
+    def print_progress(count)
+      if count % 72 == 0 then puts "+" else print "+" end
     end
 
     # Clears references to objects allocated for migration of a single row into the given target.
@@ -334,10 +347,10 @@ module CaRuby
       migrated = @creatable_classes.map { |klass| create(klass, row, created) }
       # migrate each object from the input row
       created.each { |obj| obj.migrate(row, migrated) }
-      # set the references
-      migrated.each { |obj| obj.migrate_references(row, migrated, @mgt_mth_hash[obj.class]) }
       # remove invalid migrations
       migrated.delete_if { |obj| not migration_valid?(obj) }
+      # set the references
+      migrated.each { |obj| obj.migrate_references(row, migrated, @mgt_mth_hash[obj.class]) }
       # the target object
       target = migrated.detect { |obj| @target_class === obj }
       if target then

@@ -26,7 +26,7 @@ class Object
   def transitive_closure(method=nil)
     raise ArgumentError.new("Missing both a method argument and a block") if method.nil? and not block_given?
     return transitive_closure() { |node| node.send(method) } if method
-    Visitor.new(:depth_first) { |node| yield node }.to_enum(self).to_a.reverse
+    CaRuby::Visitor.new(:depth_first) { |node| yield node }.to_enum(self).to_a.reverse
   end
 end
 

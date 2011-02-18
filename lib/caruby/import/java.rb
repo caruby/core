@@ -11,9 +11,7 @@ require 'caruby/util/class'
 require 'caruby/util/inflector'
 require 'caruby/util/collection'
 
-# include some standard Java classes
 module Java
-  
   # Adds the directories in the given path and all Java jar files contained in the directories
   # to the execution classpath.
   #
@@ -165,13 +163,13 @@ module Java
       def to_ruby_date
         calendar = java.util.Calendar.instance
         calendar.setTime(self)
-        secs = calendar.timeInMillis / 1000
+        secs = calendar.timeInMillis.to_f / 1000
         # millis since epoch
         time = Time.at(secs)
         # convert UTC timezone millisecond offset to Rational fraction of a day
         offset_millis = calendar.timeZone.getOffset(calendar.timeInMillis).to_f
         # adjust for DST
-        if calendar.timeZone.useDaylightTime and not time.isdst then
+        if calendar.timeZone.useDaylightTime and time.isdst then
           offset_millis -= MILLIS_PER_HR
         end
         offset_days = offset_millis / MILLIS_PER_DAY
@@ -200,7 +198,7 @@ module Java
         # the Java date factory
         calendar = java.util.Calendar.instance
         # adjust for DST
-        if calendar.timeZone.useDaylightTime and not Time.at(time).isdst then
+        if calendar.timeZone.useDaylightTime and Time.at(time).isdst then
           millis += MILLIS_PER_HR
         end
         calendar.setTimeInMillis(millis)
@@ -234,13 +232,13 @@ class Class
   # Otherwise, this method returns the Ruby class for the name of the presumed Java klass.
   def self.to_ruby(klass)
     case klass
-    when Class then klass
-    when String then Java.module_eval(klass)
-    else to_ruby(klass.name)
+      when Class then klass
+      when String then Java.module_eval(klass)
+      else to_ruby(klass.name)
     end
   end
 
-  # Returns whether this class is abstract.
+  # @return [Boolean] whether this is a wrapper for an abstract Java class
   def abstract?
     java_class? and Java::JavaLangReflect::Modifier.isAbstract(java_class.modifiers)
   end
@@ -260,6 +258,7 @@ class Class
   # If the hierarchy flag is set to +false+, then only this class's properties
   # will be introspected.
   def java_properties(hierarchy=true)
+    return Array::EMPTY_ARRAY  unless java_class?
     info = hierarchy ? Java::JavaBeans::Introspector.getBeanInfo(java_class) : Java::JavaBeans::Introspector.getBeanInfo(java_class, java_class.superclass)
     info.propertyDescriptors.select { |pd| pd.write_method and property_read_method(pd) }
   end

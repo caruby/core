@@ -8,13 +8,16 @@ module CaRuby
     attr_reader :sticky
     
     # Returns a new Cache whose value key is determined by calling the given
-    # extractor block on the cached value.
+    # extractor block on the cached value. The key must uniquely identify the
+    # cached value within the scope of the value class.
     #
     # If the value is not cached and there is a factory Proc, then the result of
     # calling the factory on the missing value is cached with the value key.
     #
     # @param [Proc] optional factory Proc called with a missing value as argument
     #   to create a cached object
+    # @yield [value] returns the value key
+    # @yieldparam value the value to cach
     def initialize(factory=nil, &extractor)
       @factory = factory
       # Make the class => { key => value } hash.
