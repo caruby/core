@@ -15,6 +15,18 @@ module CaRuby
         end
         ResourceUniquifier.instance.uniquify(self, value)
       end
+      
+      # Makes the secondary key unique by replacing each String key attribute value
+      # with a unique value.
+      def uniquify
+        self.class.secondary_key_attributes.each do |attr|
+          oldval = send(attr)
+          next unless String === oldval
+          newval = uniquify_value(oldval)
+          set_attribute(attr, newval)
+          logger.debug { "Reset #{qp} #{attr} from #{oldval} to unique value #{newval}." }
+        end
+      end
     end
   end
   
