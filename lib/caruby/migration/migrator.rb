@@ -16,6 +16,7 @@ require 'caruby/util/pretty_print'
 require 'caruby/util/properties'
 require 'caruby/util/collection'
 require 'caruby/migration/migratable'
+require 'caruby/migration/uniquify'
 
 module CaRuby
   class MigrationError < RuntimeError; end
@@ -30,8 +31,11 @@ module CaRuby
     # @option opts [String] :database required application {CaRuby::Database}
     # @option opts [String] :target required target domain class
     # @option opts [String] :mapping required input field => caTissue attribute mapping file
+    # @option opts [String] :defaults optional caTissue attribute => value default mapping file
     # @option opts [String] :input required source file to migrate
     # @option opts [String] :shims optional array of shim files to load
+    # @option opts [String] :unique ensures that migrated objects which include the {Resource::Unique}
+    #   mix-in do not conflict with existing or future objects (used for testing) 
     # @option opts [String] :bad optional invalid record file
     # @option opts [Integer] :offset zero-based starting source record number to process (default 0)
     # @option opts [Boolean] :quiet suppress output messages
@@ -67,6 +71,8 @@ module CaRuby
 
     private
 
+    UNIQUIFY_SHIM = File.join(File.dirname(__FILE__), 'uniquify.rb')
+
     # Class {#migrate} with a {#save} block.
     def execute_save
       @database.open do |db|
@@ -95,6 +101,7 @@ module CaRuby
     def parse_options(opts)
       @fld_map_file = opts[:mapping]
       raise MigrationError.new("Migrator missing required field mapping file parameter") if @fld_map_file.nil?
+      @def_file = opts[:defaults]
       @shims = opts[:shims] ||= []
       @offset = opts[:offset] ||= 0
       @input = Options.get(:input, opts)
@@ -121,8 +128,10 @@ module CaRuby
 
       # create the class => path => header hash
       fld_map = load_field_map(@fld_map_file)
+      # create the class => path => default value hash
+      @def_hash = @def_file ? load_defaults(@def_file) : {}
       # create the class => paths hash
-      @cls_paths_hash = create_class_paths_hash(fld_map)
+      @cls_paths_hash = create_class_paths_hash(fld_map, @def_hash)
       # create the path => class => header hash
       @header_map = create_header_map(fld_map)
       # add missing owner classes (copy the keys rather than using each_key since the hash is updated)
@@ -143,7 +152,7 @@ module CaRuby
       # the class => attribute migration methods hash
       create_migration_method_hashes
       
-      # collect the String input fields for the custom CSVLoader converter
+      # Collect the String input fields for the custom CSVLoader converter.
       @nonstring_headers = Set.new
       logger.info("Migration attributes:")
       @header_map.each do |path, cls_hdr_hash|
@@ -376,15 +385,25 @@ module CaRuby
     #
     # @param [Class] klass
     # @param [{Symbol => Object}] row the input row
-    # @param [<Resource>] the migrated instances for this row
-    # @return the new klass instance
+    # @param [<Resource>] created the migrated instances for this row
+    # @return [Resource] the new instance
     def create(klass, row, created)
       # the new object
       created << obj = klass.new
+      migrate_attributes(obj, row, created)
+      add_defaults(obj, row, created)
+      logger.debug { "Migrator created #{obj}." }
+      obj
+    end
+    
+    # @param [Resource] the migration object
+    # @param row (see #create)
+    # @param [<Resource>] created (see #create)
+    def migrate_attributes(obj, row, created)
       # for each input header which maps to a migratable target attribute metadata path,
       # set the target attribute, creating intermediate objects as needed.
-      @cls_paths_hash[klass].each do |path|
-        header = @header_map[path][klass]
+      @cls_paths_hash[obj.class].each do |path|
+        header = @header_map[path][obj.class]
         # the input value
         value = row[header]
         next if value.nil?
@@ -393,8 +412,18 @@ module CaRuby
         # set the attribute
         migrate_attribute(ref, path.last, value, row)
       end
-      logger.debug { "Migrator created #{obj}." }
-      obj
+    end
+    
+    # @param [Resource] the migration object
+    # @param row (see #create)
+    # @param [<Resource>] created (see #create)
+    def add_defaults(obj, row, created)
+      @def_hash[obj.class].each do |path, value|
+        # fill the reference path
+        ref = fill_path(obj, path[0...-1], row, created)
+        # set the attribute to the default value unless there is already a value
+        ref.merge_attribute(path.last.to_sym, value)
+      end
     end
 
     # Fills the given reference AttributeMetadata path starting at obj.
@@ -472,7 +501,7 @@ module CaRuby
         next if attr_list.blank?
         # the header accessor method for the field
         header = @loader.accessor(field)
-        raise MigrationError.new("Field defined in migration configuration not found: #{field}") if header.nil?
+        raise MigrationError.new("Field defined in migration configuration #{file} not found in input file #{@input} headers: #{field}") if header.nil?
         attr_list.split(/,\s*/).each do |path_s|
           klass, path = create_attribute_path(path_s)
           map[klass][path] = header
@@ -499,11 +528,29 @@ module CaRuby
       end
       map
     end
+    
+    def load_defaults(file)
+      # load the field mapping config file
+      begin
+        config = YAML::load_file(file)
+      rescue
+        raise MigrationError.new("Could not read defaults file #{file}: " + $!)
+      end
 
-    # Returns an array of AttributeMetadata objects for the period-delimited path string path_s in the
-    # form _class_(._attribute_)+.
-    #
-    # Raises MigrationError if the path string is malformed or an attribute is not found.
+      # collect the class => path => value entries
+      map = LazyHash.new { Hash.new }
+      config.each do |path_s, value|
+        next if value.blank?
+        klass, path = create_attribute_path(path_s)
+        map[klass][path] = value
+      end
+
+      map
+    end
+
+    # @param [String] path_s a period-delimited path string path_s in the form _class_(._attribute_)+
+    # @return [<AttributeMetadata>] the corresponding attribute metadata path
+    # @raise [MigrationError] if the path string is malformed or an attribute is not found
     def create_attribute_path(path_s)
       names = path_s.split('.')
       # if the path starts with a capitalized class name, then resolve the class.
@@ -529,9 +576,10 @@ module CaRuby
     end
 
     # @return a new class => [paths] hash from the migration fields configuration map
-    def create_class_paths_hash(fld_map)
+    def create_class_paths_hash(fld_map, def_map)
       hash = {}
       fld_map.each { |klass, path_hdr_hash| hash[klass] = path_hdr_hash.keys.to_set }
+      def_map.each { |klass, path_val_hash| (hash[klass] ||= Set.new).merge(path_val_hash.keys) }
       hash
     end
 
