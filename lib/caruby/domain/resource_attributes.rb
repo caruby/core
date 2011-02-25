@@ -167,8 +167,8 @@ module CaRuby
       @px_cscd_attrs ||= cascaded_attributes.compose { |attr_md| attr_md.proxied_save? }
     end
 
-    # @return [<Symbol>] the {#cascaded_attributes} which are not saved with a proxy
-    #   using the dependent saver_proxy method
+    # @return [<Symbol>] the {#cascaded_attributes} which do not have a
+    #   #{AttributeMetadata#proxied_save?}
     def unproxied_cascaded_attributes
       @unpx_cscd_attrs ||= cascaded_attributes.compose { |attr_md| not attr_md.proxied_save? }
     end
