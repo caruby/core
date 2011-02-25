@@ -39,12 +39,12 @@ module CaRuby
       self
     end
 
-    # Validates this domain object and its cascaded dependents for completeness prior to a
-    # database create or update operation.
+    # Validates this domain object and its #{ResourceAttributes.unproxied_cascaded_attributes}
+    # for completeness prior to a database create or update operation.
     # The object is valid if it contains a non-nil value for each mandatory property.
     # Objects which have already been validated are skipped.
-    # Returns this domain object.
     #
+    # @return [Resource] this domain object
     # @raise [ValidationError] if a mandatory attribute value is missing
     def validate
       unless @validated then
@@ -55,7 +55,7 @@ module CaRuby
           raise ValidationError.new("Required attribute value missing for #{self}: #{invalid.join(', ')}")
         end
       end
-      self.class.cascaded_attributes.each do |attr|
+      self.class.unproxied_cascaded_attributes.each do |attr|
         send(attr).enumerate { |dep| dep.validate }
       end
       @validated = true
@@ -330,7 +330,7 @@ module CaRuby
     # @return [Boolean] whether this Resource equals other
     def minimal_match?(other)
       self.class === other and
-      (identifier.nil? or other.identifier.nil? or identifier == other.identifier)
+        (identifier.nil? or other.identifier.nil? or identifier == other.identifier)
     end
 
     # Returns an enumerator on the transitive closure of the reference attributes.
@@ -649,6 +649,7 @@ module CaRuby
     # @return [Boolean] whether the other domain object matches this domain object on a
     #   secondary key without owner attributes
     def match_without_owner_attribute?(other)
+      return unless other.class == self.class
       oattrs = self.class.owner_attributes
       return if oattrs.empty?
       # match on the secondary key
