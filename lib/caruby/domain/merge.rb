@@ -95,7 +95,13 @@ module CaRuby
 
     # @see #merge_attribute
     def merge_nondomain_attribute_value(attr_md, oldval, newval)
-      oldval.nil? ? send(attr_md.writer, newval) : oldval
+      if oldval.nil? then
+        send(attr_md.writer, newval)
+      elsif attr_md.collection? then
+        oldval.merge(newval)
+      else
+        oldval
+      end
     end
     
     # @see #merge_attribute
