@@ -1,4 +1,5 @@
 require 'caruby/version'
+require 'date'
 
 SPEC = Gem::Specification.new do |s|
   s.name          = "caruby-core"
@@ -7,7 +8,7 @@ SPEC = Gem::Specification.new do |s|
     caRuby is a JRuby facade for interaction with caBIG applications.
   eof
   s.version       = CaRuby::VERSION
-  s.date          = "2010-11-30"
+  s.date          = Date.today
   s.author        = "OHSU"
   s.email         = "caruby.org@gmail.com"
   s.homepage      = "http://rubyforge.org/projects/caruby"

@@ -6,8 +6,6 @@ caRuby: Simplifying caBIG(TM)
 **Author**:       OHSU Knight Cancer Institute    
 **Copyright**:    2010, 2011    
 **License**:      MIT License    
-**Latest Version**: 1.4.1   
-**Release Date**: February 25th 2011    
 
 Synopsis
 --------

@@ -18,6 +18,8 @@
 
 * Merge nondomain collection value properly.
 
+=== 1.4.5 / 2011-02-26
 
+* Fix default option
 
 
