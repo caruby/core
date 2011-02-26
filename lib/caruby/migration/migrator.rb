@@ -129,7 +129,7 @@ module CaRuby
       # create the class => path => header hash
       fld_map = load_field_map(@fld_map_file)
       # create the class => path => default value hash
-      @def_hash = @def_file ? load_defaults(@def_file) : {}
+      @def_hash = @def_file ? load_defaults(@def_file) : LazyHash.new { Hash.new }
       # create the class => paths hash
       @cls_paths_hash = create_class_paths_hash(fld_map, @def_hash)
       # create the path => class => header hash
