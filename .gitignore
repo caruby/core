@@ -5,5 +5,6 @@
 *.gem
 *.pdf
 *.tar*
+**log
 /doc/api
 /test/results
