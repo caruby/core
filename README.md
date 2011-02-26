@@ -4,10 +4,10 @@ caRuby: Simplifying caBIG(TM)
 **Home**:         [http://caruby.rubyforge.org](http://caruby.rubyforge.org)    
 **Git**:          [http://github.com/caruby/core](http://github.com/caruby/core)       
 **Author**:       OHSU Knight Cancer Institute    
-**Copyright**:    2010    
+**Copyright**:    2010, 2011    
 **License**:      MIT License    
 **Latest Version**: 1.4.1   
-**Release Date**: November 23rd 2010    
+**Release Date**: February 25th 2011    
 
 Synopsis
 --------
@@ -40,12 +40,11 @@ See the project [Home](http://caruby.rubyforge.org) Page for usage examples.
 Changelog
 ---------
 
-- **November 23, 2010**: 1.4.1 release
-    - Initial public release
+- See +History.txt+
 
 Copyright
 ---------
 
-caRuby &copy; 2010 by [Oregon Health & Science University](http://www.ohsu.edu/xd/health/services/cancer/index.cfm).
+caRuby &copy; 2010, 2011 by [Oregon Health & Science University](http://www.ohsu.edu/xd/health/services/cancer/index.cfm).
 caRuby is licensed under the MIT license. Please see the LICENSE and LEGAL
 files for more information.
