@@ -18,6 +18,20 @@ module CaRuby
   # Classes which include Domain must implement the +metadata+ Domain::Metadata accessor method.
   module Resource
     include Mergeable, Migratable, Persistable, Inversible, Validation
+    
+    # JRuby alert - Bug #5090 - JRuby 1.5 object_id no longer reserved, results in String value.
+    # See http://jira.codehaus.org/browse/JRUBY-5090.
+    # Work-around is to make a proxy object id.
+    #
+    # @return [Integer] the object id
+    def proxy_object_id
+      @_hc ||= (Object.new.object_id * 31) + 17
+    end
+    
+    # Prints this object's class demodulized name and object id.
+    def print_class_and_id
+      "#{self.class.qp}@#{proxy_object_id}"
+    end
 
     # Sets the default attribute values for this domain object and its dependents. If this Resource
     # does not have an identifier, then missing attributes are set to the values defined by
