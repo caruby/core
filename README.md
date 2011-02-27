@@ -35,11 +35,6 @@ Usage
 
 See the project [Home](http://caruby.rubyforge.org) Page for usage examples. 
 
-Changelog
----------
-
-- See +History.txt+
-
 Copyright
 ---------
 
