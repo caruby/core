@@ -555,7 +555,7 @@ module CaRuby
       names = path_s.split('.')
       # if the path starts with a capitalized class name, then resolve the class.
       # otherwise, the target class is the start of the path.
-      klass = names.first =~ /^[A-Z]/ ? @target_class.domain_module.const_get(names.shift) : @target_class
+      klass = names.first =~ /^[A-Z]/ ? class_for_name(names.shift) : @target_class
       # there must be at least one attribute
       if names.empty? then
         raise MigrationError.new("Attribute entry in migration configuration is not in <class>.<attribute> format: #{value}")
@@ -573,6 +573,13 @@ module CaRuby
       # starting class could be the concrete target class rather than an abstract declarer. this is
       # important, since the class must be instantiated.
       [klass, path]
+    end
+    
+    def class_for_name(name)
+      # navigate through the scope to the final class
+      name.split('::').inject(@target_class.domain_module) do |scope, cnm|
+        scope.const_get(cnm)
+      end
     end
 
     # @return a new class => [paths] hash from the migration fields configuration map
