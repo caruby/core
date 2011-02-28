@@ -33,6 +33,8 @@ module CaRuby
       "#{self.class.qp}@#{proxy_object_id}"
     end
 
+    alias :qp :print_class_and_id
+
     # Sets the default attribute values for this domain object and its dependents. If this Resource
     # does not have an identifier, then missing attributes are set to the values defined by
     # {ResourceAttributes#add_attribute_defaults}.
