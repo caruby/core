@@ -99,6 +99,7 @@ module CaRuby
     end
 
     def parse_options(opts)
+      logger.debug { "Migrator options: #{opts.qp}" }
       @fld_map_file = opts[:mapping]
       raise MigrationError.new("Migrator missing required field mapping file parameter") if @fld_map_file.nil?
       @def_file = opts[:defaults]
@@ -145,6 +146,7 @@ module CaRuby
       end
       logger.info { "Migration paths:\n#{print_hash.pp_s}" }
       logger.info { "Migration creatable classes: #{@creatable_classes.qp}." }
+      unless @def_hash.empty? then logger.info { "Migration defaults: #{@def_hash.qp}." } end
       
       # add shim modifiers
       load_shims(@shims)
@@ -540,7 +542,7 @@ module CaRuby
       # collect the class => path => value entries
       map = LazyHash.new { Hash.new }
       config.each do |path_s, value|
-        next if value.blank?
+        next if value.nil_or_empty?
         klass, path = create_attribute_path(path_s)
         map[klass][path] = value
       end
