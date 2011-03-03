@@ -80,6 +80,7 @@ module CaRuby
     #
     # @param [String] service_name the name of the default {PersistenceService}
     # @param [{Symbol => String}] opts access options
+    # @option opts [String] :host application service host name
     # @option opts [String] :login application service login user
     # @option opts [String] :password application service login password
     # @example
@@ -91,9 +92,10 @@ module CaRuby
       @defaults = {}
       @user = Options.get(:user, opts)
       @password = Options.get(:password, opts)
-      @host = Options.get(:host, opts)
+      host = Options.get(:host, opts)
+      port = Options.get(:port, opts)
       # class => service hash; default is the catissuecore app service
-      @def_persist_svc = PersistenceService.new(service_name, :host => @host)
+      @def_persist_svc = PersistenceService.new(service_name, :host => host, :port => port)
       @persistence_services = [@def_persist_svc].to_set
       @cls_svc_hash = Hash.new(@def_persist_svc)
       # the create/update nested operations
