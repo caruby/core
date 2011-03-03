@@ -1,6 +1,6 @@
 module ClinicalTrials
   # import the Java class into Ruby
-  java_import('clinicaltrials.domain.Study')
+  java_import Java::clinicaltrials.domain.Study
 
   # Extends the Study domain class.
   class Study
@@ -19,8 +19,10 @@ module ClinicalTrials
     # fetched from Study but there is no Consent reference back to its owner Study.
     add_dependent_attribute(:consents)
 
+    private
+    
     # Raises ValidationError if there are no events.
-    def validate
+    def validate_local
       super
       raise ValidationError.new("Study #{name} is missing study events") if events.nil_or_empty?
     end

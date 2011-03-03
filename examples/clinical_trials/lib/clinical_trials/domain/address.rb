@@ -1,6 +1,6 @@
 module ClinicalTrials
   # import the Java class into Ruby
-  java_import('clinicaltrials.domain.Address')
+  java_import Java::clinicaltrials.domain.Address
   
   class Address
     include Resource

@@ -1,6 +1,6 @@
 module ClinicalTrials
   # import the Java class into Ruby
-  java_import('clinicaltrials.domain.StudyEvent')
+  java_import Java::clinicaltrials.domain.StudyEvent
 
   # Extends the StudyEvent domain class.
   class StudyEvent
