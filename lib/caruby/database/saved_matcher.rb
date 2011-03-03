@@ -4,10 +4,6 @@ module CaRuby
   class Database
     # Proc that matches saved result sources to targets.
     class SavedMatcher < FetchedMatcher
-      # Initializes a new SavedMatcher.
-      def initialize
-        super
-      end
       
       private
 

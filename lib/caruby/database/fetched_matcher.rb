@@ -4,11 +4,13 @@ require 'caruby/util/collection'
 module CaRuby
   class Database
     # Proc that matches fetched sources to targets.
-    class FetchedMatcher < Proc
+    class FetchedMatcher
       # Initializes a new FetchedMatcher.
-      def initialize
-        super { |srcs, tgts| match_fetched(srcs, tgts) }
+      def match(srcs, tgts)
+        match_fetched(srcs, tgts)
       end
+      
+      alias :call :match
       
       private
 
@@ -27,6 +29,7 @@ module CaRuby
           attr_md = klass.attribute_metadata(attr)
           attr_md.domain? and not attr_md.owner?
         end
+        
         # fetch the non-owner secondary key domain attributes as necessary 
         unless attrs.empty? then
           sources.each do |src|
@@ -39,6 +42,7 @@ module CaRuby
             end
           end
         end
+        
         # match source => target based on the secondary key
         unmatched = Set === sources ? sources.dup : sources.to_set
         matches = {}
@@ -48,6 +52,7 @@ module CaRuby
           matches[src] = tgt
           unmatched.delete(src)
         end
+        
         matches
       end
     end
