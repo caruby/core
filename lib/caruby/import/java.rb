@@ -15,22 +15,36 @@ module Java
   # Adds the directories in the given path and all Java jar files contained in the directories
   # to the execution classpath.
   #
-  # @param path the colon or semi-colon separated directories
+  # @param [String] path the colon or semi-colon separated directories
   def self.add_path(path)
     # the path directories
     dirs = path.split(/[:;]/).map { |dir| File.expand_path(dir) }
     # Add all jars found anywhere within the directories to the the classpath.
     add_jars(*dirs)
     # Add the directories to the the classpath.
-    dirs.each { |dir| $CLASSPATH << dir }
+    dirs.each { |dir| add_to_classpath(dir) }
   end  
   
   # Adds the jars in the directories to the execution class path.
   #
-  # @param directories the directories containing jars to add
+  # @param [<String>] directories the directories containing jars to add
   def self.add_jars(*directories)
     directories.each do |dir|
-      Dir[File.join(dir , "**", "*.jar")].each { |jar| $CLASSPATH << jar }
+      Dir[File.join(dir , "**", "*.jar")].each { |jar| add_to_classpath(jar) }
+    end
+  end
+  
+  # Adds the given jar file or directory to the classpath.
+  #
+  # @param [String] file the jar file or directory to add
+  def self.add_to_classpath(file)
+    if file =~ /.jar$/ then
+      # require is preferred to classpath append for a jar file
+      require file
+    else
+      # A directory must end in a slash since JRuby uses an URLClassLoader.
+      if File.directory?(file) and not file =~ /\/$/ then file = file + '/' end
+      $CLASSPATH << file
     end
   end
 
