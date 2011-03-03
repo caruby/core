@@ -549,6 +549,8 @@ module CaRuby
       #
       # @param (see #sync_saved)
       def sync_save_result(source, target)
+        # Bail if the result is the same as the source, as occurs, e.g., with caTissue annotations.
+        return if source == target
         logger.debug { "Synchronizing #{target} save result #{source} with the database..." }
         # If the target was created, then refetch and merge the source if necessary to reflect auto-generated
         # non-domain attribute values.
