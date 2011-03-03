@@ -93,7 +93,7 @@ module CaRuby
         return oldval if fetched.nil_or_empty?
         # merge the fetched into the attribute
         logger.debug { "Merging #{subject.qp} fetched #{attribute} value #{fetched.qp}#{' into ' + oldval.qp if oldval}..." }
-        matches = @matcher.call(fetched.to_enum, oldval.to_enum)
+        matches = @matcher.match(fetched.to_enum, oldval.to_enum)
         subject.merge_attribute(attribute, fetched, matches)
       end    
     end

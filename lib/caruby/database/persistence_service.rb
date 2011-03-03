@@ -23,7 +23,8 @@ module CaRuby
       @name = name
       ver_opt = opts[:version]
       @version = ver_opt.to_s.to_version if ver_opt
-      @host = opts[:host] || "localhost"
+      @host = opts[:host] || default_host
+      @port = opts[:port] || 8080
       @timer = Stopwatch.new
     end
 
@@ -81,7 +82,7 @@ module CaRuby
 
     # @return [ApplicationServiceProvider] the CaCORE service provider wrapped by this PersistenceService
     def app_service
-      url = "http://#{@host}:8080/#{name}/http/remoteService"
+      url = "http://#{@host}:#{@port}/#{@name}/http/remoteService"
       logger.debug { "Connecting to service provider at #{url}..." }
       ApplicationServiceProvider.remote_instance(url)
     end
@@ -109,7 +110,17 @@ module CaRuby
     def dispatch
       time { yield app_service }
     end
-
+    
+    # @return [String] the default host name
+    def default_host
+#      # TODO - extract from the service config file
+#      xml = JRuby.runtime.jruby_class_loader.getResourceAsStream('remoteService.xml')
+#      if xml then
+#        # parse xml file
+#      end
+      'localhost'
+    end
+    
     def query_hql(hql)
       logger.debug { "Building HQLCriteria..." }
       criteria = HQLCriteria.new(hql)
