@@ -16,6 +16,7 @@ SPEC = Gem::Specification.new do |s|
   s.files         = Dir.glob("{conf,lib,test/{bin,lib}}/**/*") + ['History.txt', 'LEGAL', 'LICENSE', 'README.md']
   s.require_paths = ['lib']
   s.add_dependency('dbi')
+  s.add_dependency('dbd-jdbc')
   s.add_dependency('fastercsv')
   s.add_dependency('uom')
   s.has_rdoc      = 'yard'
