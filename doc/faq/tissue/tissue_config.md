@@ -14,7 +14,8 @@ The caruby-tissue gem wraps the caTissue client. Besides [installing](/kb/gettin
         database_user: catissue
         database_password: hackme
         path: /path/to/catissue/lib:/path/to/catissue/caTissueSuite_Client/lib:/path/to/catissue/caTissueSuite_Client/conf:/path/to/catissue/catissue_de_integration_client/lib
-    Substitute the caTissue download location for `/path/to/catissue`. Secure this file so that it is only readable by you.
+     The `user` and `password` are the caTissue application login name and password. The `database_user` and `database_password` are the MySQL or Oracle database userid and password.
+     Substitute the caTissue download location for `/path/to/catissue`. Secure this file so that it is only readable by you.
 
 4. You are now ready to roll. Run the smoke test to check your set-up:
 
