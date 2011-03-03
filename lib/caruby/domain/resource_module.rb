@@ -27,7 +27,7 @@ module CaRuby
   #
   # The application properties hash specifies the startup information,
   # including the user, password and application Java jar library path.
-  # The properties are read from a property file. See CaRuby::Properties for
+  # The properties are read from a property file. See {Properties} for
   # more information.
   #
   # A Java class is imported into Ruby either by directly calling the
@@ -45,7 +45,9 @@ module CaRuby
   #   ClinicalTrials::Participant.new
   # without defining the +Participant+ Ruby class.
   module ResourceModule
-    # Adds the given klass to this ResourceModule. The class is extended with ResourceMetadata methods.
+    # Adds the given class to this ResourceModule. The class is extended with ResourceMetadata methods.
+    #
+    # @param [Class] the {Resource} class to add
     def add_class(klass)
       @rsc_classes ||= Set.new
       # add superclass if necessary
@@ -65,7 +67,7 @@ module CaRuby
     # @return [{Symbol => Object}] the caBIG application access properties
     # @see #load_access_properties
     def access_properties
-      @resource_module__props ||= load_access_properties
+      @rsc_props ||= load_access_properties
     end
 
     # Loads the application start-up properties in the given file path.
@@ -97,7 +99,7 @@ module CaRuby
         raise ArgumentError.new("Application access properties file does not exist: #{file}")
       end
       # the access properties
-      @resource_module__props ||= {}
+      @rsc_props ||= {}
       # If no file was specified, then try the default.
       # If the default does not exist, then use the empty properties hash.
       # It is not an error to omit access properties, since the application domain classes
@@ -113,9 +115,9 @@ module CaRuby
         name = tokens.first.to_sym
         value = tokens.last
         # capture the property
-        @resource_module__props[name] = value
+        @rsc_props[name] = value
       end
-      
+
       # Look for environment overrides preceded by the uppercase module name, e.g. CATISSUE
       # for the CaTissue module.
       env_prefix = name[/\w+$/].upcase
@@ -127,22 +129,22 @@ module CaRuby
         # the envvar value
         value = ENV[ev] || next
         # override the file property with the envar value
-        @resource_module__props[opt] = value
+        @rsc_props[opt] = value
         logger.info("Set application property #{opt} from environment variable #{ev}.")
       end
       
       # load the Java application jar path
       path_ev = "#{env_prefix}_PATH"
-      path = ENV[path_ev] || @resource_module__props[:path]
+      path = ENV[path_ev] || @rsc_props[:path]
       Java.add_path(path) if path
       
-      @resource_module__props
+      @rsc_props
     end
 
     # Loads the Ruby source files in the given directory.
     def load_dir(dir)
       # load the properties on demand
-      load_access_properties if @resource_module__props.nil?
+      load_access_properties if @rsc_props.nil?
       # the domain class definitions
       sources = Dir.glob(File.join(dir, "*.rb"))
 
@@ -167,6 +169,11 @@ module CaRuby
         klass = const_get(sym) rescue next
         logger.info("#{klass.pp_s}")
       end
+    end
+    
+    def java_import(klass)
+      # JRuby 1.4.x does not support a class argument
+      Class === klass  ? super(klass.java_class.name) : super
     end
 
     # Extends the mod module with Java class support. See the class documentation for details.
@@ -199,7 +206,7 @@ module CaRuby
     #
     # The optional block overrides the native Java property access wrappers.
     # For example:
-    #   ClinicalTrials.java_import('edu.wustl.catissuecore.domain.Study') do
+    #   ClinicalTrials.java_import Java::edu.wustl.catissuecore.domain.Study do
     #     def study_code=(value)
     #       value = value.to_s if Integer === value
     #       setStudyCode(value)
@@ -271,6 +278,9 @@ module CaRuby
     # The captures are the trimmed property and value
     PROP_DEF_REGEX = /^(\w+)(?:\s*[:=]\s*)([^#]+)/
     
+    # @return [String] the default application properties file, given by +~/.+_name_,
+    #   where _name_ is the underscore unqualified module name, e.g. +~/.catissue+
+    #   for module +CaTissue+
     def default_properties_file
       home = ENV['HOME'] || '~'
       file = File.expand_path("#{home}/.#{name[/\w+$/].downcase}")
