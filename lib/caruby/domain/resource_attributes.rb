@@ -366,7 +366,7 @@ module CaRuby
     # @yield [attr_md] the attribute selector
     # @yieldparam [AttributeMetadata] attr_md the candidate attribute
     def attribute_filter(&filter)
-     Filter.new(@attr_md_hash, &filter)
+      Filter.new(@attr_md_hash, &filter)
     end
 
     # Initializes the attribute meta-data structures.
