@@ -92,6 +92,13 @@ module Enumerable
     detect { true }
   end
 
+  # Returns the last enumerated item in this Enumerable, or nil if this Enumerable is empty.
+  #
+  # This method is functionally equivalent to +to_a.last+ but is more concise and efficient.
+  def last
+    detect { true }
+  end
+
   # Returns the count of items enumerated in this Enumerable.
   #
   # This method is functionally equivalent to +to_a.size+ but is more concise and efficient
