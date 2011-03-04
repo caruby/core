@@ -56,25 +56,22 @@ module CaRuby
     end
 
     # Validates this domain object and its #{ResourceAttributes.unproxied_cascaded_attributes}
-    # for completeness prior to a database create or update operation.
-    # The object is valid if it contains a non-nil value for each mandatory property.
-    # Objects which have already been validated are skipped.
+    # for completeness prior to a database create operation.
+    # An object without an identifer is valid if it contains a non-nil value for each mandatory property.
+    # Objects which have an identifier or have already been validated are skipped.
+    #
+    # Subclasses should not override this method, but override the private {#local_validate} instead.
     #
     # @return [Resource] this domain object
-    # @raise [ValidationError] if a mandatory attribute value is missing
+    # @raise (see #local_validate)
     def validate
-      unless @validated then
-        logger.debug { "Validating #{qp} required attributes #{self.mandatory_attributes.to_a.to_series}..." }
-        invalid = missing_mandatory_attributes
-        unless invalid.empty? then
-          logger.error("Validation of #{qp} unsuccessful - missing #{invalid.join(', ')}:\n#{dump}")
-          raise ValidationError.new("Required attribute value missing for #{self}: #{invalid.join(', ')}")
-        end
+      if identifier.nil? and not @validated then
+        validate_local
+        @validated = true
       end
       self.class.unproxied_cascaded_attributes.each do |attr|
         send(attr).enumerate { |dep| dep.validate }
       end
-      @validated = true
       self
     end
     
@@ -550,6 +547,20 @@ module CaRuby
     def add_defaults_local
       logger.debug { "Adding defaults to #{qp}..." }
       merge_attributes(self.class.defaults)
+    end
+    
+    # Validates that this domain contains a non-nil value for each mandatory property.
+    #
+    # Subclasses can override this method for additional validation, but should call super first.
+    #
+    # @raise [ValidationError] if a mandatory attribute value is missing
+    def validate_local
+      logger.debug { "Validating #{qp} required attributes #{self.mandatory_attributes.to_a.to_series}..." }
+      invalid = missing_mandatory_attributes
+      unless invalid.empty? then
+        logger.error("Validation of #{qp} unsuccessful - missing #{invalid.join(', ')}:\n#{dump}")
+        raise ValidationError.new("Required attribute value missing for #{self}: #{invalid.join(', ')}")
+      end
     end
     
     # Enumerates the dependents for setting defaults. Subclasses can override if the
