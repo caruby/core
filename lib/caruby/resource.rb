@@ -587,7 +587,7 @@ module CaRuby
       def initialize(base, visited=Set.new, &selector)
         @base = base
         @visited = visited << base
-        @selector = selector || Proc.new { |ref| ref.class.java_attributes }
+        @selector = selector || Proc.new { |ref| ref.class.printable_attributes }
       end
 
       def pretty_print(q)
