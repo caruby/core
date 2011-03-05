@@ -118,55 +118,49 @@ module CaRuby
     # @param [{Symbol => String}] mth_hash a hash that associates this domain object's
     #   attributes to migration method names
     def migrate_references(row, migrated, mth_hash=nil)
-      self.class.saved_independent_attributes.each do |attr|
-        ref = migratable__reference_value(attr, migrated) 
-        migratable__set_reference(attr, ref, row, mth_hash) if ref
-      end
-      self.class.unidirectional_dependent_attributes.each do |attr|
-        ref = migratable__reference_value(attr, migrated) 
-        migratable__set_reference(attr, ref, row, mth_hash) if ref
-      end
+      migratable__set_references(self.class.saved_independent_attributes, row, migrated, mth_hash)
+      migratable__set_references(self.class.unidirectional_dependent_attributes, row, migrated, mth_hash)
     end
     
     private
     
-    # @param [Symbol] attribute the reference attribute to get
+    # @param [AttributeMetadata::Filter] the attributes to set
+    # @param row (see #migrate_references)
     # @param migrated (see #migrate_references)
-    # @return [Resource, nil] the migrated value to which the attribute will be set
-    def migratable__reference_value(attribute, migrated)
-      # skip non-nil attributes
-      return if send(attribute)
-      # the attribute metadata, used for type information
-      attr_md = self.class.attribute_metadata(attribute)
-      # skip collection attributes
-      return if attr_md.collection?
+    # @param mth_hash (see #migrate_references)
+     def migratable__set_references(attr_filter, row, migrated, mth_hash=nil)
+      attr_filter.each_pair do |attr, attr_md|
+        # the target value
+        ref = migratable__target_value(attr_md, row, migrated, mth_hash) || next
+        if attr_md.collection? then
+          # the current value
+          value = send(attr_md.reader) || next
+          value << ref
+          logger.debug { "Added migrated #{ref.qp} to #{qp} #{attribute}." }
+        else
+          set_attribute(attr, ref)
+          logger.debug { "Set #{qp} #{attr} to migrated #{ref.qp}." }
+        end
+      end
+    end
+    
+    # @param [AttributeMetadata] attr_md the reference attribute
+    # @param row (see #migrate_references)
+    # @param migrated (see #migrate_references)
+    # @param mth_hash (see #migrate_references)
+    # @return [Resource, nil] the migrated instance of the given class, or nil if there is not
+    #   exactly one such instance
+    def migratable__target_value(attr_md, row, migrated, mth_hash=nil)
       # the migrated references which are instances of the attribute type
       refs = migrated.select { |other| other != self and attr_md.type === other }
       # skip ambiguous references
       return unless refs.size == 1
       # the single reference
       ref = refs.first
-    end
-    
-    # Sets the given migrated domain object attribute to the given reference.
-    #
-    # If the attribute is associated to a method in mth_hash, then that method is called on
-    # the migrated instance and input row. The attribute is set to the method return value.
-    # mth_hash includes an entry for each +migrate_+_attribute_ method defined by this
-    # Resource's class.
-    #
-    # @param [Symbol] (see #migratable__reference_value)
-    # @param [Resource] ref the migrated reference
-    # @param row (see #migrate_references)
-    # @param mth_hash (see #migrate_references)
-    def migratable__set_reference(attribute, ref, row, mth_hash=nil)
-      # the shim method, if any
-      mth = mth_hash[attribute] if mth_hash
+       # the shim method, if any
+      mth = mth_hash[attr_md.to_sym] if mth_hash
       # if there is a shim method, then call it
-      ref = send(mth, ref, row) if mth and respond_to?(mth)
-      return if ref.nil?
-      logger.debug { "Setting #{qp} #{attribute} to migrated #{ref.qp}..." }
-      set_attribute(attribute, ref)
+      mth && respond_to?(mth) ? send(mth, ref, row) : ref
     end
   end
 end
