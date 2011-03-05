@@ -1,4 +1,5 @@
-require 'generator'
+# JRuby alert - SyncEnumerator moved from generator to REXML in JRuby 1.5
+require 'rexml/document'
 
 # A Coordinate is a convenience Array wrapper class with aliased #x, #y and {#z} dimensions.
 class Coordinate < Array
@@ -58,7 +59,7 @@ class Coordinate < Array
     return true if equal?(other)
     raise TypeError.new("Can't compare #{self} with #{other} since it is not a Coordinate") unless Coordinate === other
     raise ArgumentError.new("Can't compare #{self} with #{other} since it has a different dimension count") unless size == other.size
-    SyncEnumerator.new(self.reverse, other.reverse).each_with_index do |pair, index|
+    REXML::SyncEnumerator.new(self.reverse, other.reverse).each_with_index do |pair, index|
       dim = pair.first
       odim = pair.last
       raise ArgumentError.new("Can't compare #{self} with missing dimension #{index} to #{other}") unless dim
