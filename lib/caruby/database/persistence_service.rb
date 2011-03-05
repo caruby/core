@@ -26,6 +26,7 @@ module CaRuby
       @host = opts[:host] || default_host
       @port = opts[:port] || 8080
       @timer = Stopwatch.new
+      logger.debug { "Created persistence service #{name} at #{@host}:#{@port}." }
     end
 
     ## Database access methods ##
