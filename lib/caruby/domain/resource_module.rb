@@ -10,6 +10,7 @@ module CaRuby
       [:user, "--user USER", "the application login user"],
       [:password, "--password PSWD", "the application login password"],
       [:host, "--host HOST", "the application host name"],
+      [:port, "--port PORT", "the application port number"],
       [:database_host, "--database_host HOST", "the database host name"],
       [:database_type, "--database_type TYPE", "the database type (mysql or oracle)"],
       [:database_driver, "--database_driver DRIVER", "the database driver"],
@@ -99,7 +100,7 @@ module CaRuby
         raise ArgumentError.new("Application access properties file does not exist: #{file}")
       end
       # the access properties
-      @rsc_props ||= {}
+      props ||= {}
       # If no file was specified, then try the default.
       # If the default does not exist, then use the empty properties hash.
       # It is not an error to omit access properties, since the application domain classes
@@ -115,9 +116,8 @@ module CaRuby
         name = tokens.first.to_sym
         value = tokens.last
         # capture the property
-        @rsc_props[name] = value
+        props[name] = value
       end
-
       # Look for environment overrides preceded by the uppercase module name, e.g. CATISSUE
       # for the CaTissue module.
       env_prefix = name[/\w+$/].upcase
@@ -129,16 +129,16 @@ module CaRuby
         # the envvar value
         value = ENV[ev] || next
         # override the file property with the envar value
-        @rsc_props[opt] = value
+        props[opt] = value
         logger.info("Set application property #{opt} from environment variable #{ev}.")
       end
       
       # load the Java application jar path
       path_ev = "#{env_prefix}_PATH"
-      path = ENV[path_ev] || @rsc_props[:path]
+      path = ENV[path_ev] || props[:path]
       Java.add_path(path) if path
       
-      @rsc_props
+      props
     end
 
     # Loads the Ruby source files in the given directory.
@@ -158,7 +158,7 @@ module CaRuby
       end
 
       # load the domain class definitions
-      sym_file_hash.each do |sym, file|
+      sym_file_hash.to_a.each do |sym, file|
         require file
       end
 
