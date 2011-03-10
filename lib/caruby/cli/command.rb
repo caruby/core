@@ -48,10 +48,6 @@ module CaRuby
       def initialize(specs=[], &executor)
         @executor = executor
         # Options start with a dash, arguments are whatever is left.
-        
-        
-        puts specs.qp
-        
         @opt_specs, @arg_specs = specs.partition { |spec| spec[1][0, 1] == '-' }
         # Add the default option specifications.
         @opt_specs.concat(DEF_OPTS)
