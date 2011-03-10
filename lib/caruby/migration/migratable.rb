@@ -136,7 +136,7 @@ module CaRuby
           # the current value
           value = send(attr_md.reader) || next
           value << ref
-          logger.debug { "Added migrated #{ref.qp} to #{qp} #{attribute}." }
+          logger.debug { "Added migrated #{ref.qp} to #{qp} #{attr}." }
         else
           set_attribute(attr, ref)
           logger.debug { "Set #{qp} #{attr} to migrated #{ref.qp}." }
