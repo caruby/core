@@ -47,8 +47,15 @@ module CaRuby
       # @yieldparam (see #run)
       def initialize(specs=[], &executor)
         @executor = executor
+        # Options start with a dash, arguments are whatever is left.
+        
+        
+        puts specs.qp
+        
         @opt_specs, @arg_specs = specs.partition { |spec| spec[1][0, 1] == '-' }
+        # Add the default option specifications.
         @opt_specs.concat(DEF_OPTS)
+        # The application name is the command.
         super($0)
       end
   
@@ -70,6 +77,7 @@ module CaRuby
   
       private
       
+      # The default options that apply to all commands.
       DEF_OPTS = [
         [:help, "-h", "--help", "Display this help message"],
         [:file, "--file FILE", "Configuration file containing other options"],
@@ -78,6 +86,7 @@ module CaRuby
         [:quiet, "-q", "--quiet", "Suppress printing messages to stdout"]
       ]
       
+      # @param [{Symbol => Object}] opts the option => value hash
       def call_executor(opts)
          if @executor.nil? then raise CommandError.new("Command #{self} does not have an execution block") end
          @executor.call(opts)
@@ -87,14 +96,19 @@ module CaRuby
       #
       # @return [{Symbol => Object}] the option => value hash 
       def get_opts
+        # the options hash
         opts = {}
         # the option parser
         OptionParser.new do |parser|
+          # The help argument string is comprised of the argument specification labels.
           arg_s = @arg_specs.map { |spec| spec[1] }.join(' ')
+          # Build the usage message.
           parser.banner = "Usage: #{parser.program_name} [options] #{arg_s}"
           parser.separator ""
           parser.separator "Options:"
+          # parse the options
           opts = parse(parser)
+          # grab the usage message
           @usage = parser.help
         end
         opts
@@ -105,20 +119,34 @@ module CaRuby
       # @return [{Symbol => Object}] the argument => value hash 
       def get_args
         return Hash::EMPTY_HASH if ARGV.empty?
+        if @arg_specs.empty? then too_many_arguments end
+        # Collect the arguments from the command line.
         args = {}
+        # The number of command line arguments or all but the last argument specifications,
+        # whichever is less. The last argument can have more than one value, indicated by
+        # the argument specification form '...', so it is processed separately below.
         n = [ARGV.size, @arg_specs.size - 1].min
+        # the single-valued arguments
         n.times { |i| args[@arg_specs[i].first] = ARGV[i] }
+        # Process the last argument.
         if n < ARGV.size then
           arg, form = @arg_specs.last
+          # A multi-valued last argument is the residual command argument array.
+          # A single-valued last argument is the last value, if there is exactly one.
+          # Otherwise, there are too many arguments.
           if form.index('...') then
             args[arg] = ARGV[n..-1]
           elsif @arg_specs.size == ARGV.size then
             args[arg] = ARGV[n]
           else
-            halt("Too many arguments", 1)
+            too_many_arguments
           end
         end
         args
+      end
+      
+      def too_many_arguments
+        halt("Too many arguments - expected #{@arg_specs.size}, found: #{ARGV.join(' ')}.", 1)
       end
       
       # @param [OptionParser] parser the option parser
@@ -167,8 +195,8 @@ module CaRuby
   
       # Prints the given message and program usage, then exits with the given status.
       def halt(message=nil, status=0)
-        print(message) if message
-        print(@usage)
+        puts(message) if message
+        puts(@usage)
         exit(status)
       end
     end
