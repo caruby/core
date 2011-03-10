@@ -30,4 +30,8 @@
 
 * Support annotation migration.
 
+=== 1.4.8 / 2011-03-09
+
+* Fix migration concurrent modification error.
+
 
