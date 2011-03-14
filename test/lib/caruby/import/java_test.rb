@@ -6,18 +6,26 @@ require 'caruby'
 
 class JavaTest < Test::Unit::TestCase
   def test_ruby_to_java_date_conversion
-    ruby_date = DateTime.now
-    java_date = Java::JavaUtil::Date.from_ruby_date(ruby_date)
-    actual = java_date.to_ruby_date
-    assert(CaRuby::Resource.value_equal?(ruby_date, actual), 'Ruby->Java->Ruby date conversion not idempotent')
+    rdt = DateTime.now
+    jdt = Java::JavaUtil::Date.from_ruby_date(rdt)
+    assert(CaRuby::Resource.value_equal?(rdt, jdt.to_ruby_date), 'Ruby->Java->Ruby date conversion not idempotent')
   end
 
   def test_java_to_ruby_date_conversion
-    java_date = Java::JavaUtil::Calendar.instance.time
-    ruby_date = java_date.to_ruby_date
-    actual = Java::JavaUtil::Date.from_ruby_date(ruby_date)
-    assert_equal(java_date.to_s, actual.to_s, 'Java->Ruby->Java date conversion not idempotent')
-    assert_equal(java_date.to_ruby_date, ruby_date, 'Java->Ruby date reconversion not equal')
+    cal = Java::JavaUtil::Calendar.instance
+    verify_java_to_ruby_date_conversion(cal.time)
+    # roll back to a a different DST setting
+    if cal.timeZone.useDaylightTime then
+      verify_java_to_ruby_date_conversion(flip_DST(cal))
+    end
+  end
+  
+  def flip_DST(cal)
+    isdt = cal.timeZone.inDaylightTime(cal.time)
+    11.times do
+      cal.roll(Java::JavaUtil::Calendar::MONTH, false)
+      return cal.time if cal.timeZone.inDaylightTime(cal.time) != isdt
+    end
   end
 
   def test_to_ruby
@@ -54,5 +62,14 @@ class JavaTest < Test::Unit::TestCase
     assert_same(set, set.merge(other), "HashSet merge result incorrect")
     assert(set.include?(2), "HashSet merge not updated")
     assert_same(set, set.clear, "HashSet clear result incorrect")
+  end
+  
+  private 
+  
+  def verify_java_to_ruby_date_conversion(jdate)
+    rdt = jdate.to_ruby_date
+    actual = Java::JavaUtil::Date.from_ruby_date(rdt)
+    assert_equal(jdate.to_s, actual.to_s, 'Java->Ruby->Java date conversion not idempotent')
+    assert_equal(jdate.to_ruby_date, rdt, 'Java->Ruby date reconversion not equal')
   end
 end

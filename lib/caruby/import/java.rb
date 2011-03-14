@@ -182,10 +182,6 @@ module Java
         time = Time.at(secs)
         # convert UTC timezone millisecond offset to Rational fraction of a day
         offset_millis = calendar.timeZone.getOffset(calendar.timeInMillis).to_f
-        # adjust for DST
-        if calendar.timeZone.useDaylightTime and time.isdst then
-          offset_millis -= MILLIS_PER_HR
-        end
         offset_days = offset_millis / MILLIS_PER_DAY
         offset_fraction = 1 / offset_days
         offset = Rational(1, offset_fraction)
@@ -206,15 +202,19 @@ module Java
           hour = min = sec = 0
         end
         # the Ruby time
-        time = Time.mktime(date.year, date.mon, date.day, hour, min, sec)
+        rtime = Time.local(sec, min, hour, date.day, date.mon, date.year, nil, nil, nil, nil)
         # millis since epoch
-        millis = (time.to_f * 1000).truncate
+        millis = (rtime.to_f * 1000).truncate
         # the Java date factory
         calendar = java.util.Calendar.instance
-        # adjust for DST
-        if calendar.timeZone.useDaylightTime and Time.at(time).isdst then
-          millis += MILLIS_PER_HR
-        end
+        calendar.setTimeInMillis(millis)
+        jtime = calendar.getTime
+        # the daylight time flag
+        isdt = calendar.timeZone.inDaylightTime(jtime)
+        return jtime unless isdt
+        # adjust the Ruby time for DST
+        rtime = Time.local(sec, min, hour, date.day, date.mon, date.year, nil, nil, isdt, nil)
+        millis = (rtime.to_f * 1000).truncate
         calendar.setTimeInMillis(millis)
         calendar.getTime
       end
