@@ -3,6 +3,11 @@ package clinicaltrials.domain;
 public class Participant extends DomainObject
 {
     /**
+     * The Participant SSN.
+     */
+    private Integer ssn;
+
+    /**
      * The Participant name.
      */
     private String name;
@@ -19,6 +24,21 @@ public class Participant extends DomainObject
     {
     }
 
+    /**
+     * @return the Participant SSN
+     */
+    public String getSSN()
+    {
+        return name;
+    }
+
+    /**
+     * @param name the SSN to set
+     */
+    public void setSSN(Integer ssn)
+    {
+        this.ssn = ssn;
+    }
     /**
      * @return the Participant name
      */

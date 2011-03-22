@@ -6,9 +6,9 @@ module ClinicalTrials
   class Participant
     include Resource
     
-    add_mandatory_attributes(:name)
+    set_secondary_key_attributes(:ssn)
     
-    add_mandatory_attributes(:name, :address)
+    add_mandatory_attributes(:ssn, :name)
     
     add_dependent_attribute(:address)
   end
