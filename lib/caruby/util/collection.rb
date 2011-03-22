@@ -1,7 +1,6 @@
 require 'set'
 require 'delegate'
 require 'enumerator'
-require 'generator'
 require 'caruby/util/class'
 require 'caruby/util/validation'
 require 'caruby/util/options'
@@ -276,7 +275,7 @@ module Enumerable
     # @param item the item to add
     # @return [Filter] self
     def <<(item)
-      @base << value
+      @base << item
       self
     end
 
