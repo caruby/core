@@ -1,5 +1,0 @@
-# each participant is enrolled in the study
-mapping:
-  Source:
-    Participant:
-     identifier: participant_id

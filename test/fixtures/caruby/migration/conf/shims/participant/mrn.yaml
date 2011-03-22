@@ -1,5 +1,0 @@
-mapping:
-  # identifier is also the MRN
-  Source:
-    Participant:
-      mrn: participant_id
