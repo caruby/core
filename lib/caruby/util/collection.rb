@@ -228,9 +228,11 @@ module Enumerable
   # @yield [item] the transformer on the enumerated items
   # @yieldparam item an enumerated item
   # @return [Enumerable] an enumeration on the transformed values
-  def wrap(&mapper)
+  def transform(&mapper)
     Transformer.new(self, &mapper)
   end
+  
+  alias :wrap :transform
   
   def join(other)
     Joiner.new(self, other)
@@ -793,6 +795,7 @@ module Hashable
     include Hashable
 
     def initialize(*hashes)
+      if hashes.include?(nil) then raise ArgumentError.new("MultiHash is missing a component hash.") end
       @hashes = hashes
     end
 
