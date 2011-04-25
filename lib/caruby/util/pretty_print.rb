@@ -124,7 +124,7 @@ module Enumerable
   # Pretty-prints the content within brackets, as is done by the Array pretty printer.
   def pretty_print(q)
     q.group(1, '[', ']') {
-      q.seplist(self) {|v|
+      q.seplist(self) { |v|
         q.pp v
       }
     }
