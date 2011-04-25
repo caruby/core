@@ -118,28 +118,52 @@ module CaRuby
     # @param [{Symbol => String}] mth_hash a hash that associates this domain object's
     #   attributes to migration method names
     def migrate_references(row, migrated, mth_hash=nil)
-      migratable__set_references(self.class.saved_independent_attributes, row, migrated, mth_hash)
-      migratable__set_references(self.class.unidirectional_dependent_attributes, row, migrated, mth_hash)
+      # migrate the owner
+      migratable__migrate_owner(row, migrated, mth_hash)
+      # migrate the remaining attributes
+      migratable__set_nonowner_references(self.class.saved_independent_attributes, row, migrated, mth_hash)
+      migratable__set_nonowner_references(self.class.unidirectional_dependent_attributes, row, migrated, mth_hash)
     end
     
     private
+    
+    # Migrates the owner, if there is a unique owner in the migrated set.
+    #
+    # @param row (see #migrate_references)
+    # @param migrated (see #migrate_references)
+    # @param mth_hash (see #migrate_references)
+    def migratable__migrate_owner(row, migrated, mth_hash=nil)
+      # the owner attributes=> migrated reference hash
+      ovh = self.class.owner_attributes.to_compact_hash do |attr|
+        attr_md = self.class.attribute_metadata(attr)
+        migratable__target_value(attr_md, row, migrated, mth_hash=nil)
+      end
+      if ovh.size > 1 then
+        logger.debug { "The migrated dependent #{qp} has ambiguous migrated owner references #{ovh.qp}." }
+      elsif ovh.size == 1 then
+        attr, ref = ovh.first
+        set_attribute(attr, ref)
+      end
+    end
     
     # @param [AttributeMetadata::Filter] the attributes to set
     # @param row (see #migrate_references)
     # @param migrated (see #migrate_references)
     # @param mth_hash (see #migrate_references)
-     def migratable__set_references(attr_filter, row, migrated, mth_hash=nil)
+    def migratable__set_nonowner_references(attr_filter, row, migrated, mth_hash=nil)
       attr_filter.each_pair do |attr, attr_md|
+        # skip owners
+        next if attr_md.owner?
         # the target value
         ref = migratable__target_value(attr_md, row, migrated, mth_hash) || next
         if attr_md.collection? then
           # the current value
           value = send(attr_md.reader) || next
           value << ref
-          logger.debug { "Added migrated #{ref.qp} to #{qp} #{attr}." }
+          logger.debug { "Added the migrated #{ref.qp} to #{qp} #{attr}." }
         else
           set_attribute(attr, ref)
-          logger.debug { "Set #{qp} #{attr} to migrated #{ref.qp}." }
+          logger.debug { "Set the #{qp} #{attr} to migrated #{ref.qp}." }
         end
       end
     end
@@ -154,10 +178,11 @@ module CaRuby
       # the migrated references which are instances of the attribute type
       refs = migrated.select { |other| other != self and attr_md.type === other }
       # skip ambiguous references
+      if refs.size > 1 then logger.debug { "Migrator did not set references to ambiguous targets #{refs.pp_s}." } end
       return unless refs.size == 1
       # the single reference
       ref = refs.first
-       # the shim method, if any
+      # the shim method, if any
       mth = mth_hash[attr_md.to_sym] if mth_hash
       # if there is a shim method, then call it
       mth && respond_to?(mth) ? send(mth, ref, row) : ref
