@@ -2,8 +2,6 @@ require 'caruby/util/validation'
 
 # An AttributePath encapsulates an array of attributes that can be evaluated on a source object.
 class AttributePath < Array
-  include Validation
-
   # Creates an AttributePath from the path Array, String or Symbol. A path string is a period-delimited sequence
   # of attributes, e.g. +person.name+.
   def initialize(path)
