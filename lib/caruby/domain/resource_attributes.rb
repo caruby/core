@@ -129,6 +129,8 @@ module CaRuby
       @log_dep_attrs ||= dependent_attributes.compose { |attr_md| attr_md.logical? }
     end
     
+    # @return [<Symbol>] the unidirectional dependent attributes
+    # @see AttributeMetadata#unidirectional?
     def unidirectional_dependent_attributes
       @uni_dep_attrs ||= dependent_attributes.compose { |attr_md| attr_md.unidirectional? }
     end
@@ -317,9 +319,9 @@ module CaRuby
       # @param [{Symbol => AttributeMetadata}] hash the attribute symbol => metadata hash
       # @yield [attr_md] condition which determines whether the attribute is selected
       # @yieldparam [AttributeMetadata] the metadata for the standard attribute
-      def initialize(hash, &filter)
-        raise ArgumentError.new("Attribute filter missing hash argument") if hash.nil?
-        raise ArgumentError.new("Attribute filter missing filter block") unless block_given?
+      def initialize(klass, hash, &filter)
+        raise ArgumentError.new("#{klass.qp} attribute filter missing hash argument") if hash.nil?
+        raise ArgumentError.new("#{klass.qp} attribute filter missing filter block") unless block_given?
         @hash = hash
         @filter = filter
       end
@@ -345,6 +347,14 @@ module CaRuby
         each_pair { |attr, attr_md| yield(attr_md) }
       end
       
+      # @yield [attribute] the block to apply to the attribute
+      # @yieldparam [Symbol] attribute the attribute
+      # @return [AttributeMetadata] the first attribute metadata satisfies the block
+      def detect_metadata
+        each_pair { |attr, attr_md| return attr_md if yield(attr) }
+        nil
+      end
+      
       # @yield [attr_md] the block to apply to the attribute metadata
       # @yieldparam [AttributeMetadata] attr_md the attribute metadata
       # @return [Symbol] the first attribute whose metadata satisfies the block
@@ -358,7 +368,7 @@ module CaRuby
       # @return [Filter] a new Filter which applies the filter block given to this
       #   method with the AttributeMetadata enumerated by this filter
       def compose
-        Filter.new(@hash) { |attr_md| @filter.call(attr_md) and yield(attr_md) }
+        Filter.new(self, @hash) { |attr_md| @filter.call(attr_md) and yield(attr_md) }
       end
     end
     
@@ -368,7 +378,7 @@ module CaRuby
     # @yield [attr_md] the attribute selector
     # @yieldparam [AttributeMetadata] attr_md the candidate attribute
     def attribute_filter(&filter)
-      Filter.new(@attr_md_hash, &filter)
+      Filter.new(self, @attr_md_hash, &filter)
     end
 
     # Initializes the attribute meta-data structures.
@@ -382,10 +392,23 @@ module CaRuby
       @local_defaults = {}
       @defaults = append_ancestor_enum(@local_defaults) { |par| par.defaults }
     end
+    
+    
+    # Creates the given attribute alias. Not that unlike {Class#alias_attribute}, this method creates a new
+    # alias reader (writer) method which delegates to the attribute reader (writer, resp.) rather than aliasing
+    # the existing reader or writer method. This allows the alias to pick up run-time redefinitions of the
+    # aliased reader and writer.
+    #
+    # @param [Symbol] aliaz the attribute alias
+    # @param [Symbol] attribute the attribute to alias
+    def alias_attribute(aliaz, attribute)
+      add_attribute_aliases(aliaz => attribute)
+    end
 
     # Creates the given aliases to attributes.
     #
     # @param [{Symbol => Symbol}] hash the alias => attribute hash
+    # @see #attribute_alias
     def add_attribute_aliases(hash)
       hash.each { |aliaz, attr| delegate_to_attribute(aliaz, attr) }
     end
@@ -414,10 +437,11 @@ module CaRuby
       # Otherwise, if the attribute type is unspecified or is a superclass of the given class,
       # then make a new attribute metadata for this class.
       if attr_md.declarer == self then
+        logger.debug { "Set #{qp}.#{attribute} type to #{klass.qp}." }
         attr_md.type = klass
       elsif attr_md.type.nil? or klass < attr_md.type then
-        logger.debug { "Restricting #{attr_md.declarer.qp}.#{attribute}(#{attr_md.type.qp}) to #{qp} with return type #{klass.qp}..." }
         new_attr_md = attr_md.restrict_type(self, klass)
+        logger.debug { "Restricted #{attr_md.declarer.qp}.#{attribute}(#{attr_md.type.qp}) to #{qp} with return type #{klass.qp}." }
         add_attribute_metadata(new_attr_md)
       elsif klass != attr_md.type then
         raise ArgumentError.new("Cannot reset #{qp}.#{attribute} type #{attr_md.type} to incompatible #{klass.qp}")
@@ -481,7 +505,10 @@ module CaRuby
     # @return [Enumerable] the {Enumerable#union} of the base collection with the superclass
     #   collection, if applicable 
     def append_ancestor_enum(enum)
-      superclass < Resource ? enum.union(yield(superclass)) : enum
+      return enum unless superclass < Resource
+      anc_enum = yield superclass
+      if anc_enum.nil? then raise MetadataError.new("#{qp} superclass #{superclass.qp} does not have required metadata") end
+      enum.union(anc_enum)
     end
 
     def each_attribute_metadata(&block)
@@ -508,11 +535,19 @@ module CaRuby
       # add the secondary key
       mandatory.merge(secondary_key_attributes)
       # add the owner attribute, if any
-      mandatory << owner_attribute unless owner_attribute.nil? or not attribute_metadata(owner_attribute).java_property?
+      oattr = mandatory_owner_attribute
+      mandatory << oattr if oattr
       # remove autogenerated or optional attributes
       mandatory.delete_if { |attr| attribute_metadata(attr).autogenerated? or attribute_metadata(attr).optional? }
       @local_mndty_attrs.merge!(mandatory)
       append_ancestor_enum(@local_mndty_attrs) { |par| par.mandatory_attributes }
+    end
+    
+    # @return [Symbol, nil] the unique non-self-referential owner attribute, if one exists
+    def mandatory_owner_attribute
+      attr = owner_attribute || return
+      attr_md = attribute_metadata(attr)
+      attr if attr_md.java_property? and attr_md.type != self
     end
 
     # Raises a NameError. Domain classes can override this method to dynamically create a new reference attribute.
