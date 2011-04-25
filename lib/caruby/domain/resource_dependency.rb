@@ -1,3 +1,5 @@
+require 'caruby/util/validation'
+
 module CaRuby
   # ResourceMetadata mix-in to capture Resource dependency.
   module ResourceDependency
@@ -25,24 +27,49 @@ module CaRuby
     # * _inverse_ is the owner inverse attribute defined in the dependent class
     #
     # @param [Symbol] attribute the dependent to add
-    # @param [<Symbol>] the attribute qualifier flags
+    # @param [<Symbol>] flags the attribute qualifier flags
     def add_dependent_attribute(attribute, *flags)
       attr_md = attribute_metadata(attribute)
       flags << :dependent unless flags.include?(:dependent)
       attr_md.qualify(*flags)
       inverse = attr_md.inverse
       inv_type = attr_md.type
-      # example: Parent.add_dependent_attribute(:children) with inverse :parent calls
-      # Child.add_owner(Parent, :children, :parent)
+      # example: Parent.add_dependent_attribute(:children) with inverse :parent calls the following:
+      #   Child.add_owner(Parent, :children, :parent)
       inv_type.add_owner(self, attribute, inverse)
     end
-
-    # Returns whether this metadata's subject class depends on an owner.
+    
+    # Makes a new owner attribute. The attribute name is the lower-case demodulized
+    # owner class name. The owner class must reference this class via the given
+    # inverse dependent attribute.
+    #
+    # @param klass (see #obtain_owner_attribute)
+    # @param [Symbol] the owner -> dependent inverse attribute 
+    # @return [Symbol] this class's new owner attribute
+    # @raise [ArgumentError] if the inverse is nil
+    def create_owner_attribute(klass, inverse)
+      if inverse.nil? then
+        raise ArgumentError.new("Cannot create a #{qp} owner attribute to #{klass} without a dependent attribute to this class.")
+      end
+      attr = klass.name.demodulize.underscore.to_sym
+      attr_accessor(attr)
+      add_attribute(attr, klass)
+      attribute_metadata(attr).inverse = inverse
+      logger.debug { "Created #{qp} owner attribute #{attr} with inverse #{klass.qp}.#{inverse}." }
+      attr
+    end
+    
+    # @return [Boolean] whether this class depends on an owner
     def dependent?
       not owners.empty?
     end
+    
+    # @return [Boolean] whether this class has an owner which cascades save operations to this dependent
+    def cascaded_dependent?
+      owner_attribute_metadata_enumerator.any? { |attr_md| attr_md.cascaded? }
+    end
 
-    # Returns whether this metadata's subject class depends the given other class.
+    # @return [Boolean] whether this class depends the given other class
     def depends_on?(other)
       owners.detect { |owner| owner === other }
     end
@@ -58,73 +85,99 @@ module CaRuby
     # @return [Symbol, nil] the sole owner attribute of this class, or nil if there
     #   is not exactly one owner
     def owner_attribute
-      if @local_owner_attr_hash then
-        # the sole attribute in the owner class => attribute hash
-        @local_owner_attr_hash.each_value { |attr| return attr } if @local_owner_attr_hash.size == 1
-      elsif superclass < Resource
-        # delegate to superclass
-        superclass.owner_attribute
+      attr_md = owner_attribute_metadata_enumerator.first || return
+      # There is at most one non-nil value in the owner class => AttributeMetadata hash.
+      # If there is such a value, then return the attribute symbol.
+      if owner_attribute_metadata_enumerator.size == 1 then
+        attr_md.to_sym
       end
     end
 
-    # Returns this Resource class's owner types.
+    # @return [<Symbol>] this class's owner attributes
     def owner_attributes
-      if @local_owner_attr_hash then
-        @local_owner_attrs ||= Enumerable::Enumerator.new(@local_owner_attr_hash, :each_value).filter
-      elsif superclass < Resource
-        superclass.owner_attributes
-      else
-        Array::EMPTY_ARRAY
-      end
+      owner_attribute_metadata_enumerator.transform { |attr_md| attr_md.to_sym }
     end
 
-    # Returns this Resource class's dependent types.
+    # @return [<Class>] this class's dependent types
     def dependents
       dependent_attributes.wrap { |attr| attr.type }
     end
 
-    # Returns this Resource class's owner types.
+    # @return [<Class>] this class's owner types
     def owners
-      if @local_owner_attr_hash then
-        @local_owners ||= Enumerable::Enumerator.new(@local_owner_attr_hash, :each_key)
-      elsif superclass < Resource
-        superclass.owners
-      else
-        Array::EMPTY_ARRAY
-      end
+      @owners ||= Enumerable::Enumerator.new(owner_attribute_metadata_hash, :each_key)
     end
 
     protected
 
     # Adds the given owner class to this dependent class.
     # This method must be called before any dependent attribute is accessed.
+    # If the attribute is given, then the attribute inverse is set.
+    # Otherwise, if there is not already an owner attribute, then a new owner attribute is created.
+    # The name of the new attribute is the lower-case demodulized owner class name.
     #
     # @param [Class] the owner class
-    # @param [Symbol, nil] inverse the owner -> dependent attribute
+    # @param [Symbol] inverse the owner -> dependent attribute
     # @param [Symbol, nil] attribute the dependent -> owner attribute, if known
-    # @raise [ValidationError] if there is no owner -> dependent inverse attribute
-    # @raise [MetadataError] if this method is called after a dependent attribute has been accessed
+    # @raise [ValidationError] if the inverse is nil
     def add_owner(klass, inverse, attribute=nil)
+      if inverse.nil? then raise ValidationError.new("Owner #{klass.qp} missing dependent attribute for dependent #{qp}") end
       logger.debug { "Adding #{qp} owner #{klass.qp}#{' attribute ' + attribute.to_s if attribute}#{' inverse ' + inverse.to_s if inverse}..." }
       if @owner_attr_hash then
         raise MetadataError.new("Can't add #{qp} owner #{klass.qp} after dependencies have been accessed")
       end
-      @local_owner_attr_hash ||= {}
-      @local_owner_attr_hash[klass] = attribute ||= detect_inverse_attribute(klass)
+      
+      # detect the owner attribute, if necessary
+      attribute ||= obtain_owner_attribute(klass, inverse)
+      attr_md = attribute_metadata(attribute) if attribute
+      # Add the owner class => attribute entry.
+      # The attribute is nil if the dependency is unidirectional, i.e. there is an owner class which
+      # references this class via a dependency attribute but there is no inverse owner attribute.
+      local_owner_attribute_metadata_hash[klass] = attr_md
+      # If the dependency is unidirectional, then our job is done.
+      return if attribute.nil?
 
-      # set the inverse
-      if attribute then
-        if inverse.nil? then raise ValidationError.new("Owner #{klass.qp} missing dependent attribute for dependent #{qp}") end
+      # set the inverse if necessary
+      unless attr_md.inverse then
         set_attribute_inverse(attribute, inverse)
+      end
+      # set the owner flag if necessary
+      unless attr_md.owner? then
         attribute_metadata(attribute).qualify(:owner)
-      else
-        logger.debug { "No #{qp} owner attribute detected for #{klass.qp}." }
       end
     end
 
-    # @return [{Class => Symbol}] this Resource class's owner type => attribute hash
-    def owner_attribute_hash
-      @local_owner_attr_hash or (superclass.owner_attribute_hash if superclass < Resource) or Hash::EMPTY_HASH
+    # @return [{Class => AttributeMetadata}] this class's owner type => attribute hash
+    def owner_attribute_metadata_hash
+      @oa_hash ||= create_owner_attribute_metadata_hash
+    end
+    
+    private
+    
+    def local_owner_attribute_metadata_hash
+      @local_oa_hash ||= {}
+    end
+
+    # @return [{Class => AttributeMetadata}] a new owner type => attribute hash
+    def create_owner_attribute_metadata_hash
+      local = local_owner_attribute_metadata_hash
+      superclass < Resource ? local.union(superclass.owner_attribute_metadata_hash) : local
+    end
+    
+    # @return [<AttributeMetadata>] the owner attributes
+    def owner_attribute_metadata_enumerator
+      # Enumerate each owner AttributeMetadata, filtering out nil values.
+      @oa_enum ||= Enumerable::Enumerator.new(owner_attribute_metadata_hash, :each_value).filter
+    end
+    
+    # Returns the attribute which references the owner. The owner attribute is the inverse
+    # of the given owner class inverse attribute, if it exists. Otherwise, the owner
+    # attribute is inferred by #{ResourceInverse#detect_inverse_attribute}.  
+    # @param klass (see #add_owner)
+    # @param [Symbol] inverse the owner -> dependent attribute
+    # @return [Symbol] this class's owner attribute
+    def obtain_owner_attribute(klass, inverse)
+      klass.attribute_metadata(inverse).inverse or detect_inverse_attribute(klass)
     end
   end
 end
