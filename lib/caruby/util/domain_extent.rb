@@ -7,8 +7,6 @@ require 'caruby/util/validation'
 # @example
 #   DomainExtent.new { |klass, key| key.to_s + klass.name }.get(String, 'a') #=> aString
 class DomainExtent < LazyHash
-  include Validation
-
   # Creates a new DomainExtent. The block passed to the constructor
   # is a factory to create an object on demand, with arguments
   # the target class and the target key. The default block is empty.
@@ -24,7 +22,6 @@ class DomainExtent < LazyHash
   # The factory accepts a single argument, the instance key, e.g.
   #   set_factory(MyClass) { |key| MyClass.new(key) }
   def set_factory(klass, &factory)
-    validate_type(klass => Class)
     # the current instances, if any
     instances = fetch(klass) if has_key?(klass)
     # make the key => instance class extent map
