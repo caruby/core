@@ -13,21 +13,21 @@ class Class
   alias :succ :superclass
 
   private
-
+  
   # Creates an alias for each accessor method of the given attribute.
   #
   # @example
   #   class Person
   #    attr_reader :social_security_number
   #    attr_accessor :postal_code
-  #    define_attribute_alias(:ssn, :social_security_number)
-  #    define_attribute_alias(:zip_code, :postal_code)
+  #    alias_attribute(:ssn, :social_security_number)
+  #    alias_attribute(:zip_code, :postal_code)
   #   end
   #   Person.method_defined?(:ssn) #=> true
   #   Person.method_defined?(:ssn=) #=> false
   #   Person.method_defined?(:zip_code) #=> true
   #   Person.method_defined?(:zip_code=) #=> true
-  def define_attribute_alias(aliaz, attribute)
+  def alias_attribute(aliaz, attribute)
     alias_method(aliaz, attribute) if method_defined?(attribute)
     writer = "#{attribute}=".to_sym
     alias_method("#{aliaz}=".to_sym, writer) if method_defined?(writer)
