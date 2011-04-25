@@ -15,6 +15,23 @@ module CaRuby
     include ResourceIntrospection, ResourceInverse, ResourceDependency, ResourceAttributes
 
     attr_reader :domain_module
+      
+    # JRuby 1.6 alert - if a concrete class implements a constructor, then calling super in an
+    # included module initialize method results in a recursive call back into that initialize. 
+    # The work-around is to redefine each domain class new method to call the initalize_content
+    # method instead. All Resource domain classes or included modules must not override
+    # initialize. They can implement initialize_content instead.
+    def self.extended(klass)
+      klass.class_eval do
+        class << self
+          def new(opts=nil)
+            obj = super()
+            obj.merge_attributes(opts) if opts
+            obj
+          end
+        end
+      end
+    end
 
     # Associates meta-data with a Resource class. When a Resource class is added to a ResourceModule,
     # the ResourceModule extends the Resource class with ResourceMetadata and calls this
@@ -59,14 +76,12 @@ module CaRuby
     
    # Prints this classifier's content to the log.
     def pretty_print(q)
-      
-      
-      # KLUDGE - if not inited then bail
+      # KLUDGE - if not inited then bail.
+      # TODO - isolate when this occurs.
       if @attr_md_hash.nil? then
         q.text(qp)
         return
       end
-      
       
       # the Java property descriptors
       property_descriptors = java_attributes.wrap { |attr| attribute_metadata(attr).property_descriptor }
@@ -99,6 +114,7 @@ module CaRuby
         "dependent attributes" => dependents_printer,
         "default values" => defaults
       }.delete_if { |key, value| value.nil_or_empty? }
+      
       # one indented line per entry, all but the last line ending in a comma
       content = map.map { |label, value| "  #{label}=>#{format_print_value(value)}" }.join(",\n")
       # print the content to the log
