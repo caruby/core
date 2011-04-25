@@ -2,6 +2,7 @@ require 'enumerator'
 require 'generator'
 require 'caruby/util/options'
 require 'caruby/util/collection'
+require 'caruby/util/validation'
 require 'caruby/util/visitor'
 require 'caruby/util/math'
 
@@ -184,13 +185,13 @@ module CaRuby
     # @yieldparam [Resource] source the visited source domain object
     # @yieldparam [Resource] target the domain object which matches the visited source
     def visit_matched(source)
-      target = match_for_visited(source)
+      tgt = match_for_visited(source)
       # match the matchable references, if any
       if @matchable then
         attrs = @matchable.call(source) - attributes_to_visit(source)
-        attrs.each { |attr| match_reference(source, target, attr) }
+        attrs.each { |attr| match_reference(source, tgt, attr) }
       end
-      block_given? ? yield(source, target) : target
+      block_given? ? yield(source, tgt) : tgt
     end
 
     # @param source (see #match_visited)
