@@ -8,10 +8,8 @@ module CaRuby
   # The Persistable mixin adds persistance capability. Every instance which includes Persistable
   # must respond to an overrided {#database} method.
   module Persistable
-    include Validation
-
-    # @return [{Symbol => Object}] the content value hash at the point of the last
-    #  take_snapshot call
+    # @return [{Symbol => Object}] the content value hash at the point of the last {#take_snapshot}
+    #   call
     attr_reader :snapshot
       
     # @param [Resource, <Resource>, nil] obj the object(s) to check
@@ -30,10 +28,17 @@ module CaRuby
       not saved?(obj)
     end
     
-    # @return [Database] the data access mediator for this Persistable
-    # @raise [NotImplementedError] if the Persistable subclass does not define this method
+    # Returns the data access mediator for this domain object, if any. The default implementation
+    # returns nil. Application #{Resource} modules can override this method.
+    #
+    # @return [Database, nil] the data access mediator for this Persistable, if any
     def database
-      raise NotImplementedError.new("Database operations are not available for #{self}")
+      nil
+    end
+    
+    # @return [PersistenceService, nil] the database application service for this Persistable, if any
+    def persistence_service
+      database.persistence_service(self) if database
     end
 
     # Fetches the domain objects which match this template from the {#database}.
@@ -177,13 +182,12 @@ module CaRuby
     def add_lazy_loader(loader, attributes=nil)
       # guard against invalid call
       if identifier.nil? then raise ValidationError.new("Cannot add lazy loader to an unfetched domain object: #{self}") end
-
       # the attributes to lazy-load
       attributes ||= loadable_attributes
       return if attributes.empty?
       # define the reader and writer method overrides for the missing attributes
-      loaded = attributes.select { |attr| inject_lazy_loader(attr) }
-      logger.debug { "Lazy loader added to #{qp} attributes #{loaded.to_series}." } unless loaded.empty?
+      attrs = attributes.select { |attr| inject_lazy_loader(attr) }
+      logger.debug { "Lazy loader added to #{qp} attributes #{attrs.to_series}." } unless attrs.empty?
     end
     
     # Returns the attributes to load on demand. The base attribute list is given by the
@@ -361,7 +365,6 @@ module CaRuby
       vh = @snapshot
       ovh = value_hash(self.class.updatable_attributes)
       
-      
       # KLUDGE TODO - confirm this is still a problem and fix
       # In Galena frozen migration example, SpecimenPosition snapshot doesn't include identifier; work around this here
       # This could be related to the problem of an abstract DomainObject not being added as a domain module class. See the
@@ -370,8 +373,6 @@ module CaRuby
         @snapshot[:identifier] = ovh[:identifier]
       end
       # END OF KLUDGE
-      
-      
       
       if vh.size < ovh.size then
         attr, oval = ovh.detect { |a, v| not vh.has_key?(a) }
@@ -400,7 +401,7 @@ module CaRuby
     # @return [Boolean] whether a loader was added to the attribute
     def inject_lazy_loader(attribute)
       # bail if there is already a value
-      send(attribute).enumerate { |ref| return false unless ref.identifier }
+      return false if attribute_loaded?(attribute)
       # the accessor methods to modify
       reader, writer = self.class.attribute_metadata(attribute).accessors
       # The singleton attribute reader method loads the reference once and thenceforth calls the
@@ -411,6 +412,15 @@ module CaRuby
       instance_eval "def #{writer}(value); remove_lazy_loader(:#{attribute}); super; end"
       true
     end
+    
+    # @param (see #inject_lazy_loader)
+    # @return [Boolean] whether the attribute references one or more domain objects, and each
+    #   referenced object has an identifier
+    def attribute_loaded?(attribute)
+      value = transient_value(attribute)
+      return false if value.nil_or_empty?
+      Enumerable === value ? value.all? { |ref| ref.identifier } : value.identifier
+    end
 
     # Loads the reference attribute database value into this Persistable.
     #
@@ -419,14 +429,12 @@ module CaRuby
     def load_reference(attribute)
       ldr = database.lazy_loader
       # bypass the singleton method and call the class instance method if the lazy loader is disabled
-      unless ldr.enabled? then
-        return self.class.instance_method(attribute).bind(self).call
-      end
+      return transient_value(attribute) unless ldr.enabled?
       
       # Disable lazy loading first for the attribute, since the reader method is called by the loader.
       remove_lazy_loader(attribute)
       # load the fetched value
-      merged = ldr.call(self, attribute)
+      merged = ldr.load(self, attribute)
       
       # update dependent snapshots if necessary
       attr_md = self.class.attribute_metadata(attribute)
@@ -446,6 +454,12 @@ module CaRuby
       end
       
       merged
+    end
+    
+    # @param (see #load_reference)
+    # @return the in-memory attribute value, without invoking the lazy loader
+    def transient_value(attribute)
+      self.class.instance_method(attribute).bind(self).call
     end
 
     # Disables the given singleton attribute accessor method.
