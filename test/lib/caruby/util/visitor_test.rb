@@ -1,6 +1,7 @@
 $:.unshift 'lib'
 
-require 'generator'
+# JRuby alert - SyncEnumerator moved from generator to REXML in JRuby 1.5
+require 'rexml/document'
 require "test/unit"
 require 'caruby/util/collection'
 require 'caruby/util/visitor'
@@ -101,7 +102,7 @@ class VistorTest < Test::Unit::TestCase
     child = Node.new(2, p1)
     p2 = Node.new(3)
     p2.children << child
-    result = CaRuby::Visitor.new { |pair| SyncEnumerator.new(pair.first.children, pair.last.children).to_a }.to_enum([p1, p2]).map { |pair| [pair.first.value, pair.last.value] }
+    result = CaRuby::Visitor.new { |pair| REXML::SyncEnumerator.new(pair.first.children, pair.last.children).to_a }.to_enum([p1, p2]).map { |pair| [pair.first.value, pair.last.value] }
     assert_equal([[1, 3], [2, 2]], result.to_a, "Collection visit result incorrect")
   end
 
