@@ -34,4 +34,8 @@
 
 * Fix migration concurrent modification error.
 
+=== 1.4.9 / 2011-03-09
+
+* caTissue 1.2 support.
+
 
