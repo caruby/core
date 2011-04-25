@@ -9,7 +9,8 @@ module CaRuby
     include CaRuby::TestCase
 
     #@param [String] fixtures the fixtures directory
-    def setup(fixtures)
+    def setup(fixtures, database=nil)
+      super(database)
       @fixtures = fixtures
       # Clear the uniquifier for this migration.
       CaRuby::ResourceUniquifier.instance.clear
@@ -45,7 +46,7 @@ module CaRuby
     def create_migrator(fixture, opts={}, &factory)
       opts[:quiet] = true
       opts[:input] ||= File.join(@fixtures, fixture.to_s + '.csv')
-      block_given? ? yield(opts) : CaTissue::Migrator.new(opts)
+      block_given? ? yield(opts) : CaRuby::Migrator.new(opts)
     end
 
     # Verifies that the given test fixture is successfully migrated.
