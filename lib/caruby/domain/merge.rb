@@ -1,3 +1,5 @@
+require 'caruby/util/validation'
+
 module CaRuby
   # A Mergeable supports merging {Resource} attribute values.
   module Mergeable
@@ -74,7 +76,7 @@ module CaRuby
     # @return the merged attribute value
     def merge_attribute(attribute, newval, matches=nil)
       # the previous value
-      oldval = send(attribute)
+      oldval = send(attribute)      
       # If nothing to merge or a block can take over, then bail. 
       if newval.nil? or mergeable__equal?(oldval, newval) then
         return oldval
@@ -132,10 +134,12 @@ module CaRuby
           if matches && matches.has_key?(src) then
             # the source match
             tgt = matches[src]
-            if oldval.include?(tgt) then
-              tgt.merge_attributes(src)
-            else
-              adds << tgt
+            if tgt then
+              if oldval.include?(tgt) then
+                tgt.merge_attributes(src)
+              else
+                adds << tgt
+              end
             end
           else
             adds << src
