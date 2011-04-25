@@ -7,6 +7,21 @@ module CaRuby
     
     protected
     
+    # Infers the inverse of the given attribute declared by this class. A domain attribute is
+    # recognized as an inverse according to the {ResourceInverse#detect_inverse_attribute}
+    # criterion.
+    #
+    # @param [AttributeMetadata] attr_md the attribute to check
+    def infer_attribute_inverse(attr_md)
+      inv = attr_md.type.detect_inverse_attribute(self)
+      if inv then
+        logger.debug { "Detected #{qp} #{attr_md} inverse #{inv.qp}." }
+        set_attribute_inverse(attr_md.to_sym, inv)
+      else
+        logger.debug { "No inverse detected for #{qp} #{attr_md}." }
+      end
+    end
+    
     # Sets the given bi-directional association attribute's inverse.
     #
     # @param [Symbol] attribute the subject attribute
@@ -29,13 +44,15 @@ module CaRuby
         raise TypeError.new("Cannot set #{qp}.#{attribute} inverse to #{attr_md.type.qp}.#{attribute} with incompatible type #{inv_md.type.qp}")
       end
 
-      # if the attribute is defined by this class, then set the inverse in the attribute metadata.
-      # otherwise, make a new attribute metadata specialized for this class.
+      # if the attribute is not declared by this class, then make a new attribute
+      # metadata specialized for this class.
       unless attr_md.declarer == self then
         attr_md = attr_md.dup
         attr_md.declarer = self
         add_attribute_metadata(attribute, inverse)
+        logger.debug { "Copied #{attr_md.declarer}.#{attribute} to #{qp} with restricted inverse return type #{qp}." }
       end
+      # Set the inverse in the attribute metadata.
       attr_md.inverse = inverse
 
       # If attribute is the one side of a 1:M or non-reflexive 1:1 relation, then add the inverse updater.
@@ -57,7 +74,7 @@ module CaRuby
     #   or nil if no owner attribute was detected
     def detect_inverse_attribute(klass)
       # the candidate attributes which return the referencing type
-      candidates = domain_attributes.compose { |attr_md| klass <= attr_md.type }.to_a
+      candidates = domain_attributes.compose { |attr_md| klass <= attr_md.type }
       attr = detect_inverse_attribute_from_candidates(klass, candidates)
       if attr then
         logger.debug { "#{qp} #{klass.qp} inverse attribute is #{attr}." }
