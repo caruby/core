@@ -11,11 +11,10 @@ require 'caruby/database/reader'
 require 'caruby/database/writer'
 require 'caruby/database/persistence_service'
 
-# the caBIG client classes
-import 'gov.nih.nci.system.applicationservice.ApplicationServiceProvider'
-import 'gov.nih.nci.system.comm.client.ClientSession'
-
 module CaRuby
+  # The caBIG client session class.
+  java_import Java::gov.nih.nci.system.comm.client.ClientSession
+  
   # Database operation error.
   class DatabaseError < RuntimeError; end
 
@@ -43,7 +42,7 @@ module CaRuby
   # store method. CaRuby::Resource sets reasonable default values, recognizes application dependencies and steers
   # around caBIG idiosyncracies to the extent possible.
   class Database
-    include Reader, Writer, Persistifier, Validation
+    include Reader, Writer, Persistifier
 
     # Database CRUD operation.
     class Operation
