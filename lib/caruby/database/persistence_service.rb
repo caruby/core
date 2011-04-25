@@ -2,9 +2,16 @@ require 'caruby/util/version'
 require 'caruby/database'
 require 'caruby/util/stopwatch'
 
-import 'gov.nih.nci.common.util.HQLCriteria'
-
 module CaRuby
+  # HQLCriteria is required for the query_hql method.
+  java_import Java::gov.nih.nci.common.util.HQLCriteria
+  
+  # The encapsulated caBIG service class.
+  java_import Java::gov.nih.nci.system.applicationservice.ApplicationServiceProvider
+  
+  # This import is not strictly necessary, but works around Ticket #5.
+  java_import Java::gov.nih.nci.system.comm.client.ApplicationServiceClientImpl
+  
   # A PersistenceService wraps a caCORE application service.
   class PersistenceService
     # The service name.
