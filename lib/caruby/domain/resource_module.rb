@@ -11,6 +11,7 @@ module CaRuby
       [:password, "--password PSWD", "the application login password"],
       [:host, "--host HOST", "the application host name"],
       [:port, "--port PORT", "the application port number"],
+      [:classpath, "--classpath PATH", "the application client classpath"],
       [:database_host, "--database_host HOST", "the database host name"],
       [:database_type, "--database_type TYPE", "the database type (mysql or oracle)"],
       [:database_driver, "--database_driver DRIVER", "the database driver"],
@@ -31,120 +32,98 @@ module CaRuby
   # The properties are read from a property file. See {Properties} for
   # more information.
   #
-  # A Java class is imported into Ruby either by directly calling the
-  # extended module {#java_import} method or on demand.
+  # A Java class is imported into Ruby either by directly calling the extended
+  # module {#resource_import} method or on demand by referencing the class name.
   # Import on demand is induced by a reference to the class, e.g.:
   #   module ClinicalTrials
-  #     extend Importable
+  #     extend CaRuby::ResourceModule
   #
-  #     def java_package
-  #       'org.nci.ctms'
-  #     end
+  #     @java_package = 'org.nci.ctms'
   #     ...
   # enables references by name to a +ClinicalTrials+ Ruby class wrapper of a
   # +org.nci.ctms+ Java class without an import statement, e.g.:
   #   ClinicalTrials::Participant.new
   # without defining the +Participant+ Ruby class.
   module ResourceModule
-    # Adds the given class to this ResourceModule. The class is extended with ResourceMetadata methods.
+    # Loads the {#access_properties} and adds the path property items to the Java classpath.
+    # @param [Module] mod the module to extend
+    def self.extended(mod)
+      super
+      mod.ensure_classpath_defined
+    end
+    
+    # Loads the application start-up properties on demand. The properties are defined in the properties
+    # file or as environment variables.
+    # The properties file path is a period followed by the lower-case application name in the home directory,
+    # e.g. +~/.clincaltrials+ for the +ClinicalTrials+ application.
     #
-    # @param [Class] the {Resource} class to add
-    def add_class(klass)
-      @rsc_classes ||= Set.new
-      # add superclass if necessary
-      unless @rsc_classes.include?(klass.superclass) or klass.superclass == Java::JavaLang::Object then
-        # the domain module includes the superclass on demand
-        const_get(klass.superclass.name[/\w+$/].to_sym)
-      end
-      ResourceMetadata.extend_class(klass, self)
-      @rsc_classes << klass
+    # The property file format is a series of property definitions in the form _property_: _value_.
+    # The supported properties include the following:
+    # * +host+ - the application server host (default +localhost+)
+    # * +port+ - the application server port (default +8080+)
+    # * +user+ - the application server login
+    # * +password+ - the application service password
+    # * +path+ or +classpath+ - the application client Java directories
+    # * +database+ - the application database name
+    # * +database_user+ - the application database connection userid
+    # * +database_password+ - the application database connection password
+    # * +database_host+ - the application database connection host (default +localhost+)
+    # * +database_type+ - the application database type, + mysql+ or +oracle+ (default +mysql+)
+    # * +database_driver+ - the application database connection driver (default is the database type default)
+    # * +database_port+ - the application database connection port (default is the database type default)
+    #
+    # The +path+ value is one or more directories separated by a semi-colon(;) or colon (:)
+    # Each path directory and all jar files within the directory are added to the caRuby execution
+    # Java classpath.
+    #
+    # Each property has an environment variable counterpart given by 
+    #
+    # @return [{Symbol => Object}] the caBIG application access properties
+    def access_properties
+      @rsc_props ||= load_access_properties
+    end
+    
+    # Ensures that the application client classpath is defined. The classpath is defined
+    # in the {#access_properties}. This method is called when a module extends this
+    # ResourceModule, before any application Java domain class is imported into JRuby.
+    def ensure_classpath_defined
+      # Loading the access properties on demand sets the classpath.
+      access_properties
     end
     
     # @return [Module] the resource mix-in module (default {Resouce})
     def mixin
       @mixin || Resource
     end
-
-    # @return [{Symbol => Object}] the caBIG application access properties
-    # @see #load_access_properties
-    def access_properties
-      @rsc_props ||= load_access_properties
+    
+    # Adds the given class to this ResourceModule. The class is extended with ResourceMetadata methods.
+    #
+    # @param [Class] the {Resource} class to add
+    def add_class(klass)
+      logger.debug { "Adding #{klass.java_class.name} to #{qp}..." }
+      @rsc_classes ||= Set.new
+      # add superclass if necessary
+      sc = klass.superclass
+      unless @rsc_classes.include?(sc) then
+        # the domain module includes the superclass on demand
+        sc_pkg, sc_sym = Java.split_class_name(sc)
+        if const_defined?(sc_sym) or sc_pkg == @java_package then
+          const_get(sc_sym)
+        else
+          mod = mixin
+          klass.class_eval { include mod }
+        end
+      end
+      ResourceMetadata.extend_class(klass, self)
+      @rsc_classes << klass
+      class_added(klass)
+      logger.debug { "#{klass.java_class.name} added to #{qp}." }
     end
 
-    # Loads the application start-up properties in the given file path.
-    # The default file path is a period followed by the lower-case application name in the home directory,
-    # e.g. +~/.clincaltrials+.
+    # Auto-loads the Ruby source files in the given directory.
     #
-    # The property file format is a series of property definitions in the form _property_: _value_.
-    # The supported properties include the following:
-    # * +path+ - the application client Java directories
-    # * +user+ - the application service login
-    # * +password+ - the application service password
-    # * +database+ - the application database name
-    # * +database_user+ - the application database connection userid
-    # * +database_password+ - the application database connection password
-    # * :database_host - the application database connection host (default +localhost+)
-    # * +database_type+ - the application database type, + mysql+ or +oracle+ (default +mysql+)
-    # * +database_driver+ - the application database connection driver (default is the database type default)
-    # * +database_port+ - the application database connection port
-    #
-    # The +path+ value is one or more directories separated by a semi-colon(;) or colon (:)
-    # Each path directory and all jar files within the directory are added to the caRuby execution
-    # Java classpath.
-    #
-    # @param [String, nil] file the property file, or nil for the default location
-    # @return [{Symbol => Object}] the loaded caBIG application access properties
-    def load_access_properties(file=nil)
-      # If a file was specified, then it must exist.
-      if file and not File.exists?(file) then
-        raise ArgumentError.new("Application access properties file does not exist: #{file}")
-      end
-      # the access properties
-      props ||= {}
-      # If no file was specified, then try the default.
-      # If the default does not exist, then use the empty properties hash.
-      # It is not an error to omit access properties, since the application domain classes
-      # can still be used but not queried or saved.
-      file ||= default_properties_file || return
-      
-      logger.info("Loading application properties from #{file}...")
-      File.open(file).map do |line|
-        # match the tolerant property definition
-        match = PROP_DEF_REGEX.match(line.chomp) || next
-        # the property [name, value] tokens
-        tokens = match.captures
-        name = tokens.first.to_sym
-        value = tokens.last
-        # capture the property
-        props[name] = value
-      end
-      # Look for environment overrides preceded by the uppercase module name, e.g. CATISSUE
-      # for the CaTissue module.
-      env_prefix = name[/\w+$/].upcase
-      ACCESS_OPTS.each do |spec|
-        # the access option symbol is the first specification item
-        opt = spec[0]
-        # the envvar, e.g. CATISSUE_USER
-        ev = "#{env_prefix}_#{opt.to_s.upcase}"
-        # the envvar value
-        value = ENV[ev] || next
-        # override the file property with the envar value
-        props[opt] = value
-        logger.info("Set application property #{opt} from environment variable #{ev}.")
-      end
-      
-      # load the Java application jar path
-      path_ev = "#{env_prefix}_PATH"
-      path = ENV[path_ev] || props[:path]
-      Java.add_path(path) if path
-      
-      props
-    end
-
-    # Loads the Ruby source files in the given directory.
+    # @param [String] dir the source directory
     def load_dir(dir)
-      # load the properties on demand
-      load_access_properties if @rsc_props.nil?
       # the domain class definitions
       sources = Dir.glob(File.join(dir, "*.rb"))
 
@@ -171,25 +150,45 @@ module CaRuby
       end
     end
     
-    def java_import(klass)
+    # @param [Class, String] class_or_name the class to import into this module
+    # @return [Class] the imported class
+    def java_import(class_or_name)
       # JRuby 1.4.x does not support a class argument
-      Class === klass  ? super(klass.java_class.name) : super
+      Class === class_or_name ? super(class_or_name.java_class.name) : super
+    end
+    
+    # @param [Class, String] class_or_name the class to import into this module
+    # @return [Class] the imported {Resource} class
+    def resource_import(class_or_name)
+      klass = java_import(class_or_name)
+      mod = mixin
+      klass.instance_eval { include mod }
+      add_class(klass)
+      klass
     end
 
-    # Extends the mod module with Java class support. See the class documentation for details.
+    # Imports a class constant on demand. See the class documentation for details.
     #
     # @param [Symbol] symbol the missing constant
     def const_missing(symbol)
       autoload?(symbol) ? super : import_domain_class(symbol)
     end
 
-    # Returns the domain class for class_name, or nil if none in this module.
-    def domain_type_with_name(class_name)
-      pkg, base = split_class_name(class_name)
+    # @param [String] the class name to check
+    # @eturn [Class, nil] the domain class for the class name, or nil if none in this module
+    def domain_type_with_name(name)
+      pkg, base = Java.split_class_name(name)
       return unless pkg.nil? or pkg == @java_package
       begin
         type = const_get(base)
       rescue JavaIncludeError
+      
+      
+      
+      if base =~ /Annotation/ then raise end
+      
+      
+      
         # no such domain type; not an error.
         # other exceptions indicate that there was a domain type but could not be loaded; these exceptions propagate up the call stack
         logger.debug("#{base} is not a #{qp} Java class.")
@@ -200,6 +199,77 @@ module CaRuby
 
     private
 
+    # Callback invoked after the given domain class is added to this domain module.
+    #
+    # @param [Class] klass the class that was added
+    def class_added(klass); end
+    
+    # Loads the application start-up properties in the given file path.
+    #
+    # @return (see #access_properties)
+    def load_access_properties
+      # the properties file
+      file = default_properties_file
+      # the access properties
+      props = File.exists?(file) ? load_properties_file(file) : {}
+      # Look for environment overrides preceded by the uppercase module name,
+      # e.g. CATISSUE_USER for the CaTissue module.
+      load_environment_properties(props)
+      
+      # load the Java application jar path
+      path = props[:classpath] || props[:path]
+      if path then
+        logger.info("Defining application classpath #{path}...")
+        Java.add_path(path)
+      end
+      
+      props
+    end
+    
+    def load_properties_file(file)
+      props = {}
+      logger.info("Loading application properties from #{file}...")
+      File.open(file).map do |line|
+        # match the tolerant property definition
+        match = PROP_DEF_REGEX.match(line.chomp) || next
+        # the property [name, value] tokens
+        tokens = match.captures
+        pname = tokens.first.to_sym
+        # path is deprecated
+        name = pname == :path ? :classpath : pname
+        value = tokens.last
+        # capture the property
+        props[name] = value
+      end
+      props
+    end
+    
+    def load_environment_properties(props)
+      ACCESS_OPTS.each do |spec|
+        # the access option symbol is the first specification item
+        opt = spec[0]
+        # the envvar value
+        value = environment_property(opt) || next
+        # override the file property with the envar value
+        props[opt] = value
+        logger.info("Set application property #{opt} from environment variable #{ev}.")
+      end
+    end 
+    
+    # @param [Symbol] opt the property symbol, e.g. :user
+    # @return [String, nil] the value of the corresponding environment variable, e.g. +CATISSUE_USER+
+    def environment_property(opt)
+      @env_prefix ||= name.gsub('::', '_').upcase
+      ev = "#{@env_prefix}_#{opt.to_s.upcase}"
+      value = ENV[ev]
+      # If no classpath envvar, then try the deprecated path envvar.
+      if value.nil? and opt == :classpath then
+        environment_property(:path)
+      else
+        value
+      end
+    end
+    
     # Imports the domain Java class with specified class name_or_sym.
     # This method enables the domain class extensions for storing and retrieving domain objects.
     # The class is added to this module.
@@ -222,14 +292,10 @@ module CaRuby
     #
     # The optional aliases argument consists of additional alias => standard attribute associations.
     # The optional owner_attr argument is a non-Java annotation owner attribute.
-    def import_domain_class(name_or_sym)
-      name = name_or_sym.to_s
-      if name.include?('.') then
-        symbol = name[/[A-Z]\w*$/].to_sym
-      else
-        symbol = name_or_sym.to_sym
-        name = [@java_package, name].join('.')
-      end
+    #
+    # @param [Symbol] symbol the class symbol
+    # @param [String, nil] pkg the Java class package name, or nil for the default module package
+    def import_domain_class(symbol, pkg=nil)
       # check if the class is already defined
       if const_defined?(symbol) then
         klass = const_get(symbol)
@@ -239,34 +305,49 @@ module CaRuby
       end
       
       # import the Java class
-      logger.debug { "Importing #{qp} Java class #{symbol}..." }
+      pkg ||= @java_package
+      name = [pkg, symbol.to_s].join('.')
+      logger.debug { "Detecting whether #{symbol} is a #{pkg} Java class..." }
+      # Push each imported class onto a stack. When all referenced classes are imported,
+      # each class on the stack is post-initialized and the class structure is printed to
+      # the log.
+      @import_stack ||= []
+      @import_stack.push(symbol)
       begin
-        java_import(name)
-      rescue Exception => e
-        raise JavaIncludeError.new("#{symbol} is not a #{qp} Java class - #{e.message}")
+        resource_import(name)
+      rescue Exception
+        @import_stack.pop
+        if symbol.to_s =~ /Annotation/ then raise end
+        raise JavaIncludeError.new("#{symbol} is not a #{qp} Java class - #{$!}")
       end
       
       # the imported Java class is registered as a constant in this module
       klass = const_get(symbol)
-      # the Resource import stack
-      @import_stack ||= []
-      @import_stack.push klass
-      # include the Resource mixin in the imported class
-      inc = "include #{mixin}"
-      klass.instance_eval(inc)
-      
       # if we are back to top of the stack, then print the imported Resources
-      if klass == @import_stack.first then
+      if symbol == @import_stack.first then
         # a referenced class could be imported on demand in the course of printing a referencing class;
         # the referenced class is then pushed onto the stack. thus, the stack can grow during the
         # course of printing, but each imported class is consumed and printed in the end.
         until @import_stack.empty? do
-          ref = @import_stack.pop
-          logger.debug { ref.pp_s }
+          # the class constant
+          sym = @import_stack.pop
+          # the imported class
+          kls = const_get(sym)
+          # invoke the call-back
+          imported(kls)
+          # print the class structure to the log
+          logger.info(kls.pp_s)
         end
       end
+      
       klass
     end
+
+    # Call-back to perform post-import actions. This method is called after the
+    # given class and each of its referenced domain classes are introspected.
+    #
+    # @param [Class] the imported class
+    def imported(klass); end
 
     # The property/value matcher, e.g.:
     #   host: jacardi
@@ -287,18 +368,9 @@ module CaRuby
       if File.exists?(file) then
         file
       else
-        logger.warn { "Default application property file not found: #{file}." }
+        logger.debug { "Default #{name} application property file not found: #{file}." }
         nil
       end
-    end
-    
-    # @return [(String, Symbol)] the [package prefix, base class symbol] pair
-    def split_class_name(class_name)
-      # the package prefix, including the period
-      package = Java.java_package_name(class_name)
-      # remove the package and base class name
-      base = package.nil? ? class_name : class_name[package.length + 1..-1]
-      [package, base.to_sym]
     end
   end
 end
