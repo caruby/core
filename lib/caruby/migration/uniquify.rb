@@ -1,4 +1,3 @@
-require 'caruby/migration/migratable'
 require 'caruby/domain/uniquify'
 
 module CaRuby
