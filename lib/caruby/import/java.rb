@@ -8,17 +8,30 @@ require 'ftools'
 require 'date'
 
 require 'caruby/util/class'
+require 'caruby/util/log'
 require 'caruby/util/inflector'
 require 'caruby/util/collection'
 
 module Java
+  private
+  
+  # The Windows semi-colon path separator.
+  WINDOWS_PATH_SEP = ';'
+  
+  # The Unix colon path separator.
+  UNIX_PATH_SEP = ':'
+  
+  public
+  
   # Adds the directories in the given path and all Java jar files contained in the directories
   # to the execution classpath.
   #
   # @param [String] path the colon or semi-colon separated directories
   def self.add_path(path)
+    # the path separator
+    sep = path[WINDOWS_PATH_SEP] ? WINDOWS_PATH_SEP : UNIX_PATH_SEP
     # the path directories
-    dirs = path.split(/[:;]/).map { |dir| File.expand_path(dir) }
+    dirs = path.split(sep).map { |dir| File.expand_path(dir) }
     # Add all jars found anywhere within the directories to the the classpath.
     add_jars(*dirs)
     # Add the directories to the the classpath.
@@ -38,6 +51,10 @@ module Java
   #
   # @param [String] file the jar file or directory to add
   def self.add_to_classpath(file)
+    unless File.exist?(file) then
+      logger.warn("File to place on Java classpath does not exist: #{file}")
+      return
+    end
     if file =~ /.jar$/ then
       # require is preferred to classpath append for a jar file
       require file
@@ -224,15 +241,18 @@ module Java
   def self.now
     JavaUtil::Date.from_ruby_date(DateTime.now)
   end
-
-  # Returns the Java package name for the full class_name, or nil if
-  # class_name is unqualified.
-  def self.java_package_name(class_name)
-    prefix = class_name[/(\w+\.)+/]
-    # remove the trailing period
-    prefix.chop! if prefix
-    prefix
+  
+  # @param [Class, String] the JRuby class or the full Java class name
+  # @return (String, String] the package and base for the given name
+  def self.split_class_name(name_or_class)
+    name = Class === name_or_class ? name_or_class.java_class.name : name_or_class
+    match = NAME_SPLITTER_REGEX.match(name)
+    match ? match.captures : [nil, name]
   end
+  
+  private
+  
+  NAME_SPLITTER_REGEX = /^([\w.]+)\.(\w+)$/
 end
 
 class Class
