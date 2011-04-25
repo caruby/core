@@ -24,8 +24,8 @@ class ClassTest < Test::Unit::TestCase
   class Person
     attr_reader :social_security_number
     attr_accessor :postal_code
-    define_attribute_alias(:ssn, :social_security_number)
-    define_attribute_alias(:zip_code, :postal_code)
+    alias_attribute(:ssn, :social_security_number)
+    alias_attribute(:zip_code, :postal_code)
   end
 
   def test_attribute_alias
