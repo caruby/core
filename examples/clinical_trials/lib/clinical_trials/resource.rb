@@ -1,6 +1,5 @@
 require 'caruby/resource'
 require 'caruby/domain/id_alias'
-require 'caruby/domain/attribute_initializer'
 require 'caruby/domain/resource_module'
 
 # Example CaRuby::ResourceModule containing some simple domain classes.
@@ -9,11 +8,7 @@ module ClinicalTrials
 
   # The module included by all ClinicalTrials domain classes.
   module Resource
-    include CaRuby::Resource, CaRuby::IdAlias, CaRuby::AttributeInitializer
-    
-    def self.included(klass)
-      ClinicalTrials.add_class(klass)
-    end
+    include CaRuby::Resource, CaRuby::IdAlias
   end
 
   private
@@ -41,14 +36,9 @@ module ClinicalTrials
   #
   # This bug defies isolation, since the JRuby java class constructor is primitive
   # and opaque. TODO - isolate, report and fix.
-  import_domain_class('DomainObject')
+  import_domain_class(:DomainObject)
   
   dir = File.join(File.dirname(__FILE__), 'domain')
   load_dir(dir)
 end
 
-module JavaLogger
-  # Unfortunate caTissue work-around. See CaTissue::Resource.
-  # The application might not be caTissue, so allow an unresolved reference.
-  Java::EduWustlCommonUtilLogger::Logger.configure("") rescue nil
-end

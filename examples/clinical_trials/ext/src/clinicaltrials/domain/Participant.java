@@ -27,9 +27,9 @@ public class Participant extends DomainObject
     /**
      * @return the Participant SSN
      */
-    public String getSSN()
+    public Integer getSSN()
     {
-        return name;
+        return ssn;
     }
 
     /**

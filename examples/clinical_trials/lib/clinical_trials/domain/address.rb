@@ -1,10 +1,8 @@
 module ClinicalTrials
   # import the Java class into Ruby
-  java_import Java::clinicaltrials.domain.Address
+  resource_import Java::clinicaltrials.domain.Address
   
   class Address
-    include Resource
-
     def zip_code=(value)
       value = value.to_s if Integer === value
       setZipCode(value)
