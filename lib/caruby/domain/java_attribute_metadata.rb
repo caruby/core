@@ -55,6 +55,16 @@ module CaRuby
       qualify(:collection) if collection_java_class?
     end
     
+    # @return [Symbol] the JRuby wrapper method for the Java property reader
+    def property_reader
+      property_accessors.first
+    end
+    
+    # @return [Symbol] the JRuby wrapper method for the Java property writer
+    def property_writer
+      property_accessors.last
+    end
+    
     def type
       @type ||= infer_type
     end
@@ -90,12 +100,15 @@ module CaRuby
       end
     end
 
-    # Returns whether java_class is an +Iterable+.
+    # @return [Boolean] whether this property's Java type is +Iterable+
     def collection_java_class?
-      @property_descriptor.property_type.interfaces.any? { |xfc| xfc.java_object == Java::JavaLang::Iterable.java_class }
+      # the Java property type
+      ptype = @property_descriptor.property_type
+      # Test whether the corresponding JRuby wrapper class or module is an Iterable.
+      Class.to_ruby(ptype) < Java::JavaLang::Iterable
     end
 
-    # Returns the type for the specified klass property descriptor pd as described in {#initialize}.
+    # @return [Class] the type for the specified klass property descriptor pd as described in {#initialize}
     def infer_type
       collection_java_class? ? infer_collection_type : infer_non_collection_type
     end
@@ -103,40 +116,47 @@ module CaRuby
     # Returns the domain type for this attribute's Java Collection property descriptor.
     # If the property type is parameterized by a single domain class, then that generic type argument is the domain type.
     # Otherwise, the type is inferred from the property name as described in {#infer_collection_type_from_name}.
+    #
+    # @return [Class] this property's Ruby type
     def infer_collection_type
        generic_parameter_type or infer_collection_type_from_name or Java::JavaLang::Object
     end
 
+    # @return [Class] this property's Ruby type
     def infer_non_collection_type
-      prop_type = @property_descriptor.property_type
-      if prop_type.primitive then
-        Class.to_ruby(prop_type)
+      jtype = @property_descriptor.property_type
+      if jtype.primitive then
+        Class.to_ruby(jtype)
       else
-        @declarer.domain_module.domain_type_with_name(prop_type.name) or Class.to_ruby(prop_type)
+        @declarer.domain_module.domain_type_with_name(jtype.name) or Class.to_ruby(jtype)
       end
     end
 
+    # @return [Class, nil] the Ruby type as determined by the configuration, if any
     def configured_type
       name = @declarer.class.configuration.domain_type_name(to_sym) || return
       @declarer.domain_module.domain_type_with_name(name) or java_to_ruby_class(name)
     end
 
-    # Returns the domain type of this attribute's property descriptor Collection generic type argument, or nil if none.
+    # @return [Class, nil] the domain type of this attribute's property descriptor Collection generic
+    #   type argument, or nil if none
     def generic_parameter_type
       method = @property_descriptor.readMethod || return
-      prop_type = method.genericReturnType
-      return unless Java::JavaLangReflect::ParameterizedType === prop_type
-      arg_types = prop_type.actualTypeArguments
-      return unless arg_types.size == 1
-      arg_type = arg_types[0]
-      klass = java_to_ruby_class(arg_type)
-      logger.debug { "Inferred #{declarer.qp} #{self} domain type #{klass.qp} from generic parameter #{arg_type.name}." } if klass
+      gtype = method.genericReturnType
+      return unless Java::JavaLangReflect::ParameterizedType === gtype
+      atypes = gtype.actualTypeArguments
+      return unless atypes.size == 1
+      atype = atypes[0]
+      klass = java_to_ruby_class(atype)
+      logger.debug { "Inferred #{declarer.qp} #{self} domain type #{klass.qp} from generic parameter #{atype.name}." } if klass
       klass
     end
 
-    def java_to_ruby_class(java_type)
-      java_type = java_type.name unless String === java_type
-      @declarer.domain_module.domain_type_with_name(java_type) or Class.to_ruby(java_type)
+    # @param [Class, String] jtype the Java class or class name
+    # @return [Class] the corresponding Ruby type 
+    def java_to_ruby_class(jtype)
+      name = String === jtype ? jtype : jtype.name
+      @declarer.domain_module.domain_type_with_name(name) or Class.to_ruby(name)
     end
 
     # Returns the domain type for this attribute's collection Java property descriptor name.
@@ -148,13 +168,16 @@ module CaRuby
     # is inferred as +DistributionProtocol+ by stripping the +Collection+ suffix,
     # capitalizing the prefix and looking for a class of that name in this classifier's
     # domain_module.
+    #
+    # @return [Class] the collection item type
     def infer_collection_type_from_name
       prop_name = @property_descriptor.name
       index = prop_name =~ /Collection$/
       index ||= prop_name.length
       prefix = prop_name[0...1].upcase + prop_name[1...index]
-      logger.debug { "Inferring #{declarer.qp} #{self} domain type from attribute name prefix #{prefix}..." }
-      @declarer.domain_module.domain_type_with_name(prefix)
+      klass = @declarer.domain_module.domain_type_with_name(prefix)
+      if klass then logger.debug { "Inferred #{declarer.qp} #{self} collection domain type #{klass.qp} from the attribute name." } end
+      klass
     end
   end
 end
