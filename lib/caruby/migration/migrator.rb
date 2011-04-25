@@ -16,7 +16,6 @@ require 'caruby/util/pretty_print'
 require 'caruby/util/properties'
 require 'caruby/util/collection'
 require 'caruby/migration/migratable'
-require 'caruby/migration/uniquify'
 
 module CaRuby
   class MigrationError < RuntimeError; end
@@ -35,11 +34,12 @@ module CaRuby
     # @option opts [String] :input required source file to migrate
     # @option opts [String] :shims optional array of shim files to load
     # @option opts [String] :unique ensures that migrated objects which include the {Resource::Unique}
-    #   mix-in do not conflict with existing or future objects (used for testing) 
+    # @option opts [String] :create optional flag indicating that existing target objects are ignored
     # @option opts [String] :bad optional invalid record file
     # @option opts [Integer] :offset zero-based starting source record number to process (default 0)
     # @option opts [Boolean] :quiet suppress output messages
     def initialize(opts)
+      @rec_cnt = 0
       parse_options(opts)
       build
     end
@@ -48,6 +48,9 @@ module CaRuby
     # This method creates or updates the domain objects mapped from the import source.
     # If a block is given to this method, then the block is called on each stored
     # migration target object.
+    #
+    # If the +:create+ option is set, then an input record for a target object which already
+    # exists in the database is noted in a debug log message and ignored rather than updated.
     #
     # @yield [target] operation performed on the migration target
     # @yieldparam [Resource] target the migrated target domain object
@@ -75,6 +78,9 @@ module CaRuby
 
     # Class {#migrate} with a {#save} block.
     def execute_save
+      if @database.nil? then
+        raise MigrationError.new("Migrator cannot save records since the database option was not specified.")
+      end
       @database.open do |db|
         migrate do |target|
           save(target, db)
@@ -108,13 +114,20 @@ module CaRuby
       @input = Options.get(:input, opts)
       raise MigrationError.new("Migrator missing required source file parameter") if @input.nil?
       @database = opts[:database]
-      raise MigrationError.new("Migrator missing required database parameter") if @database.nil?
       @target_class = opts[:target]
       raise MigrationError.new("Migrator missing required target class parameter") if @target_class.nil?
       @bad_rec_file = opts[:bad]
-      logger.info("Migration options: #{opts.reject { |option, value| value.nil_or_empty? }.pp_s}.")
+      @create = opts[:create]
+      logger.info("Migration options: #{printable_options(opts).pp_s}.")
       # flag indicating whether to print a progress monitor
       @print_progress = !opts[:quiet]
+    end
+    
+    def printable_options(opts)
+      popts = opts.reject { |option, value| value.nil_or_empty? }
+      # The target class should be a simple class name rather than the class metadata.
+      popts[:target] = popts[:target].qp if popts.has_key?(:target)
+      popts
     end
 
     def build
@@ -288,13 +301,13 @@ module CaRuby
         @loader.trash = @bad_rec_file
         logger.info("Unmigrated records will be written to #{File.expand_path(@bad_rec_file)}.")
       end
-      rec_cnt = mgt_cnt = 0
+      @rec_cnt = mgt_cnt = 0
       logger.info { "Migrating #{@input}..." }
       @loader.each do |row|
         # the one-based current record number
-        rec_no = rec_cnt + 1
+        rec_no = @rec_cnt + 1
         # skip if the row precedes the offset option
-        rec_cnt += 1 && next if rec_cnt < @offset
+        @rec_cnt += 1 && next if @rec_cnt < @offset
         begin
           # migrate the row
           logger.debug { "Migrating record #{rec_no}..." }
@@ -328,9 +341,9 @@ module CaRuby
             raise MigrationError.new("Migration not performed on record #{rec_no}")
           end
         end
-        rec_cnt += 1
+        @rec_cnt += 1
       end
-      logger.info("Migrated #{mgt_cnt} of #{rec_cnt} records.")
+      logger.info("Migrated #{mgt_cnt} of #{@rec_cnt} records.")
     end
     
     # Prints a +\++ progress indicator to stdout.
@@ -359,15 +372,29 @@ module CaRuby
       # migrate each object from the input row
       created.each { |obj| obj.migrate(row, migrated) }
       # remove invalid migrations
-      migrated.delete_if { |obj| not migration_valid?(obj) }
+      valid, invalid = migrated.partition { |obj| migration_valid?(obj) }
       # set the references
-      migrated.each { |obj| obj.migrate_references(row, migrated, @mgt_mth_hash[obj.class]) }
+      valid.each { |obj| obj.migrate_references(row, migrated, @mgt_mth_hash[obj.class]) }
       # the target object
-      target = migrated.detect { |obj| @target_class === obj }
-      if target then
-        logger.debug { "Migrated target #{target}." }
-        target
-      end
+      target = valid.detect { |obj| @target_class === obj } || return
+      # the target is invalid if it has an invalid owner
+      return unless owner_valid?(target, valid, invalid)
+      logger.debug { "Migrated target #{target}." }
+      target
+    end
+    
+    # Returns whether the given domain object satisfies at least one of the following conditions:
+    # * it has an owner among the valid objects
+    # * it does not have an owner among the invalid objects
+    #
+    # @param [Resource] obj the domain object to check
+    # @param [<Resource>] valid the valid migrated objects
+    # @param [<Resource>] invalid the invalid migrated objects
+    # @return [Boolean] whether the domain object is valid 
+    def owner_valid?(obj, valid, invalid)
+      otypes = obj.class.owners
+      invalid.all? { |other| not otypes.include?(other.class) } or
+        valid.any? { |other| otypes.include?(other.class) }
     end
 
     # @param [Migratable] obj the migrated object
@@ -441,22 +468,22 @@ module CaRuby
       end
     end
 
-    # Sets the given parent reference AttributeMetadata attr_md attribute to a new domain object.
+    # Sets the given migrated object's reference attribute to a new referenced domain object.
     #
-    # @param [Resource] parent the domain object being migrated
+    # @param [Resource] obj the domain object being migrated
     # @param [AttributeMetadata] attr_md the attribute being migrated
     # @param row (see #create)
     # @param created (see #create)
     # @return the new object
-    def create_reference(parent, attr_md, row, created)
+    def create_reference(obj, attr_md, row, created)
       if attr_md.type.abstract? then
-        raise MigrationError.new("Cannot create #{parent.qp} #{attr_md} with abstract type #{attr_md.type}")
+        raise MigrationError.new("Cannot create #{obj.qp} #{attr_md} with abstract type #{attr_md.type}")
       end
       ref = attr_md.type.new
       ref.migrate(row, Array::EMPTY_ARRAY)
-      parent.send(attr_md.writer, ref)
+      obj.send(attr_md.writer, ref)
       created << ref
-      logger.debug { "Migrator created #{parent.qp} #{attr_md} #{ref}." }
+      logger.debug { "Migrator created #{obj.qp} #{attr_md} #{ref}." }
       ref
     end
 
@@ -481,9 +508,23 @@ module CaRuby
     # @param [Resource] obj the domain object to save in the database
     # @return [Resource, nil] obj if the save is successful, nil otherwise
     def save(obj, database)
-      logger.debug { "Migrator saving #{obj}..." }
-      database.save(obj)
-      logger.debug { "Migrator saved #{obj}." }
+      if @create then
+        if database.find(obj) then
+          logger.debug { "Migrator ignored record #{current_record}, since it already exists as #{obj.printable_content(obj.class.secondary_key_attributes)} with id #{obj.identifier}." }
+        else
+          logger.debug { "Migrator creating #{obj}..." }
+          database.create(obj)
+          logger.debug { "Migrator creating #{obj}." }
+        end
+      else
+        logger.debug { "Migrator saving #{obj}..." }
+        database.save(obj)
+        logger.debug { "Migrator saved #{obj}." }
+      end
+    end
+    
+    def current_record
+      @rec_cnt + 1
     end
 
     # @param [String] file the migration fields configuration file
@@ -565,8 +606,12 @@ module CaRuby
       # build the AttributeMetadata path
       path = []
       names.inject(klass) do |parent, name|
-        attr_md = parent.attribute_metadata(name.to_sym) rescue nil
-        raise MigrationError.new("Migration field mapping attribute not found: #{parent.qp}.#{name}") if attr_md.nil?
+        attr = name.to_sym
+        attr_md = begin
+          parent.attribute_metadata(attr)
+        rescue NameError
+          raise MigrationError.new("Migration field mapping attribute #{parent.qp}.#{attr} not found: #{$!}")
+        end
         path << attr_md
         attr_md.type
       end
