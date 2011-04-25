@@ -4,10 +4,6 @@ require 'caruby/util/pretty_print'
 module CaRuby
   # SearchTemplateBuilder builds a template suitable for a caCORE saarch database operation.
   class SearchTemplateBuilder
-    def initialize(database)
-      @database = database
-    end
-
     # Returns a template for matching the domain object obj and the optional hash values.
     # The default hash attributes are the {ResourceAttributes#searchable_attributes}.
     # The template includes only the non-domain attributes of the hash references.
@@ -42,16 +38,18 @@ module CaRuby
 
     private
 
-    # Sets the template attribute to a new search reference object created from source.
-    # The reference contains only the source identifier.
-    # Returns the search reference, or nil if source does not exist in the database.
+    # Sets the template attribute to a new search reference object created from the given
+    # source domain object. The reference contains only the source identifier, if it exists,
+    # or the source non-domain attributes otherwise.
+    #
+    # @return [Resource] the search reference
     def add_search_template_reference(template, source, attribute)
       ref = source.identifier ? source.copy(:identifier) : source.copy
       # Disable inverse integrity, since the template attribute assignment might have added a reference
       # from ref to template, which introduces a template => ref => template cycle that causes a caCORE
       # search infinite loop. Use the Java property writer instead.
-      writer = template.class.attribute_metadata(attribute).property_accessors.last
-      template.send(writer, ref)
+      wtr = template.class.attribute_metadata(attribute).property_writer
+      template.send(wtr, ref)
       logger.debug { "Search reference parameter #{attribute} for #{template.qp} set to #{ref} copied from #{source.qp}" }
       ref
     end

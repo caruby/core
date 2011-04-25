@@ -253,20 +253,24 @@ module CaRuby
           # add qualified prerequisite attribute references
           stbl.send(attr).enumerate do |ref|
             # Add the prerequisite if it satisfies the prerequisite? condition.
-            prereqs << ref if prerequisite?(ref, obj)
+            prereqs << ref if prerequisite?(ref, obj, attr)
           end
         end
-      end
+      end    
       prereqs
     end
     
-    # A referenced object is a target object save prerequisite if is the target object, was already created
-    # or is in an immediate or recursive dependent of the target object.
+    # A referenced object is a target object save prerequisite if none of the follwing is true:
+    # * it is the target object
+    # * it was already created
+    # * it is in an immediate or recursive dependent of the target object
+    # * the current save operation is in the context of creating the referenced object
     #
     # @param [Resource] ref the reference to check
     # @param [Resource] obj the object being stored
+    # @param [Symbol] attribute the reference attribute
     # @return [Boolean] whether the reference should exist before storing the object
-    def prerequisite?(ref, obj)
+    def prerequisite?(ref, obj, attribute)
       not (ref == obj or ref.identifier or ref.owner_ancestor?(obj))
     end
   end

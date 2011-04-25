@@ -140,8 +140,10 @@ module CaRuby
         raise ArgumentError.new("Database ensure_exists is missing a domain object argument") if obj.nil_or_empty?
         obj.enumerate { |ref| find(ref, :create) unless ref.identifier }
       end
+
+      private
       
-      # Returns whether there is already the given obj operation in progress that is not in the scope of
+      # Returns whether there is already the given object operation in progress that is not in the scope of
       # an operation performed on a dependent obj owner, i.e. a second obj save operation of the same type
       # is only allowed if the obj operation was delegated to an owner save which in turn saves the dependent
       # obj.
@@ -153,9 +155,7 @@ module CaRuby
         @operations.any? { |op| op.type == operation and op.subject == obj } and
           not obj.owner_ancestor?(@operations.last.subject)
       end
-
-      private
-
+      
       # Creates obj as follows:
       # * if obj has an uncreated owner, then store the owner, which in turn will create a physical dependent
       # * otherwise, create a storable template. The template is a copy of obj containing a recursive copy
@@ -170,11 +170,14 @@ module CaRuby
         # add obj to the transients set
         @transients << obj
         begin
-          # A dependent of an uncreated owner can be created by creating the owner.
-          # Otherwise, create obj from a template.
-          create_as_dependent(obj) or
-            create_from_template(obj) or
+          # A dependent is created by saving the owner.
+          # Otherwise, create the object from a template.
+          owner = cascaded_owner(obj)
+          result = create_dependent(owner, obj) if owner
+          result ||= create_from_template(obj)
+          if result.nil? then
             raise DatabaseError.new("#{obj.class.qp} is not creatable in context #{print_operations}")
+          end
         ensure
           # since obj now has an id, removed from transients set
           @transients.delete(obj)
@@ -192,18 +195,16 @@ module CaRuby
       #
       #@param [Resource] dep the dependent domain object to create
       # @return [Resource] dep
-      def create_as_dependent(dep)
-        # bail if not dependent or owner is not set
-        ownr = dep.owner || return
-        unless ownr.identifier then
-          logger.debug { "Adding #{ownr.qp} dependent #{dep.qp} defaults..." }
-          logger.debug { "Ensuring that dependent #{dep.qp} owner #{ownr.qp} exists..." }
-          ensure_exists(ownr)
+      def create_dependent(owner, dep)
+        if owner.identifier.nil? then
+          logger.debug { "Adding #{owner.qp} dependent #{dep.qp} defaults..." }
+          logger.debug { "Ensuring that dependent #{dep.qp} owner #{owner.qp} exists..." }
+          ensure_exists(owner)
         end
 
         # If the dependent was created as a side-effect of creating the owner, then we are done.
         if dep.identifier then
-          logger.debug { "Created dependent #{dep.qp} by saving owner #{ownr.qp}." }
+          logger.debug { "Created dependent #{dep.qp} by saving owner #{owner.qp}." }
           return dep
         end
 
@@ -279,6 +280,7 @@ module CaRuby
         # The create template. Independent saved references are created as necessary.
         tmpl = build_create_template(obj)        
         save_with_template(obj, tmpl) { |svc| svc.create(tmpl) }
+
         # If obj is a top-level create, then ensure that remaining references exist.
         if @operations.first.subject == obj then
           refs = obj.references.reject { |ref| ref.identifier }
@@ -340,20 +342,34 @@ module CaRuby
         end
       end
       
-      # Returns whether the given creatable domain attribute with value obj is a 
-      # {AttributeMetadata#one_to_one_bidirectional_independent?}
-      # unsaved optional attribute without an obj {#pending_create?} save context.
+      # Returns whether the given creatable domain attribute with value obj satisfies
+      # each of the following conditions:
+      # * the attribute is {AttributeMetadata#independent?}
+      # * the attribute is not an {AttributeMetadata#owner?}
+      # * the obj value is unsaved
+      # * the attribute is not mandatory
+      # * the attribute references a {#pending_create?} save context.
       #
       # @param obj (see #create)
       # @param [AttributeMetadata] attr_md candidate attribute metadata
       # @return [Boolean] whether the attribute should not be included in the create template
       def exclude_pending_create_attribute?(obj, attr_md)
-        attr_md.one_to_one_bidirectional_independent? and
+        attr_md.independent? and
+          not attr_md.owner? and
           obj.identifier.nil? and
           not obj.mandatory_attributes.include?(attr_md.to_sym) and
-          ref = obj.send(attr_md.to_sym) and
-          ref.identifier.nil? and
-          pending_create?(ref)
+          exclude_pending_create_value?(obj.send(attr_md.to_sym))
+      end
+      
+      # @param [Resource, <Resource>, nil] value the referenced value
+      # @return [Boolean] whether the value includes a {#pending_create?} save context object
+      def exclude_pending_create_value?(value)
+        return false if value.nil?
+        if Enumerable === value then
+           value.any? { |ref| exclude_pending_create_value?(ref) }
+        else
+          value.identifier.nil? and pending_create?(value)
+        end
       end
       
       # @param [Resource] obj the object to check
@@ -395,9 +411,47 @@ module CaRuby
           proxied.each { |dep| update(dep) }
         end
         
+        # update a cascaded dependent by updating the owner
+        owner = cascaded_owner(obj)
+        result = update_dependent(owner, obj) if owner
+        # if not cascaded, then update directly with a template
+        result ||= create_from_template(obj)
+        
         # update using a template
         tmpl = build_update_template(obj)
         
+        # call the caCORE service with an obj update template
+        save_with_template(obj, tmpl) { |svc| svc.update(tmpl) }
+        # take a snapshot of the updated content
+        obj.take_snapshot
+      end
+      
+      # Returns the owner that can cascade update to the given object.
+      # The owner is the #{Resource#effective_owner_attribute_metadata} value
+      # for which the owner attribute {AttributeMetadata#inverse_attribute_metadata}
+      # is {AttributeMetadata#cascaded?}.
+      # 
+      # @param [Resource] obj the domain object to update
+      # @return [Resource, nil] the owner which can cascade an update to the object, or nil if none
+      # @raise [DatabaseError] if the domain object is a cascaded dependent but does not have an owner
+      def cascaded_owner(obj)
+        return unless obj.class.cascaded_dependent?
+        # the owner attribute
+        oattr = obj.effective_owner_attribute
+        if oattr.nil? then raise DatabaseError.new("Dependent #{obj} does not have an owner") end
+        dep_md = obj.class.attribute_metadata(oattr).inverse_attribute_metadata
+        if dep_md and dep_md.cascaded? then
+          obj.send(oattr)
+        end
+      end
+      
+      def update_dependent(owner, obj)
+        logger.debug { "Updating #{obj} by saving the owner #{owner}..." }
+        update(owner)
+      end
+      
+      def update_from_template(obj)
+        tmpl = build_update_template(obj)
         # call the caCORE service with an obj update template
         save_with_template(obj, tmpl) { |svc| svc.update(tmpl) }
         # take a snapshot of the updated content
@@ -471,13 +525,20 @@ module CaRuby
       # @param [Resource] template the obj template to submit to caCORE
       def save_with_template(obj, template)
         logger.debug { "Saving #{obj.qp} from template:\n#{template.dump}" }
-        # call the application service
-        # dispatch to the app service
+        # dispatch to the application service
+        result = submit_save_template(obj, template)
+        # sync the result
+        sync_saved(obj, result)
+      end
+      
+      # Dispatches the given template to the application service.
+      #
+      # @param (see #save_with_template)
+      def submit_save_template(obj, template)
         svc = persistence_service(template)
         result = template.identifier ? svc.update(template) : svc.create(template)
         logger.debug { "Store #{obj.qp} with template #{template.qp} produced caCORE result: #{result}." }
-        # sync the result
-        sync_saved(obj, result)
+        result
       end
       
       # Synchronizes the content of the given saved domain object and the save result source as follows:
@@ -551,7 +612,6 @@ module CaRuby
       def sync_save_result(source, target)
         # Bail if the result is the same as the source, as occurs, e.g., with caTissue annotations.
         return if source == target
-        logger.debug { "Synchronizing #{target} save result #{source} with the database..." }
         # If the target was created, then refetch and merge the source if necessary to reflect auto-generated
         # non-domain attribute values.
        if target.identifier.nil? then sync_created_result_object(source) end
@@ -559,7 +619,6 @@ module CaRuby
         sync_save_result_references(source, target)
         # Set inverses consistently in the source object graph
         set_inverses(source)
-        logger.debug { "Synchronized #{target} save result #{source} with the database." }
       end
       
       # Refetches the given create result source if there are any {ResourceAttributes#autogenerated_nondomain_attributes}
@@ -639,7 +698,9 @@ module CaRuby
       # Saves the given dependent domain object if necessary.
       # Recursively saves the obj dependents as necessary.
       #
-      # @param [Resource] obj the dependent domain object to save
+      # @param [Resource] owner the dependent owner
+      # @param [Symbol] attribute the dependent attribute
+      # @param [Resource] dependent the dependent to save
       def save_dependent_if_changed(owner, attribute, dependent)
         if dependent.identifier.nil? then
           logger.debug { "Creating #{owner.qp} #{attribute} dependent #{dependent.qp}..." }
@@ -652,19 +713,24 @@ module CaRuby
           op = operations.last
           # The dependent is auto-generated if the owner was created or auto-generated and
           # the dependent attribute is auto-generated.
-          ag = (op.type == :create or op.autogenerated?) && owner.class.attribute_metadata(attribute).autogenerated?
+          attr_md = owner.class.attribute_metadata(attribute)
+          ag = (op.type == :create or op.autogenerated?) && attr_md.autogenerated?
           logger.debug { "Updating the changed #{owner.qp} #{attribute} dependent #{dependent.qp}..." }
-          perform(:update, dependent, :autogenerated => ag) { update_object(dependent) }
+          if ag then
+            logger.debug { "Adding defaults to the auto-generated #{owner.qp} #{attribute} dependent #{dependent.qp}..." }
+            dependent.add_defaults_autogenerated
+          end
+          update_changed_dependent(owner, attribute, dependent, ag)
         else
           save_changed_dependents(dependent)
         end
       end
       
-      # Creates the given dependent domain object.
+      # Updates the given dependent.
       #
-      # @param (see #save_dependent)
-      def create_dependent(owner, dep)
-        create(dep)
+      # @param (see #save_dependent_if_changed)
+      def update_changed_dependent(owner, attribute, dependent, autogenerated)
+        perform(:update, dependent, :autogenerated => autogenerated) { update_object(dependent) }
       end
     end
   end

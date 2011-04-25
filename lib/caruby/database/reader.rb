@@ -13,7 +13,7 @@ module CaRuby
       def initialize
         super
         # the query template builder
-        @srch_tmpl_bldr = SearchTemplateBuilder.new(self)
+        @srch_tmpl_bldr = SearchTemplateBuilder.new
         # the fetch result matcher
         @matcher = FetchedMatcher.new
         # the fetched copier
@@ -272,6 +272,10 @@ module CaRuby
 
       # Queries the given query object attribute by querying an attribute type template which references obj.
       #
+      # caCORE alert - caCORE caCORE search enters an infinite loop when the search argument has an object
+      # reference graph cycle. Work-around is to ensure that reference integrity is broken in the search
+      # argument by not setting inverse attributes.
+      #
       # @param (see #query_object)
       def query_with_inverted_reference(obj, attribute=nil)
         attr_md = obj.class.attribute_metadata(attribute)
@@ -282,14 +286,12 @@ module CaRuby
         tmpl = attr_md.type.new
         # the inverse attribute
         inv_md = tmpl.class.attribute_metadata(attr_md.inverse)
-        # the Java property writer to set the tmpl inverse to ref.
-        # use the property writer rather than the attribute writer in order to curtail automatically
+        # The Java property writer to set the tmpl inverse to ref.
+        # Use the property writer rather than the attribute writer in order to curtail automatically
         # adding tmpl to the ref attribute value when the inv_md attribute is set to ref.
-        # caCORE alert - caCORE query relies on a lack of inverse integrity, since caCORE search
-        # enters an infinite loop upon encountering an object graph cycle.
-        writer = inv_md.property_accessors.last
+        wtr = inv_md.property_writer
         # parameterize tmpl with inverse ref
-        tmpl.send(writer, ref)
+        tmpl.send(wtr, ref)
         # submit the query
         logger.debug { "Submitting #{obj.qp} #{attribute} inverted query template #{tmpl.qp} ..." }
         persistence_service(tmpl).query(tmpl)
