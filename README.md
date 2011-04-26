@@ -27,7 +27,7 @@ Feature List
 
 Installing
 ----------
-caRuby is installed automatically when an application gem, e.g. caruby-tissue,
+caRuby is installed automatically when an application gem, e.g. [caruby-tissue](http://caruby.rubyforge.org/catissue.html),
 is installed.
 
 Usage
