@@ -135,10 +135,11 @@ module CaRuby
       raise MigrationError.new("No file to migrate") if @input.nil?
 
       # make a CSV loader which only converts input fields corresponding to non-String attributes
-      logger.info { "Migration input file: #{@input}." }
+      logger.info("Migration input file: #{@input}.")
       @loader = CsvIO.new(@input) do |value, info|
         value unless @nonstring_headers.include?(info.header)
       end
+      logger.debug { "Migration data input file #{@input} headers: #{@loader.headers.qp}" } 
 
       # create the class => path => header hash
       fld_map = load_field_map(@fld_map_file)
@@ -152,6 +153,11 @@ module CaRuby
       @cls_paths_hash.keys.each { |klass| add_owners(klass) }
       # order the creatable classes by dependency, owners first, to smooth the migration process
       @creatable_classes = @cls_paths_hash.keys.sort! { |klass, other| other.depends_on?(klass) ? -1 : (klass.depends_on?(other) ? 1 : 0) }
+      @creatable_classes.each do |klass|
+        if klass.abstract? then
+          raise MigrationError.new("Migrator cannot create the abstract class #{klass}; specify a subclass instead in the mapping file.")
+        end
+      end
       # print the maps
       print_hash = LazyHash.new { Hash.new }
       @cls_paths_hash.each do |klass, paths|
@@ -418,6 +424,7 @@ module CaRuby
     # @return [Resource] the new instance
     def create(klass, row, created)
       # the new object
+      logger.debug { "Migrator creating #{klass.qp}..." }
       created << obj = klass.new
       migrate_attributes(obj, row, created)
       add_defaults(obj, row, created)
@@ -545,6 +552,7 @@ module CaRuby
         # the header accessor method for the field
         header = @loader.accessor(field)
         raise MigrationError.new("Field defined in migration configuration #{file} not found in input file #{@input} headers: #{field}") if header.nil?
+        # associate each attribute path in the property value with the header
         attr_list.split(/,\s*/).each do |path_s|
           klass, path = create_attribute_path(path_s)
           map[klass][path] = header
