@@ -96,7 +96,7 @@ module CaRuby
       logger.debug { "Filtered #{qp} #{attribute} and #{awtr} methods with Java Date <-> Ruby Date converter." }
     end
 
-    # Aliases the methods aliaz and _aliaz= to _property_ and _property=_, resp.,
+    # Aliases the methods _aliaz_ and _aliaz=_ to _property_ and _property=_, resp.,
     # where _property_ is the Java property name for the attribute.
     def alias_attribute_property(aliaz, attribute)
       # strip the Java reader and writer is/get/set prefix and make a symbol
