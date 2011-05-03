@@ -117,7 +117,10 @@ class Class
   # The block creates a proc which implements the new method body.
   #
   # @example
-  #   redefine_method(:ssn) { |old_method| lambda { send(old_method).delete('-').to_i } }
+  #   redefine_method(:ssn) { |omth| lambda { send(omth).delete('-').to_i } }
+  # @param [Symbol] method the method to redefine
+  # @yield [old_method] the redefinition Proc
+  # @yieldparam old_method [Symbol] the method being redefined
   # @return [Symbol] an alias to the old method implementation
   def redefine_method(method)
     # make a new alias id method__base for the existing method.
