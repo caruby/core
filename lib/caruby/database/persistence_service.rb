@@ -24,8 +24,8 @@ module CaRuby
     #
     # @param [String] the caBIG application service name
     # @param [{Symbol => Object}] opts the options
-    # @option opts :host the service host (default +localhost+)
-    # @option opts :version the caTissue version identifier
+    # @option opts [String] :host the service host (default +localhost+)
+    # @option opts [String] :version the caTissue version identifier
     def initialize(name, opts={})
       @name = name
       ver_opt = opts[:version]
