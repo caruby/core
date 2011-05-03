@@ -30,8 +30,8 @@
 
 * Support annotation migration.
 
-=== 1.4.8 / 2011-04-25
+=== 1.4.8 / 2011-05-03
 
-* Fix migration concurrent modification error.
+* Fix annotation migration error.
 
 * Refactor resource import.
