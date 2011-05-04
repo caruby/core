@@ -13,51 +13,76 @@ module CaRuby
   class SQLExecutor
     # Creates a new SQLExecutor with the given options.
     #
-    # The default :database_host is the application :host property value, which in turn
-    # defaults to 'localhost'.
+    # The default database host is the application :host property value, which in turn
+    # defaults to +localhost+.
     #
-    # The default :database_type is 'mysql'. The optional :database_port property overrides
+    # The default database type is +mysql+. The optional :database_port property overrides
     # the default port for the database type.
     #
-    # The default :database_driver is 'jdbc:mysql' for MySQL or 'Oracle' for Oracle.
+    # The default database driver is +jdbc:mysql+ for MySQL, +Oracle+ for Oracle.
+    # The default database driver class is +com.mysql.jdbc.Driver+ for MySQL,
+    # +oracle.jdbc.OracleDriver+ for Oracle.
     #
-    # @option options [String] :database_host the database host
-    # @option options [String] :database the database name
-    # @option options [Integer] :database_port the database password (not the application login password)
-    # @option options [String] :database_type the DBI database type, e.g. +mysql+
-    # @option options [String] :database_driver the DBI connect driver string, e.g. +jdbc:mysql+
-    # @option options [String] :database_user the database username (not the application login name)
-    # @option options [String] :database_password the database password (not the application login password)
-    # Raises CaRuby::ConfigurationError if an option is invalid.
-    def initialize(options)
-      app_host = Options.get(:host, options, "localhost")
-      db_host = Options.get(:database_host, options, app_host)
-      db_type = Options.get(:database_type, options, "mysql")
-      db_driver = Options.get(:database_driver, options) { default_driver_string(db_type) }
-      db_port = Options.get(:database_port, options) { default_port(db_type) }
-      db_name = Options.get(:database, options) { raise_missing_option_exception(:database) }
+    # @param [Hash] opts the connect options
+    # @option opts [String] :database the mandatory database name
+    # @option opts [String] :database_user the mandatory database username (not the application login name)
+    # @option opts [String] :database_password the mandatory database password (not the application login password)
+    # @option opts [String] :database_host the optional database host
+    # @option opts [Integer] :database_port the optional database port number
+    # @option opts [String] :database_type the optional DBI database type, e.g. +mysql+
+    # @option opts [String] :database_driver the optional DBI connect driver string, e.g. +jdbc:mysql+
+    # @option opts [String] :database_driver_class the optional DBI connect driver class name
+    # @raise [CaRuby::ConfigurationError] if an option is invalid
+    def initialize(opts)
+      app_host = Options.get(:host, opts, 'localhost')
+      db_host = Options.get(:database_host, opts, app_host)
+      db_type = Options.get(:database_type, opts, 'mysql')
+      db_driver = Options.get(:database_type, opts) { default_driver_string(db_type) }
+      db_port = Options.get(:database_port, opts) { default_port(db_type) }
+      db_name = Options.get(:database, opts) { raise_missing_option_exception(:database) }
       @address = "dbi:#{db_driver}://#{db_host}:#{db_port}/#{db_name}"
-      @username = Options.get(:database_user, options) { raise_missing_option_exception(:database_user) }
-      @password = Options.get(:database_password, options) { raise_missing_option_exception(:database_password) }
+      @username = Options.get(:database_user, opts) { raise_missing_option_exception(:database_user) }
+      @password = Options.get(:database_password, opts) { raise_missing_option_exception(:database_password) }
+      @driver_class = Options.get(:database_driver_class, opts, default_driver_class(db_type))
+      # The effective connection options.
+      eff_opts = {
+        :database => db_name,
+        :database_host => db_host,
+        :database_user => @username,
+        :database_type => db_type,
+        :database_port => db_port,
+        :database_driver => db_driver,
+        :database_driver_class => @driver_class
+      }
+      logger.debug { "Database connection options (excluding password): #{eff_opts.qp}" }
     end
 
     # Connects to the database, yields the DBI handle to the given block and disconnects.
     #
     # @return [Array] the execution result
     def execute
-      logger.debug { "Connecting to database with user #{@username}, address #{@address}..." }
-      result = DBI.connect(@address, @username, @password, "driver"=>"com.mysql.jdbc.Driver") { |dbh| yield dbh }
-      logger.debug { "Disconnected from the database." }
-      result
+      DBI.connect(@address, @username, @password, 'driver'=> @driver_class) { |dbh| yield dbh }
     end
 
     private
+    
+    MYSQL_DRIVER_CLASS_NAME = 'com.mysql.jdbc.Driver'
+    
+    ORACLE_DRIVER_CLASS_NAME = 'oracle.jdbc.OracleDriver'
 
     def default_driver_string(db_type)
       case db_type.downcase
         when 'mysql' then 'jdbc:mysql'
         when 'oracle' then 'Oracle'
         else raise CaRuby::ConfigurationError.new("Default database connection driver string could not be determined for database type #{db_type}")
+      end
+    end
+    
+    def default_driver_class(db_type)
+      case db_type.downcase
+        when 'mysql' then MYSQL_DRIVER_CLASS_NAME
+        when 'oracle' then ORACLE_DRIVER_CLASS_NAME
+        else raise CaRuby::ConfigurationError.new("Default database connection driver class could not be determined for database type #{db_type}")
       end
     end
 
