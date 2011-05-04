@@ -113,11 +113,11 @@ module CaRuby
     
     # Returns the attributes to visit in building the template for the given
     # domain object. The visitable attributes consist of the following:
-    # * The {ResourceAttributes#unproxied_cascaded_attributes} filtered as follows:
+    # * The {ResourceAttributes#unproxied_save_template_attributes} filtered as follows:
     #   * If the database operation is a create, then exclude the cascaded attributes.
     #   * If the given object has an identifier, then exclude the attributes which
     #     have the the :no_cascade_update_to_create flag set.
-    # * The {ResourceAttributes#proxied_cascaded_attributes} are included if and
+    # * The {ResourceAttributes#proxied_save_template_attributes} are included if and
     #   only if every referenced object has an identifier, and therefore does not
     #   need to be proxied.
     #
@@ -130,7 +130,7 @@ module CaRuby
     # @return [<Symbol>] the reference attributes to include in the update template
     def savable_cascaded_attributes(obj)
       # The starting set of candidate attributes is the unproxied cascaded references.
-      unproxied = savable_attributes(obj, obj.class.unproxied_cascaded_attributes)
+      unproxied = savable_attributes(obj, obj.class.unproxied_save_template_attributes)
       # The proxied attributes to save.
       proxied = savable_proxied_attributes(obj)
       # The combined set of savable attributes
@@ -178,7 +178,7 @@ module CaRuby
     def savable_proxied_attributes(obj)
       # Include a proxied reference only if the proxied dependents have an identifier,
       # since those without an identifer are created separately via the proxy.
-      obj.class.proxied_cascaded_attributes.reject do |attr|
+      obj.class.proxied_save_template_attributes.reject do |attr|
         ref = obj.send(attr)
         case ref
           when Enumerable then ref.any? { |dep| not dep.identifier }
@@ -200,7 +200,7 @@ module CaRuby
     # references via the proxy create before building the update template.
     def copy_proxied_save_references(obj, template)
       return unless obj.identifier
-      obj.class.proxied_cascaded_attributes.each do |attr|
+      obj.class.proxied_save_template_attributes.each do |attr|
         # the proxy source
         ref = obj.send(attr)
         case ref

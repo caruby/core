@@ -481,10 +481,10 @@ module CaRuby
       #   must be created via the proxy after the Specimen is created.
       #
       # @param (see #update)
-      # @return [<Resource>] the #{ResourceAttributes#proxied_cascaded_attributes} dependents
+      # @return [<Resource>] the #{ResourceAttributes#proxied_save_template_attributes} dependents
       #   which are #{Persistable#changed?}
       def updatable_proxied_dependents(obj)
-        attrs = obj.class.proxied_cascaded_attributes
+        attrs = obj.class.proxied_save_template_attributes
         return Array::EMPTY_ARRAY if attrs.empty?
         deps = []
         attrs.each do |attr|

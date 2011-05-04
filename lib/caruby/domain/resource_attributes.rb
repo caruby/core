@@ -167,14 +167,19 @@ module CaRuby
 
     # @return [<Symbol>] the {#cascaded_attributes} which are saved with a proxy
     #   using the dependent saver_proxy method
-    def proxied_cascaded_attributes
-      @px_cscd_attrs ||= cascaded_attributes.compose { |attr_md| attr_md.proxied_save? }
+    def proxied_save_template_attributes
+      @px_cscd_attrs ||= save_template_attributes.compose { |attr_md| attr_md.proxied_save? }
     end
 
     # @return [<Symbol>] the {#cascaded_attributes} which do not have a
     #   #{AttributeMetadata#proxied_save?}
-    def unproxied_cascaded_attributes
-      @unpx_cscd_attrs ||= cascaded_attributes.compose { |attr_md| not attr_md.proxied_save? }
+    def unproxied_save_template_attributes
+      @unpx_sv_tmpl_attrs ||= save_template_attributes.compose { |attr_md| not attr_md.proxied_save? }
+    end
+
+    # @return [<Symbol>] the {#domain_attributes} to {AttributeMetadata#include_in_save_template?}
+    def save_template_attributes
+      @sv_tmpl_attrs ||= domain_attributes.compose { |attr_md| attr_md.include_in_save_template? }
     end
     
     # Returns the physical or auto-generated logical dependent attributes that can
