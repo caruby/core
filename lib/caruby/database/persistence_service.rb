@@ -32,6 +32,7 @@ module CaRuby
       @version = ver_opt.to_s.to_version if ver_opt
       @host = opts[:host] || default_host
       @port = opts[:port] || 8080
+      @url = "http://#{@host}:#{@port}/#{@name}/http/remoteService"
       @timer = Stopwatch.new
       logger.debug { "Created persistence service #{name} at #{@host}:#{@port}." }
     end
@@ -88,11 +89,16 @@ module CaRuby
       end
     end
 
+    # Returns a freshly initialized ApplicationServiceProvider remote instance.
+    #
+    # caCORE alert - When more than one application service is used, each call to the service
+    # must reinitialize the remote instance. E.g. this is done in the caTissue DE examples,
+    # and is a good general practice.
+    #
     # @return [ApplicationServiceProvider] the CaCORE service provider wrapped by this PersistenceService
     def app_service
-      url = "http://#{@host}:#{@port}/#{@name}/http/remoteService"
-      logger.debug { "Connecting to service provider at #{url}..." }
-      ApplicationServiceProvider.remote_instance(url)
+      logger.debug { "Connecting to service provider at #{@url}..." }
+      ApplicationServiceProvider.remote_instance(@url)
     end
 
     private
