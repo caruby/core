@@ -85,16 +85,18 @@ module CaRuby
         end
       end
 
-      # Returns whether domain object obj has a database identifier or exists in the database.
-      # This method fetches obj from the database if necessary.
-      # If obj is a domain object collection, then returns whether each item in the collection exists.
+      # Returns whether the given domain object has a database identifier or exists in the database.
+      # This method fetches the object from the database if necessary.
+      #
+      # @param [Resource, <Resource>] obj the domain object(s) to find
+      # @return [Boolean] whether the domain object(s) exist in the database
       def exists?(obj)
         if obj.nil? then
           false
         elsif obj.collection? then
           obj.all? { |item| exists?(item) }
         else
-          obj.identifier or (obj.searchable? and find(obj))
+          obj.identifier or find(obj)
         end
       end
       
