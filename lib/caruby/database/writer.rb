@@ -113,7 +113,7 @@ module CaRuby
       # @return [Resource] obj
       # @raise [DatabaseError] if the database operation fails
       def save(obj)
-        logger.debug { "Storing #{obj}..." }
+        logger.debug { "Saving #{obj}..." }
         # if obj exists then update it, otherwise create it
         exists?(obj) ? update(obj) : create(obj)
       end
