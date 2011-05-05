@@ -136,15 +136,13 @@ module CaRuby
 
       # make a CSV loader which only converts input fields corresponding to non-String attributes
       logger.info("Migration input file: #{@input}.")
-      @loader = CsvIO.new(@input) do |value, info|
-        value unless @nonstring_headers.include?(info.header)
-      end
+      @loader = CsvIO.new(@input, &method(:convert))
       logger.debug { "Migration data input file #{@input} headers: #{@loader.headers.qp}" } 
 
-      # create the class => path => header hash
-      fld_map = load_field_map(@fld_map_file)
       # create the class => path => default value hash
       @def_hash = @def_file ? load_defaults(@def_file) : LazyHash.new { Hash.new }
+      # create the class => path => header hash
+      fld_map = load_field_map(@fld_map_file)
       # create the class => paths hash
       @cls_paths_hash = create_class_paths_hash(fld_map, @def_hash)
       # create the path => class => header hash
@@ -158,6 +156,7 @@ module CaRuby
           raise MigrationError.new("Migrator cannot create the abstract class #{klass}; specify a subclass instead in the mapping file.")
         end
       end
+      
       # print the maps
       print_hash = LazyHash.new { Hash.new }
       @cls_paths_hash.each do |klass, paths|
@@ -185,7 +184,27 @@ module CaRuby
         @nonstring_headers.merge!(cls_hdr_hash.values) if attr_md.type != Java::JavaLang::String
       end
     end
-
+    
+    # Converts the given input field value as follows:
+    # * if the info header is a String field, then return the value unchanged
+    # * otherwise, if the value is a case-insensitive match for +true+ or +false+, then convert
+    #   the value to the respective Boolean
+    # * otherwise, return nil which will delegate to the generic CsvIO converter
+    # @param (see CsvIO#convert)
+    # @yield (see CsvIO#convert)
+    def convert(value, info)
+      @nonstring_headers.include?(info.header) ? convert_boolean(value) : value
+    end
+    
+    # @param [String] value the input value
+    # @return [Boolean, nil] the corresponding boolean, or nil if none
+    def convert_boolean(value)
+      case value
+        when /true/i then true
+        when /false/i then false
+      end
+    end
+    
     # Adds missing klass owner classes to the migration class path hash (with empty paths).
     def add_owners(klass)
       klass.owners.each do |owner|
@@ -506,8 +525,8 @@ module CaRuby
       # set the attribute
       begin
         obj.send(attr_md.writer, value)
-      rescue Exception => e
-        raise MigrationError.new("Could not set #{obj.qp} #{attr_md} to #{value.qp} - #{e}")
+      rescue Exception
+        raise MigrationError.new("Could not set #{obj.qp} #{attr_md} to #{value.qp} - #{$!}")
       end
       logger.debug { "Migrated #{obj.qp} #{attr_md} to #{value}." }
     end
@@ -561,6 +580,8 @@ module CaRuby
 
       # include the target class
       map[@target_class] ||= Hash.new
+      # include the default classes
+      @def_hash.each_key { |klass| map[klass] ||= Hash.new }
 
       # add superclass paths into subclass paths
       map.each do |klass, path_hdr_hash|
@@ -573,7 +594,7 @@ module CaRuby
       end
 
       # include only concrete classes
-      classes = map.enum_keys
+      classes = map.keys
       map.delete_if do |klass, paths|
         klass.abstract? or classes.any? { |other| other < klass }
       end
@@ -619,6 +640,9 @@ module CaRuby
           parent.attribute_metadata(attr)
         rescue NameError
           raise MigrationError.new("Migration field mapping attribute #{parent.qp}.#{attr} not found: #{$!}")
+        end
+        if attr_md.collection? then
+          raise MigrationError.new("Migration field mapping attribute #{parent.qp}.#{attr} is a collection, which is not supported")
         end
         path << attr_md
         attr_md.type
