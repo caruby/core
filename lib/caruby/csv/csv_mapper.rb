@@ -3,6 +3,8 @@ require 'caruby/util/properties'
 
 module CaRuby
   # Maps a CSV extract to a caBIG application.
+  #
+  # _Note_: CsvMapper is an experimental class used only by the CaTissue::Extractor.
   class CsvMapper
     attr_reader :csvio, :classes
 
