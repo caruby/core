@@ -183,13 +183,6 @@ module CaRuby
       begin
         type = const_get(base)
       rescue JavaIncludeError
-      
-      
-      
-      if base =~ /Annotation/ then raise end
-      
-      
-      
         # no such domain type; not an error.
         # other exceptions indicate that there was a domain type but could not be loaded; these exceptions propagate up the call stack
         logger.debug("#{base} is not a #{qp} Java class.")
@@ -212,7 +205,7 @@ module CaRuby
       # the properties file
       file = default_properties_file
       # the access properties
-      props = File.exists?(file) ? load_properties_file(file) : {}
+      props = file && File.exists?(file) ? load_properties_file(file) : {}
       # Look for environment overrides preceded by the uppercase module name,
       # e.g. CATISSUE_USER for the CaTissue module.
       load_environment_properties(props)
