@@ -443,11 +443,11 @@ module CaRuby
     # @return [Resource] the new instance
     def create(klass, row, created)
       # the new object
-      logger.debug { "Migrator creating #{klass.qp}..." }
+      logger.debug { "Migrator building #{klass.qp}..." }
       created << obj = klass.new
       migrate_attributes(obj, row, created)
       add_defaults(obj, row, created)
-      logger.debug { "Migrator created #{obj}." }
+      logger.debug { "Migrator built #{obj}." }
       obj
     end
     
@@ -654,11 +654,20 @@ module CaRuby
       [klass, path]
     end
     
+    # @param [String] name the class name, without the {#context_module}
+    # @return [Class] the corresponding class
     def class_for_name(name)
       # navigate through the scope to the final class
-      name.split('::').inject(@target_class.domain_module) do |scope, cnm|
-        scope.const_get(cnm)
+      name.split('::').inject(context_module) do |ctxt, cnm|
+        ctxt.const_get(cnm)
       end
+    end
+    
+    # The context module is given by the target class {ResourceClass#domain_module}.
+    #
+    # @return [Module] the class name resolution context
+    def context_module
+      @target_class.domain_module
     end
 
     # @return a new class => [paths] hash from the migration fields configuration map
