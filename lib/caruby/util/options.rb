@@ -30,15 +30,16 @@ class Options
   def self.get(option, options, default=nil, &block)
     return default(default, &block) if options.nil?
     case options
-    when Hash then
-      value = options[option]
-      value.nil? ? default(default, &block) : value
-    when Enumerable then
-      options.include?(option) ? true : default(default, &block)
-    when Symbol then
-      option == options ? true : default(default, &block)
-    else
-      raise ArgumentError.new("Options argument type is not supported; expected Hash or Symbol, found: #{options.class}")
+      when Hash then
+        value = options[option]
+        if String === value then value.strip! end
+        value.nil_or_empty? ? default(default, &block) : value
+      when Enumerable then
+        options.include?(option) ? true : default(default, &block)
+      when Symbol then
+        option == options ? true : default(default, &block)
+      else
+        raise ArgumentError.new("Options argument type is not supported; expected Hash or Symbol, found: #{options.class}")
     end
   end
 
