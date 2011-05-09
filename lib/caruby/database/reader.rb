@@ -198,9 +198,8 @@ module CaRuby
       def query_hql(hql)
         java_name = hql[/from\s+(\S+)/i, 1]
         raise DatabaseError.new("Could not determine target type from HQL: #{hql}") if java_name.nil?
-        target = Class.to_ruby(java_name)
-        service = persistence_service(target)
-        service.query(hql)
+        tgt = Class.to_ruby(java_name)
+        persistence_service(tgt).query(hql)
       end
 
       # Returns an array of objects fetched from the database which matches
@@ -231,9 +230,9 @@ module CaRuby
       # Returns an array of objects fetched from the database which matches
       # the given template and follows the given optional domain attribute.
       def query_on_template(template, attribute=nil)
-        target = attribute ? template.class.domain_type(attribute) : template.class
-        service = persistence_service(target)
-        attribute ? service.query(template, attribute) : service.query(template)
+        tgt = attribute ? template.class.domain_type(attribute) : template.class
+        svc = persistence_service(tgt)
+        attribute ? svc.query(template, attribute) : svc.query(template)
       end
 
       # Queries on the given template and attribute by issuing a HQL query with an identifier condition.
@@ -296,7 +295,7 @@ module CaRuby
         tmpl.send(wtr, ref)
         # submit the query
         logger.debug { "Submitting #{obj.qp} #{attribute} inverted query template #{tmpl.qp} ..." }
-        persistence_service(tmpl).query(tmpl)
+        persistence_service(tmpl.class).query(tmpl)
       end
 
       # Finds the database content matching the given search object and merges the matching
@@ -314,7 +313,7 @@ module CaRuby
       # @raise [DatabaseError] if more than object matches the obj attribute values or if
       #   the search object is a dependent entity that does not reference an owner
       def find_object(obj)
-       if @transients.include?(obj) then
+        if @transients.include?(obj) then
           logger.debug { "Find #{obj.qp} obviated since the search was previously unsuccessful in the current database operation context." }
           return
         end
@@ -331,7 +330,6 @@ module CaRuby
         # so it is done manually here.
         # recursively copy the nondomain attributes, esp. the identifer, of the fetched domain object references
         merge_fetched(fetched, obj)
-
         # caCORE alert - see query method alerts.
         # Inject the lazy loader for loadable domain reference attributes.
         persistify(obj, fetched)
@@ -358,7 +356,6 @@ module CaRuby
         # submit the query on the template
         logger.debug { "Query template for finding #{obj.qp}: #{template}." }
         result = query_on_template(template)
-
         # a fetch query which returns more than one result is an error.
         # possible cause is an incorrect secondary key.
         if result.size > 1 then

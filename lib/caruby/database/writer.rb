@@ -513,7 +513,7 @@ module CaRuby
         if obj.identifier.nil? then
           raise DatabaseError.new("Delete target is missing a database identifier: #{obj}")
         end
-        persistence_service(obj).delete_object(obj)
+        persistence_service(obj.class).delete_object(obj)
       end
 
       # Saves the given template built from the given domain object obj. The persistence operation
@@ -535,7 +535,7 @@ module CaRuby
       #
       # @param (see #save_with_template)
       def submit_save_template(obj, template)
-        svc = persistence_service(template)
+        svc = persistence_service(template.class)
         result = template.identifier ? svc.update(template) : svc.create(template)
         logger.debug { "Store #{obj.qp} with template #{template.qp} produced caCORE result: #{result}." }
         result
@@ -685,9 +685,6 @@ module CaRuby
       #
       # @param [Resource] obj the owner domain object
       def save_changed_dependents(obj)
-        # JRuby alert - copy the Resource dependents call result to an array, since iteration based on
-        # Forwardable enum_for breaks here with an obscure Java ConcurrentModificationException
-        # in the CaTissue SCG save test case. TODO - isolate and fix at source.
         obj.class.dependent_attributes.each do |attr|
           deps = obj.send(attr).to_enum
           logger.debug { "Saving the #{obj} #{attr} dependents #{deps.qp} which have changed..." } unless deps.empty?

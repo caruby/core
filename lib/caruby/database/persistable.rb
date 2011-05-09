@@ -38,7 +38,7 @@ module CaRuby
     
     # @return [PersistenceService, nil] the database application service for this Persistable, if any
     def persistence_service
-      database.persistence_service(self) if database
+      database.persistence_service(self.class) if database
     end
 
     # Fetches the domain objects which match this template from the {#database}.
