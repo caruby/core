@@ -43,7 +43,7 @@ module CaRuby
     # owner class name. The owner class must reference this class via the given
     # inverse dependent attribute.
     #
-    # @param klass (see #obtain_owner_attribute)
+    # @param klass (see #detect_owner_attribute)
     # @param [Symbol] the owner -> dependent inverse attribute 
     # @return [Symbol] this class's new owner attribute
     # @raise [ArgumentError] if the inverse is nil
@@ -128,7 +128,7 @@ module CaRuby
       end
       
       # detect the owner attribute, if necessary
-      attribute ||= obtain_owner_attribute(klass, inverse)
+      attribute ||= detect_owner_attribute(klass, inverse)
       attr_md = attribute_metadata(attribute) if attribute
       # Add the owner class => attribute entry.
       # The attribute is nil if the dependency is unidirectional, i.e. there is an owner class which
@@ -142,8 +142,41 @@ module CaRuby
         set_attribute_inverse(attribute, inverse)
       end
       # set the owner flag if necessary
-      unless attr_md.owner? then
-        attribute_metadata(attribute).qualify(:owner)
+      unless attr_md.owner? then attr_md.qualify(:owner) end
+      # Redefine the writer method to warn when changing the owner
+      rdr, wtr = attr_md.accessors
+      logger.debug { "Injecting owner change warning into #{qp}.#{attribute} writer method #{wtr}..." }
+      redefine_method(wtr) do |old_wtr|
+        lambda do |ref|
+          prev = send(rdr)
+          if prev and prev != ref then
+            if ref.nil? then
+              logger.warn("Unsetting the #{self} owner #{attribute} #{prev}.")
+            elsif ref.identifier != prev.identifier then
+              logger.warn("Resetting the #{self} owner #{attribute} from #{prev} to #{ref}.")
+            end
+          end
+          send(old_wtr, ref)
+        end
+      end
+    end
+    
+    # Adds the given attribute as an owner. This method is called when a new attribute is added that
+    # references an existing owner.
+    #
+    # @param [Symbol] attribute the owner attribute
+    def add_owner_attribute(attribute)
+      attr_md = attribute_metadata(attribute)
+      otype = attr_md.type
+      hash = local_owner_attribute_metadata_hash
+      if hash.include?(otype) then
+        oattr = hash[otype]
+        unless oattr.nil? then
+          raise MetadataError.new("Cannot set #{qp} owner attribute to #{attribute} since it is already set to #{oattr}")
+        end
+        hash[otype] = attr_md
+      else
+        add_owner(otype, attr_md.inverse, attribute)
       end
     end
 
@@ -172,11 +205,12 @@ module CaRuby
     
     # Returns the attribute which references the owner. The owner attribute is the inverse
     # of the given owner class inverse attribute, if it exists. Otherwise, the owner
-    # attribute is inferred by #{ResourceInverse#detect_inverse_attribute}.  
+    # attribute is inferred by #{ResourceInverse#detect_inverse_attribute}.
+
     # @param klass (see #add_owner)
     # @param [Symbol] inverse the owner -> dependent attribute
-    # @return [Symbol] this class's owner attribute
-    def obtain_owner_attribute(klass, inverse)
+    # @return [Symbol, nil] this class's owner attribute
+    def detect_owner_attribute(klass, inverse)
       klass.attribute_metadata(inverse).inverse or detect_inverse_attribute(klass)
     end
   end
