@@ -26,7 +26,7 @@ module CaRuby
     # @param [Hash] opts the connect options
     # @option opts [String] :database the mandatory database name
     # @option opts [String] :database_user the mandatory database username (not the application login name)
-    # @option opts [String] :database_password the mandatory database password (not the application login password)
+    # @option opts [String] :database_password the optional database password (not the application login password)
     # @option opts [String] :database_host the optional database host
     # @option opts [Integer] :database_port the optional database port number
     # @option opts [String] :database_type the optional DBI database type, e.g. +mysql+
@@ -37,12 +37,12 @@ module CaRuby
       app_host = Options.get(:host, opts, 'localhost')
       db_host = Options.get(:database_host, opts, app_host)
       db_type = Options.get(:database_type, opts, 'mysql')
-      db_driver = Options.get(:database_type, opts) { default_driver_string(db_type) }
+      db_driver = Options.get(:database_driver, opts) { default_driver_string(db_type) }
       db_port = Options.get(:database_port, opts) { default_port(db_type) }
       db_name = Options.get(:database, opts) { raise_missing_option_exception(:database) }
       @address = "dbi:#{db_driver}://#{db_host}:#{db_port}/#{db_name}"
       @username = Options.get(:database_user, opts) { raise_missing_option_exception(:database_user) }
-      @password = Options.get(:database_password, opts) { raise_missing_option_exception(:database_password) }
+      @password = Options.get(:database_password, opts)
       @driver_class = Options.get(:database_driver_class, opts, default_driver_class(db_type))
       # The effective connection options.
       eff_opts = {
@@ -53,7 +53,7 @@ module CaRuby
         :database_port => db_port,
         :database_driver => db_driver,
         :database_driver_class => @driver_class
-      }
+      }      
       logger.debug { "Database connection options (excluding password): #{eff_opts.qp}" }
     end
 
@@ -72,7 +72,7 @@ module CaRuby
 
     def default_driver_string(db_type)
       case db_type.downcase
-        when 'mysql' then 'jdbc:mysql'
+        when 'mysql' then 'Jdbc:mysql'
         when 'oracle' then 'Oracle'
         else raise CaRuby::ConfigurationError.new("Default database connection driver string could not be determined for database type #{db_type}")
       end
@@ -95,7 +95,7 @@ module CaRuby
     end
 
     def raise_missing_option_exception(option)
-      raise CaRuby::ConfigurationError.new("database connection property not found: #{option}")
+      raise CaRuby::ConfigurationError.new("Database connection property not found: #{option}")
     end
   end
 end
