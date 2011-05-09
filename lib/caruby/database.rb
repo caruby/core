@@ -6,10 +6,10 @@ require 'caruby/util/options'
 require 'caruby/util/visitor'
 require 'caruby/util/inflector'
 require 'caruby/database/persistable'
-require 'caruby/database/persistifier'
+require 'caruby/database/persistence_service'
 require 'caruby/database/reader'
 require 'caruby/database/writer'
-require 'caruby/database/persistence_service'
+require 'caruby/database/persistifier'
 
 module CaRuby
   # The caBIG client session class.
@@ -77,6 +77,24 @@ module CaRuby
 
     # Creates a new Database with the specified service name and options.
     #
+    # caCORE alert - obtaining a caCORE session instance mysteriously depends on referencing the
+    # application service first. Therefore, the default persistence service appService method must
+    # be called after it is instantiated and before the session is instantiated. However, when
+    # the appService method is called just before a session is acquired, then this call corrupts
+    # the object state of existing objects.
+    #
+    # Specifically, when a CaTissue::CollectionProtocol is created which references a
+    # CaTissue::CollectionProtocolRegistration which in turn references a CaTissue::Participant,
+    # then the call to PersistenceService.appService replaces the CaTissue::Participant
+    # reference with a difference CaTissue::Participant instance. The work-around for
+    # this extremely bizarre bug is to call appService immediately after instantiating
+    # the default persistence service.
+    #
+    # This bug might be a low-level JRuby-Java-caCORE-Hibernate confusion where something in
+    # caCORE stomps on an existing JRuby object graph. To reproduce, move the appService call
+    # to the start_session method and run PCBIN::MigrationTest#test_save with all but the
+    # verify_save(:biopsy, BIOPSY_OPTS) line commented out.
+    #
     # @param [String] service_name the name of the default {PersistenceService}
     # @param [{Symbol => String}] opts access options
     # @option opts [String] :host application service host name
@@ -95,6 +113,7 @@ module CaRuby
       port = Options.get(:port, opts)
       # class => service hash; default is the catissuecore app service
       @def_persist_svc = PersistenceService.new(service_name, :host => host, :port => port)
+      @def_persist_svc.app_service
       @persistence_services = [@def_persist_svc].to_set
       @cls_svc_hash = Hash.new(@def_persist_svc)
       # the create/update nested operations
@@ -148,11 +167,12 @@ module CaRuby
     # Subclasses can override for specialized services. A session is
     # started on demand if necessary.
     #
-    # @param [Persistable] obj the domain object
+    # @param [Persistable, Class] obj the domain object or {Resource} class
     # @return [PersistanceService] the service for the domain object
-    def persistence_service(obj)
-      start_session if @session.nil?
-      @def_persist_svc
+    def persistence_service(klass)
+       unless Class === klass then raise ArgumentError.new("#{self} persistence_service argument is not a Class: {#klass.qp}") end
+       start_session if @session.nil?
+       @def_persist_svc
     end
     
     # Adds the given service to this database.
@@ -243,11 +263,9 @@ module CaRuby
     
     # Initializes the default application service.
     def start_session
-      raise DatabaseError.new('Application user option missing') if @user.nil?
-      raise DatabaseError.new('Application password option missing') if @password.nil?
-      # caCORE alert - obtaining a caCORE session instance mysteriously depends on referencing the application service first
-      @def_persist_svc.app_service
-      @session = ClientSession.instance()
+      if @user.nil? then raise DatabaseError.new('Application user option missing') end
+      if @password.nil? then raise DatabaseError.new('Application password option missing') end
+      @session = ClientSession.instance
       connect(@user, @password)
     end
 
