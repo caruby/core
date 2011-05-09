@@ -1,3 +1,6 @@
+This history lists major release themes. See the GitHub source (https://github.com/caruby/core)
+for change details.
+
 === 1.4.1 / 2010-11-23
 
 * Initial public release.
