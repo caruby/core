@@ -40,8 +40,7 @@ module CaRuby
     # does not have an identifier, then missing attributes are set to the values defined by
     # {ResourceAttributes#add_attribute_defaults}.
     #
-    # _Implementation Note_: subclasses should override the private {#add_defaults_local} method
-    # rather than this method.
+    # Subclasses should override the private {#add_defaults_local} method rather than this method.
     #
     # @return [Resource] self
     def add_defaults
@@ -69,7 +68,7 @@ module CaRuby
     # Subclasses should not override this method, but override the private {#local_validate} instead.
     #
     # @return [Resource] this domain object
-    # @raise (see #local_validate)
+    # @raise (see #validate_local)
     def validate
       if identifier.nil? and not @validated then
         validate_local
@@ -79,6 +78,18 @@ module CaRuby
         send(attr).enumerate { |dep| dep.validate }
       end
       self
+    end
+    
+    # Adds the default values to this object, if it is not already fetched, and its dependents.
+    #
+    # This method is intended for use only by the {#add_defaults} method.
+    def add_defaults_recursive
+      # Add the local defaults.
+      # The lazy loader is enabled in order to allow subclass add_defaults_local implementations
+      # to pick up load-on-demand references used to set defaults. 
+      database.lazy_loader.enable { add_defaults_local }
+      # add dependent defaults
+      each_defaults_dependent { |dep| dep.add_defaults_recursive }
     end
     
     # @return [Boolean] whether this domain object has {#searchable_attributes}
@@ -502,14 +513,6 @@ module CaRuby
     end
     
     protected
-
-    # Adds the default values to this object, if it is not already fetched, and its dependents.
-    def add_defaults_recursive
-      # add the local defaults unless there is an identifier
-      add_defaults_local
-      # add dependent defaults
-      each_defaults_dependent { |dep| dep.add_defaults_recursive }
-    end
 
     # Returns the required attributes for this domain object which are nil or empty.
     #
