@@ -44,7 +44,6 @@ module CaRuby
     # @return [CaTissue::Migrator]
     # @yield [opts] the optional Migrator factory
     def create_migrator(fixture, opts={}, &factory)
-      opts[:quiet] = true
       opts[:input] ||= File.join(@fixtures, fixture.to_s + '.csv')
       block_given? ? yield(opts) : CaRuby::Migrator.new(opts)
     end

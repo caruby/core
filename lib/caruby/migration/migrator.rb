@@ -38,6 +38,7 @@ module CaRuby
     # @option opts [String] :bad optional invalid record file
     # @option opts [Integer] :offset zero-based starting source record number to process (default 0)
     # @option opts [Boolean] :quiet suppress output messages
+    # @option opts [Boolean] :verbose print progress
     def initialize(opts)
       @rec_cnt = 0
       parse_options(opts)
@@ -120,7 +121,7 @@ module CaRuby
       @create = opts[:create]
       logger.info("Migration options: #{printable_options(opts).pp_s}.")
       # flag indicating whether to print a progress monitor
-      @print_progress = !opts[:quiet]
+      @print_progress = opts[:verbose]
     end
     
     def printable_options(opts)
@@ -371,11 +372,12 @@ module CaRuby
       logger.info("Migrated #{mgt_cnt} of #{@rec_cnt} records.")
     end
     
-    # Prints a +\++ progress indicator to stdout.
+    # Prints a +\++ progress indicator to stdout if the count parameter is divisible by ten.
     #
     # @param [Integer] count the progress step count
     def print_progress(count)
-      if count % 72 == 0 then puts "+" else print "+" end
+      if count % 720 then puts end
+      if count % 10 == 0 then puts "+" else print "+" end
     end
 
     # Clears references to objects allocated for migration of a single row into the given target.

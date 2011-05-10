@@ -79,7 +79,8 @@ module CaRuby
         [:file, "--file FILE", "Configuration file containing other options"],
         [:log, "--log FILE", "Log file"],
         [:debug, "--debug", "Display debug log messages"],
-        [:quiet, "-q", "--quiet", "Suppress printing messages to stdout"]
+        [:quiet, "-q", "--quiet", "Suppress printing messages to stdout"],
+        [:verbose, "-v", "--verbose", "Print additional messages to stdout"]
       ]
       
       # @param [{Symbol => Object}] opts the option => value hash
