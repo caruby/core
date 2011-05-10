@@ -3,7 +3,7 @@ require 'caruby/util/collection'
 require 'caruby/util/log'
 
 module CaRuby
-  class JavaIncludeError < StandardError; end;
+  class JavaImportError < StandardError; end;
 
   # The application and database connection access command line options.
   ACCESS_OPTS = [
@@ -155,7 +155,11 @@ module CaRuby
     # @return [Class] the imported class
     def java_import(class_or_name)
       # JRuby 1.4.x does not support a class argument
-      Class === class_or_name ? super(class_or_name.java_class.name) : super
+      begin
+        Class === class_or_name ? super(class_or_name.java_class.name) : super
+      rescue Exception
+        raise JavaImportError.new("#{class_or_name} is not a Java class - #{$!}")
+      end
     end
     
     # @param [Class, String] class_or_name the class to import into this module
@@ -182,10 +186,10 @@ module CaRuby
       return unless pkg.nil? or pkg == @java_package
       begin
         type = const_get(base)
-      rescue JavaIncludeError
+      rescue JavaImportError
         # no such domain type; not an error.
         # other exceptions indicate that there was a domain type but could not be loaded; these exceptions propagate up the call stack
-        logger.debug("#{base} is not a #{qp} Java class.")
+        logger.debug($!)
         return
       end
       type if type < Resource
@@ -309,10 +313,9 @@ module CaRuby
       @import_stack.push(symbol)
       begin
         resource_import(name)
-      rescue Exception
+      rescue JavaImportError
         @import_stack.pop
-        if symbol.to_s =~ /Annotation/ then raise end
-        raise JavaIncludeError.new("#{symbol} is not a #{qp} Java class - #{$!}")
+        raise
       end
       
       # the imported Java class is registered as a constant in this module
