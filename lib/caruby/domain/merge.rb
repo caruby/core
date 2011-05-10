@@ -109,7 +109,7 @@ module CaRuby
     # @see #merge_attribute
     def merge_domain_attribute_value(attr_md, oldval, newval, matches)
       # the dependent owner writer method, if any
-      inv_md = attr_md.inverse_attribute_metadata
+      inv_md = attr_md.inverse_metadata
       if inv_md and not inv_md.collection? then
         owtr = inv_md.writer
       end

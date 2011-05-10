@@ -98,7 +98,7 @@ module CaRuby
     def delegate_writer_to_inverse(attribute, inverse)
       attr_md = attribute_metadata(attribute)
       # nothing to do if no inverse
-      inv_attr_md = attr_md.inverse_attribute_metadata || return
+      inv_attr_md = attr_md.inverse_metadata || return
       logger.debug { "Delegating #{qp}.#{attribute} update to the inverse #{attr_md.type.qp}.#{inv_attr_md}..." }
       # redefine the write to set the dependent inverse
       redefine_method(attr_md.writer) do |old_writer|
@@ -132,7 +132,7 @@ module CaRuby
       rdr, wtr = attr_md.accessors
       logger.debug { "Injecting inverse #{inverse} updater into #{qp}.#{attribute} writer method #{wtr}..." }
       # the inverse atttribute metadata
-      inv_attr_md = attr_md.inverse_attribute_metadata
+      inv_attr_md = attr_md.inverse_metadata
       # the inverse attribute reader and writer
       inv_rdr, inv_wtr = inv_accessors = inv_attr_md.accessors
 

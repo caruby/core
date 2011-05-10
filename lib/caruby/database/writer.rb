@@ -428,7 +428,7 @@ module CaRuby
       
       # Returns the owner that can cascade update to the given object.
       # The owner is the #{Resource#effective_owner_attribute_metadata} value
-      # for which the owner attribute {AttributeMetadata#inverse_attribute_metadata}
+      # for which the owner attribute {AttributeMetadata#inverse_metadata}
       # is {AttributeMetadata#cascaded?}.
       # 
       # @param [Resource] obj the domain object to update
@@ -439,7 +439,7 @@ module CaRuby
         # the owner attribute
         oattr = obj.effective_owner_attribute
         if oattr.nil? then raise DatabaseError.new("Dependent #{obj} does not have an owner") end
-        dep_md = obj.class.attribute_metadata(oattr).inverse_attribute_metadata
+        dep_md = obj.class.attribute_metadata(oattr).inverse_metadata
         if dep_md and dep_md.cascaded? then
           obj.send(oattr)
         end

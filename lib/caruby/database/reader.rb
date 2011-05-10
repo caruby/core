@@ -267,7 +267,7 @@ module CaRuby
         return false if attribute.nil?
         attr_md = obj.class.attribute_metadata(attribute)
         return false if attr_md.type.abstract?
-        inv_md = attr_md.inverse_attribute_metadata
+        inv_md = attr_md.inverse_metadata
         inv_md and inv_md.searchable? and finder_parameters(obj)
       end
 
@@ -452,7 +452,7 @@ module CaRuby
         # fetch the reference
         result = query_safe(obj, attribute)
         # set the result inverse references
-        inv_md = obj.class.attribute_metadata(attribute).inverse_attribute_metadata
+        inv_md = obj.class.attribute_metadata(attribute).inverse_metadata
         if inv_md and not inv_md.collection? then
           inv_obj = obj.copy(:identifier)
           result.each do |ref|

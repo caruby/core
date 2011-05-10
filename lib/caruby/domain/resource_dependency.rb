@@ -66,7 +66,7 @@ module CaRuby
     
     # @return [Boolean] whether this class has an owner which cascades save operations to this dependent
     def cascaded_dependent?
-      owner_attribute_metadata_enumerator.any? { |attr_md| attr_md.cascaded? }
+      owner_attribute_metadata_enumerator.any? { |attr_md| attr_md.inverse_metadata.cascaded? }
     end
 
     # @return [Boolean] whether this class depends the given other class

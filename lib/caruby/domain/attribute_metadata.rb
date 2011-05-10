@@ -137,7 +137,7 @@ module CaRuby
       end
       
       # the inverse of the inverse
-      inv_inv_md = @inv_md.inverse_attribute_metadata
+      inv_inv_md = @inv_md.inverse_metadata
       # If the inverse of the inverse is already set to a different attribute, then raise an exception.
       # Otherwise, it there is an inverse, then set the inverse of the inverse to this attribute.
       if inv_inv_md then
@@ -155,7 +155,7 @@ module CaRuby
     end
 
     # @return [AttributeMetadata, nil] the metadata for the {#inverse} attribute, if any
-    def inverse_attribute_metadata
+    def inverse_metadata
       @inv_md
     end
 
@@ -383,14 +383,14 @@ module CaRuby
       return true if cascaded? and @flags.include?(:no_cascade_update_to_create)
       return false unless independent? and saved?
       return true unless collection?
-      inv_md = inverse_attribute_metadata
+      inv_md = inverse_metadata
       inv_md.nil? or inv_md.collection?
     end
 
     # @return [Boolean] whether this attribute is a collection with a collection inverse
     def many_to_many?
       return false unless collection?
-      inv_md = inverse_attribute_metadata
+      inv_md = inverse_metadata
       inv_md and inv_md.collection?
     end
 
@@ -433,7 +433,7 @@ module CaRuby
 
     # @return [Boolean] whether this is a Java attribute which has a Java inverse
     def bidirectional_java_association?
-      inverse and java_property? and inverse_attribute_metadata.java_property?
+      inverse and java_property? and inverse_metadata.java_property?
     end
 
     def to_sym
@@ -507,7 +507,7 @@ module CaRuby
     def clear_inverse
       return unless @inv_md
       logger.debug { "Clearing #{@declarer.qp}.#{self} inverse #{type.qp}.#{inverse}..." }
-      inv_inv_md = @inv_md.inverse_attribute_metadata
+      inv_inv_md = @inv_md.inverse_metadata
       @inv_md = nil
       if inv_inv_md then inv_inv_md.inverse = nil end
       logger.debug { "Cleared #{@declarer.qp}.#{self} inverse." }
@@ -529,7 +529,7 @@ module CaRuby
             raise MetadataError.new("#{@declarer.qp} owner attribute #{self} does not have a #{type.qp} dependent inverse")
           end
           self.inverse = type.dependent_attribute(@declarer)
-          if inverse_attribute_metadata.logical? then @flags << :logical end
+          if inverse_metadata.logical? then @flags << :logical end
         when :dependent then
           if owner? then
             raise MetadataError.new("#{declarer.qp}.#{self} cannot be set as a  #{type.qp} dependent since it is already defined as a #{type.qp} owner")

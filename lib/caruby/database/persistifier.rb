@@ -156,7 +156,7 @@ module CaRuby
       # @param obj (see #persistify_object)
       def set_inverses(obj)
         obj.class.domain_attributes.each_pair do |attr, attr_md|
-          inv_md = attr_md.inverse_attribute_metadata || next
+          inv_md = attr_md.inverse_metadata || next
           if inv_md.collection? then
             obj.send(attr).enumerate { |ref| ref.send(inv_md.to_sym) << obj }
           else
