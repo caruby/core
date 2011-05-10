@@ -28,17 +28,18 @@ module CaRuby
       not saved?(obj)
     end
     
-    # Returns the data access mediator for this domain object, if any. The default implementation
-    # returns nil. Application #{Resource} modules can override this method.
+    # Returns the data access mediator for this domain object.
+    # Application #{Resource} modules are required to override this method.
     #
-    # @return [Database, nil] the data access mediator for this Persistable, if any
+    # @return [Database] the data access mediator for this Persistable, if any
+    # @raise [DatabaseError] if the subclass does not override this method
     def database
-      nil
+      raise DatabaseError.new("#{self} database is missing")
     end
     
-    # @return [PersistenceService, nil] the database application service for this Persistable, if any
+    # @return [PersistenceService] the database application service for this Persistable
     def persistence_service
-      database.persistence_service(self.class) if database
+      database.persistence_service(self.class)
     end
 
     # Fetches the domain objects which match this template from the {#database}.
@@ -109,7 +110,7 @@ module CaRuby
     alias :== :equal?
 
     alias :eql? :==
-    
+
     # Captures the Persistable's updatable attribute base values.
     # The snapshot is subsequently accessible using the {#snapshot} method.
     #
