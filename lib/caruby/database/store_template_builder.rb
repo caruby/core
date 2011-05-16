@@ -21,7 +21,7 @@ module CaRuby
       # the mergeable attributes filter the given block with exclusions
       @mergeable = Proc.new { |obj| mergeable_attributes(obj, yield(obj)) }
       # the storable prerequisite reference visitor
-      @prereq_vstr = ReferenceVisitor.new(:prune_cycle) { |ref| savable_cascaded_attributes(ref) }
+      @prereq_vstr = ReferenceVisitor.new(:prune_cycle) { |ref| savable_template_attributes(ref) }
       
       # the savable attributes filter the given block with exclusions
       savable = Proc.new { |obj| savable_attributes(obj, yield(obj)) }
@@ -37,7 +37,7 @@ module CaRuby
         copy
       end
       # the template copier
-      @copy_vstr = CopyVisitor.new(:mergeable => savable, :copier => copier) { |ref| savable_cascaded_attributes(ref) }
+      @copy_vstr = CopyVisitor.new(:mergeable => savable, :copier => copier) { |ref| savable_template_attributes(ref) }
     end
 
     # Returns a new domain object which serves as the argument for obj create or update.
@@ -113,11 +113,11 @@ module CaRuby
     
     # Returns the attributes to visit in building the template for the given
     # domain object. The visitable attributes consist of the following:
-    # * The {ResourceAttributes#unproxied_save_template_attributes} filtered as follows:
+    # * The {ResourceAttributes#unproxied_savable_template_attributes} filtered as follows:
     #   * If the database operation is a create, then exclude the cascaded attributes.
     #   * If the given object has an identifier, then exclude the attributes which
     #     have the the :no_cascade_update_to_create flag set.
-    # * The {ResourceAttributes#proxied_save_template_attributes} are included if and
+    # * The {ResourceAttributes#proxied_savable_template_attributes} are included if and
     #   only if every referenced object has an identifier, and therefore does not
     #   need to be proxied.
     #
@@ -128,9 +128,9 @@ module CaRuby
     #
     # @param [Resource] obj the domain object copied to the update template
     # @return [<Symbol>] the reference attributes to include in the update template
-    def savable_cascaded_attributes(obj)
+    def savable_template_attributes(obj)
       # The starting set of candidate attributes is the unproxied cascaded references.
-      unproxied = savable_attributes(obj, obj.class.unproxied_save_template_attributes)
+      unproxied = savable_attributes(obj, obj.class.unproxied_savable_template_attributes)
       # The proxied attributes to save.
       proxied = savable_proxied_attributes(obj)
       # The combined set of savable attributes
@@ -178,7 +178,7 @@ module CaRuby
     def savable_proxied_attributes(obj)
       # Include a proxied reference only if the proxied dependents have an identifier,
       # since those without an identifer are created separately via the proxy.
-      obj.class.proxied_save_template_attributes.reject do |attr|
+      obj.class.proxied_savable_template_attributes.reject do |attr|
         ref = obj.send(attr)
         case ref
           when Enumerable then ref.any? { |dep| not dep.identifier }
@@ -200,7 +200,7 @@ module CaRuby
     # references via the proxy create before building the update template.
     def copy_proxied_save_references(obj, template)
       return unless obj.identifier
-      obj.class.proxied_save_template_attributes.each do |attr|
+      obj.class.proxied_savable_template_attributes.each do |attr|
         # the proxy source
         ref = obj.send(attr)
         case ref

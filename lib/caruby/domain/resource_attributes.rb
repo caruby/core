@@ -6,6 +6,7 @@ module CaRuby
   # ResourceMetadata mix-in for attribute accessors.
   module ResourceAttributes
 
+    # @return [<Symbol>] this class's attributes
     attr_reader :attributes
     
     # @return [Hashable] the default attribute => value associations
@@ -35,9 +36,9 @@ module CaRuby
       IDENTIFIER_ATTR_ARRAY
     end
 
-     # Returns this class's secondary key attribute array.
-     # If this class's secondary key is not set, then the secondary key is the ResourceMetadata superclass
-     # secondary key, if any.
+    # Returns this class's secondary key attribute array.
+    # If this class's secondary key is not set, then the secondary key is the ResourceMetadata superclass
+    # secondary key, if any.
     def secondary_key_attributes
       @scndy_key_attrs or superclass < Resource ? superclass.secondary_key_attributes : Array::EMPTY_ARRAY
     end
@@ -63,6 +64,9 @@ module CaRuby
     #
     # Raises NameError if the attribute is not found
     def standard_attribute(name_or_alias)
+      if name_or_alias.nil? then
+        raise ArgumentError.new("#{qp} standard attribute call is missing the attribute name/alias parameter")
+      end
       @alias_std_attr_map[name_or_alias.to_sym] or raise NameError.new("#{self} attribute not found: #{name_or_alias}")
     end
 
@@ -167,18 +171,18 @@ module CaRuby
 
     # @return [<Symbol>] the {#cascaded_attributes} which are saved with a proxy
     #   using the dependent saver_proxy method
-    def proxied_save_template_attributes
-      @px_cscd_attrs ||= save_template_attributes.compose { |attr_md| attr_md.proxied_save? }
+    def proxied_savable_template_attributes
+      @px_cscd_attrs ||= savable_template_attributes.compose { |attr_md| attr_md.proxied_save? }
     end
 
     # @return [<Symbol>] the {#cascaded_attributes} which do not have a
     #   #{AttributeMetadata#proxied_save?}
-    def unproxied_save_template_attributes
-      @unpx_sv_tmpl_attrs ||= save_template_attributes.compose { |attr_md| not attr_md.proxied_save? }
+    def unproxied_savable_template_attributes
+      @unpx_sv_tmpl_attrs ||= savable_template_attributes.compose { |attr_md| not attr_md.proxied_save? }
     end
 
     # @return [<Symbol>] the {#domain_attributes} to {AttributeMetadata#include_in_save_template?}
-    def save_template_attributes
+    def savable_template_attributes
       @sv_tmpl_attrs ||= domain_attributes.compose { |attr_md| attr_md.include_in_save_template? }
     end
     
@@ -398,16 +402,30 @@ module CaRuby
       @defaults = append_ancestor_enum(@local_defaults) { |par| par.defaults }
     end
     
+    # Detects the first attribute with the given type.
+    #
+    # @param [Class] klass the target attribute type
+    # @return [Symbol, nil] the attribute with the given type
+    def detect_attribute_with_type(klass)
+      attribute_metadata_hash.detect_key_with_value { |attr_md| attr_md.type == klass }
+    end
     
-    # Creates the given attribute alias. Not that unlike {Class#alias_attribute}, this method creates a new
-    # alias reader (writer) method which delegates to the attribute reader (writer, resp.) rather than aliasing
-    # the existing reader or writer method. This allows the alias to pick up run-time redefinitions of the
-    # aliased reader and writer.
+    # Creates the given attribute alias. If the attribute metadata is registered with this class, then
+    # this method overrides {Class#alias_attribute} to create a new alias reader (writer) method
+    # which delegates to the attribute reader (writer, resp.). This aliasing mechanism differs from
+    # {Class#alias_attribute}, which directly aliases the existing reader or writer method.
+    # Delegation allows the alias to pick up run-time redefinitions of the aliased reader and writer.
+    # If the attribute metadata is not registered with this class, then this method delegates to
+    # {Class#alias_attribute}.
     #
     # @param [Symbol] aliaz the attribute alias
     # @param [Symbol] attribute the attribute to alias
     def alias_attribute(aliaz, attribute)
-      add_attribute_aliases(aliaz => attribute)
+      if attribute_defined?(attribute) then
+        add_attribute_aliases(aliaz => attribute)
+      else
+        super
+      end
     end
 
     # Creates the given aliases to attributes.

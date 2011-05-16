@@ -60,7 +60,7 @@ module CaRuby
       add_defaults_recursive
     end
 
-    # Validates this domain object and its #{ResourceAttributes.unproxied_save_template_attributes}
+    # Validates this domain object and its #{ResourceAttributes.unproxied_savable_template_attributes}
     # for completeness prior to a database create operation.
     # An object without an identifer is valid if it contains a non-nil value for each mandatory property.
     # Objects which have an identifier or have already been validated are skipped.
@@ -74,7 +74,7 @@ module CaRuby
         validate_local
         @validated = true
       end
-      self.class.unproxied_save_template_attributes.each do |attr|
+      self.class.unproxied_savable_template_attributes.each do |attr|
         send(attr).enumerate { |dep| dep.validate }
       end
       self
