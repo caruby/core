@@ -49,7 +49,7 @@ module CaRuby
       unless attr_md.declarer == self then
         attr_md = attr_md.dup
         attr_md.declarer = self
-        add_attribute_metadata(attribute, inverse)
+        add_attribute_metadata(attr_md)
         logger.debug { "Copied #{attr_md.declarer}.#{attribute} to #{qp} with restricted inverse return type #{qp}." }
       end
       # Set the inverse in the attribute metadata.
