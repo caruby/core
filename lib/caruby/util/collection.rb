@@ -456,10 +456,25 @@ module Hashable
     each { |key, value| yield key }
   end
 
-  # @return [Object,nil] the key for which the block given to this method returns a non-nil, non-false value,
+  # @yield [key] the detector block
+  # @yieldparam key the hash key
+  # @return [Object, nil] the key for which the detector block returns a non-nil, non-false value,
   #   or nil if none
+  # @example
+  #   {1 => :a, 2 => :b, 3 => :c}.detect_key { |k| k > 1 } #=> 2
   def detect_key
     each_key { |key| return key if yield key }
+    nil
+  end
+
+  # @yield [value] the detector block
+  # @yieldparam value the hash value
+  # @return [Object, nil] the key for which the detector block returns a non-nil, non-false value,
+  #   or nil if none
+  # @example
+  #   {:a => 1, :b => 2, :c => 3}.detect_key_with_value { |v| v > 1 } #=> :b
+  def detect_key_with_value
+    each { |key, value| return key if yield value }
     nil
   end
 
