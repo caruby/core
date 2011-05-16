@@ -113,8 +113,7 @@ module CaRuby
     
     def verify_dependency(dependent)
       return if dependent.class.owner_attribute.nil?
-      # kludge for annotation proxy nonsense (cf. Annotation#owner)
-      ownr = Annotation === dependent ? (dependent.hook or dependent.owner) : dependent.owner
+      ownr = dependent.owner
       assert_not_nil(ownr, "Owner missing for dependent: #{dependent}")
       attribute = ownr.class.dependent_attribute(dependent.class)
       assert_not_nil(attribute, "Dependent attribute missing for #{dependent} owner #{ownr}")
