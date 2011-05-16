@@ -82,20 +82,9 @@ module CaRuby
       dependent_attribute(dep_type.superclass) if dep_type.superclass < Resource
     end
 
-    # @return [Symbol, nil] the sole owner attribute of this class, or nil if there
-    #   is not exactly one owner
-    def owner_attribute
-      attr_md = owner_attribute_metadata_enumerator.first || return
-      # There is at most one non-nil value in the owner class => AttributeMetadata hash.
-      # If there is such a value, then return the attribute symbol.
-      if owner_attribute_metadata_enumerator.size == 1 then
-        attr_md.to_sym
-      end
-    end
-
     # @return [<Symbol>] this class's owner attributes
     def owner_attributes
-      owner_attribute_metadata_enumerator.transform { |attr_md| attr_md.to_sym }
+      @oattrs ||= owner_attribute_metadata_enumerator.transform { |attr_md| attr_md.to_sym }
     end
 
     # @return [<Class>] this class's dependent types
@@ -106,6 +95,27 @@ module CaRuby
     # @return [<Class>] this class's owner types
     def owners
       @owners ||= Enumerable::Enumerator.new(owner_attribute_metadata_hash, :each_key)
+    end
+
+    # @return [AttributeMetadata, nil] the sole owner attribute metadata of this class, or nil if there
+    #   is not exactly one owner
+    def owner_attribute_metadata
+      attr_mds = owner_attribute_metadata_enumerator
+      attr_mds.first if attr_mds.size == 1
+    end
+
+    # @return [Symbol, nil] the sole owner attribute of this class, or nil if there
+    #   is not exactly one owner
+    def owner_attribute
+      attr_md = owner_attribute_metadata || return
+      attr_md.to_sym
+    end
+    
+    # @return [Class, nil] the sole owner type of this class, or nil if there
+    #   is not exactly one owner
+    def owner_type
+      attr_md = owner_attribute_metadata || return
+      attr_md.type
     end
 
     protected
