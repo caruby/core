@@ -360,12 +360,12 @@ module CaRuby
     #   where _name_ is the underscore unqualified module name, e.g. +~/.catissue+
     #   for module +CaTissue+
     def default_properties_file
-      home = ENV['HOME'] || '~'
+      home = ENV['HOME'] || ENV['USERPROFILE'] || '~'
       file = File.expand_path("#{home}/.#{name[/\w+$/].downcase}")
       if File.exists?(file) then
         file
       else
-        logger.debug { "Default #{name} application property file not found: #{file}." }
+        logger.warn("The default #{name} application property file was not found: #{file}.")
         nil
       end
     end
