@@ -5,7 +5,7 @@ require 'caruby/util/collection'
 
 # @return [CaRuby::Logger] the global logger
 def logger
-  CaRuby::Log::instance.logger
+  CaRuby::Log.instance.logger
 end
 
 module CaRuby
@@ -50,7 +50,7 @@ module CaRuby
       shift_age = Options.get(:shift_age, options, 4)
       shift_size = Options.get(:shift_size, options, 16 * 1048576)
       @logger = MultilineLogger.new(dev, shift_age, shift_size)
-      @logger.level = Options.get(:debug, options) ? Logger::DEBUG : Logger::INFO
+      @logger.level = Options.get(:debug, options, ENV["DEBUG"]) ? Logger::DEBUG : Logger::INFO
       @logger.info('============================================')
       @logger.info('Logging started.')
       @dev = dev
@@ -83,8 +83,8 @@ module CaRuby
       log_ndx = ARGV.index("--log") || ARGV.index("-l")
       if log_ndx then
         ARGV[log_ndx + 1]
-      elsif ENV.has_key?("CA_LOG") then
-        ENV["CA_LOG"]
+      elsif ENV.has_key?("LOG") then
+        ENV["LOG"]
       elsif defined?(DEF_LOG_FILE)
         DEF_LOG_FILE
       else
