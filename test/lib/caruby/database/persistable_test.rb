@@ -85,7 +85,7 @@ class PersistableTest < Test::Unit::TestCase
 
   def duplicate_with_id(obj)
     return obj.map { |item| duplicate_with_id(item) } if Enumerable === obj
-    copy = obj.copy(obj.class.nondomain_attributes)
+    copy = obj.copy
     copy.identifier ||= @@counter += 1
     copy
   end
