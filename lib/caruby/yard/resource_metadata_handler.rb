@@ -1,4 +1,4 @@
-class ResourceMetadataHandler < YARD::Handlers::Ruby::Legacy::AttributeHandler
+class MetadataHandler < YARD::Handlers::Ruby::Legacy::AttributeHandler
   handles method_call(/\Aqualify_attribute\b/)
   namespace_only
 
