@@ -200,7 +200,7 @@ module CaRuby
       verify_dependents_match(expected, actual)
     end
     
-    # @param [AttributeMetadata] attr_md the saved attribute to check
+    # @param [Attribute] attr_md the saved attribute to check
     # @return whether the attribute is fetched, creatable and not volatile
     def verify_saved_attribute?(attr_md)
       attr_md.fetched? and attr_md.creatable? and not attr_md.volatile?
