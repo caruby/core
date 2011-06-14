@@ -32,7 +32,7 @@ module CaRuby
       # is a String, then the HQL statement String is executed.
       #
       # Otherwise, the query condition is determined by the values set in the template.
-      # The non-nil {ResourceAttributes#searchable_attributes} are used in the query.
+      # The non-nil {Attributes#searchable_attributes} are used in the query.
       #
       # The optional path arguments are attribute symbols from the template to the
       # destination class, e.g.:
@@ -323,9 +323,9 @@ module CaRuby
         fetched = fetch_object(obj) || return
         # fetch_object can return obj; if so, then done
         return obj if obj.equal?(fetched)
+        
         logger.debug { "Fetch #{obj.qp} matched database object #{fetched}." }
         @transients.delete(obj)
-        
         # caCORE alert - there is no caCORE find utility method to update a search target with persistent content,
         # so it is done manually here.
         # recursively copy the nondomain attributes, esp. the identifer, of the fetched domain object references

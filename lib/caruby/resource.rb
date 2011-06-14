@@ -4,12 +4,14 @@ require 'caruby/util/log'
 require 'caruby/util/pretty_print'
 require 'caruby/util/validation'
 require 'caruby/util/collection'
+require 'caruby/domain'
+require 'caruby/domain/mixin'
 require 'caruby/domain/merge'
 require 'caruby/domain/reference_visitor'
 require 'caruby/database/persistable'
 require 'caruby/domain/inversible'
-require 'caruby/domain/resource_metadata'
-require 'caruby/domain/resource_module'
+require 'caruby/domain/metadata'
+require 'caruby/domain/mixin'
 require 'caruby/migration/migratable'
 
 module CaRuby
@@ -19,8 +21,8 @@ module CaRuby
   module Resource
     include Mergeable, Migratable, Persistable, Inversible
     
-    # JRuby alert - Bug #5090 - JRuby 1.5 object_id no longer reserved, results in String value.
-    # See http://jira.codehaus.org/browse/JRUBY-5090.
+    # JRuby alert - Bug #5090 - JRuby 1.5 object_id is no longer a reserved method, and results
+    # in a String value rather than an Integer (cf. http://jira.codehaus.org/browse/JRUBY-5090).
     # Work-around is to make a proxy object id.
     #
     # @return [Integer] the object id
@@ -38,7 +40,7 @@ module CaRuby
 
     # Sets the default attribute values for this domain object and its dependents. If this Resource
     # does not have an identifier, then missing attributes are set to the values defined by
-    # {ResourceAttributes#add_attribute_defaults}.
+    # {Attributes#add_attribute_defaults}.
     #
     # Subclasses should override the private {#add_defaults_local} method rather than this method.
     #
@@ -60,7 +62,7 @@ module CaRuby
       add_defaults_recursive
     end
 
-    # Validates this domain object and its #{ResourceAttributes.unproxied_savable_template_attributes}
+    # Validates this domain object and its #{Attributes.unproxied_savable_template_attributes}
     # for completeness prior to a database create operation.
     # An object without an identifer is valid if it contains a non-nil value for each mandatory property.
     # Objects which have an identifier or have already been validated are skipped.
@@ -115,11 +117,12 @@ module CaRuby
       return key_attrs if key_searchable?(key_attrs)
     end
 
-    # Returns a new domain object with the given attributes copied from this domain object. The attributes
-    # argument consists of either attribute Symbols or a single Enumerable consisting of Symbols.
-    # The default attributes are the {ResourceAttributes#nondomain_attributes}.
+    # Returns a new domain object with the given attributes copied from this domain object.
+    # The attributes argument consists of either attribute Symbols or a single Enumerable
+    # consisting of Symbols.
+    # The default attributes are the {Attributes#nondomain_attributes}.
     #
-    # @param [<Symbol>] attributes the attributes to copy
+    # @param [<Symbol>, (<Symbol>)] attributes the attributes to copy
     # @return [Resource] a copy of this domain object
     def copy(*attributes)
       if attributes.empty? then
@@ -132,7 +135,7 @@ module CaRuby
     end
 
     # Clears the given attribute value. If the current value responds to the +clear+ method,
-    # then the current value is cleared. Otherwise, the value is set to {ResourceMetadata#empty_value}.
+    # then the current value is cleared. Otherwise, the value is set to {Metadata#empty_value}.
     #
     # @param [Symbol] attribute the attribute to clear
     def clear_attribute(attribute)
@@ -210,7 +213,7 @@ module CaRuby
     end
 
     # Returns an attribute => value hash for the specified attributes with a non-nil, non-empty value.
-    # The default attributes are this domain object's class {ResourceAttributes#attributes}.
+    # The default attributes are this domain object's class {Attributes#attributes}.
     # Only non-nil attributes defined by this Resource are included in the result hash.
     #
     # @param [<Symbol>, nil] attributes the attributes to merge
@@ -255,7 +258,7 @@ module CaRuby
     end
     
     # Returns the attributes which are required for save. This base implementation returns the
-    # class {ResourceAttributes#mandatory_attributes}. Subclasses can override this method
+    # class {Attributes#mandatory_attributes}. Subclasses can override this method
     # for domain object state-specific refinements.
     #
     # @return [<Symbol>] the required attributes for a save operation
@@ -338,7 +341,7 @@ module CaRuby
     end
 
     # Returns the difference between this Persistable and the other Persistable for the
-    # given attributes. The default attributes are the {ResourceAttributes#nondomain_attributes}.
+    # given attributes. The default attributes are the {Attributes#nondomain_attributes}.
     #
     # @param [Resource] other the domain object to compare
     # @param [<Symbol>, nil] attributes the attributes to compare
@@ -445,7 +448,7 @@ module CaRuby
 
     # Prints this domain object's content and recursively prints the referenced content.
     # The optional selector block determines the attributes to print. The default is the
-    # {ResourceAttributes#java_attributes}. The database lazy loader is disabled during
+    # {Attributes#java_attributes}. The database lazy loader is disabled during
     # the execution of this method. Thus, the printed content reflects the transient
     # in-memory object graph rather than the persistent content.
     #
@@ -700,6 +703,9 @@ module CaRuby
       end
     end
 
+    # @param [Attribute] attr_md the attribute to set
+    # @param [Resource] ref the inverse value
+    # @param [Symbol] the inverse => self writer method
     def delegate_to_inverse_setter(attr_md, ref, writer)
       logger.debug { "Setting #{qp} #{attr_md} by setting the #{ref.qp} inverse attribute #{attr_md.inverse}..." }
       ref.send(writer, self)
@@ -721,7 +727,7 @@ module CaRuby
     # Returns the Java type of the given attribute, or nil if attribute is not a Java property attribute.
     def java_type(attribute)
       attr_md = self.class.attribute_metadata(attribute)
-      attr_md.property_descriptor.property_type if JavaAttributeMetadata === attr_md
+      attr_md.property_descriptor.property_type if JavaAttribute === attr_md
     end
     
     # Executes the given block with the database lazy loader disabled, if any.
@@ -739,7 +745,7 @@ module CaRuby
     # oldval targets. If the matcher block is given, then that block is called on the sources
     # and targets. Otherwise, {Resource.match_all} is called.
     #
-    # @param [AttributeMetadata] attr_md the attribute to match
+    # @param [Attribute] attr_md the attribute to match
     # @param newval the source value
     # @param oldval the target value
     # @yield [sources, targets] matches sources to targets

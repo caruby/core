@@ -55,18 +55,18 @@ module CaRuby
       @string_headers = Set.new
       @hdr_map.each do |path, cls_hdr_hash|
         last = path.last
-        @string_headers.merge!(cls_hdr_hash.values) if AttributeMetadata === last and last.type == String
+        @string_headers.merge!(cls_hdr_hash.values) if Attribute === last and last.type == String
       end
     end
 
-    # Returns the given klass's mapped AttributeMetadata paths.
+    # Returns the given klass's mapped Attribute paths.
     # The default klass is the target class.
     def paths(klass=nil)
       klass ||= @target
       @cls_paths_hash[klass]
     end
 
-    # Returns the header mapped by the given AttributeMetadata path and starting klass.
+    # Returns the header mapped by the given Attribute path and starting klass.
     # The default klass is the target class.
     def header(path, klass=nil)
       klass ||= @target
@@ -90,8 +90,8 @@ module CaRuby
       end
     end
 
-    # @param [{Symbol => <AttributeMetadata>}] config the field => path list configuration
-    # @return [({Symbol => <AttributeMetadata>}, {Class => {<AttributeMetadata> => Symbol>}})]
+    # @param [{Symbol => <Attribute>}] config the field => path list configuration
+    # @return [({Symbol => <Attribute>}, {Class => {<Attribute> => Symbol>}})]
     #   the class => paths hash and the path => class => header hash
     def map_headers(config)
       # the class => paths hash; populated in map_headers
@@ -112,7 +112,7 @@ module CaRuby
       [cls_paths_hash, hdr_map]
     end
 
-    # Returns an array of AttributeMetadata or symbol objects for the period-delimited path string path_s in the
+    # Returns an array of Attribute or symbol objects for the period-delimited path string path_s in the
     # pattern (_class_|_attribute_)(+.+_attribute_)*, e.g.:
     #   ClinicalStudy.status
     #   study.status
@@ -127,7 +127,7 @@ module CaRuby
       if names.empty? then
         raise ConfigurationError.new("Attribute entry in CSV field mapping is not in <class>.<attribute> format: #{value}")
       end
-      # build the AttributeMetadata path by traversing the names path
+      # build the Attribute path by traversing the names path
       # if the name corresponds to a parent attribute, then add the attribute metadata.
       # otherwise, if the name is a method, then add the method.
       path = []
@@ -150,7 +150,7 @@ module CaRuby
       tail = names[path.size..-1].map { |name| name.to_sym }
       path.concat(tail)
       # return the starting class and path
-      # Note that the starting class is not necessarily the first path AttributeMetadata declarer, since the
+      # Note that the starting class is not necessarily the first path Attribute declarer, since the
       # starting class could be a concrete subclass of an abstract declarer. this is important, since the class
       # must be instantiated.
       [klass, path]

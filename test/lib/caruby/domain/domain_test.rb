@@ -15,38 +15,24 @@ class DomainTest < Test::Unit::TestCase
     super
     @crd = ClinicalTrials::User.new(:login => 'study.coordinator@test.org')
     address = ClinicalTrials::Address.new(:street => '555 Elm St', :city => 'Burlington', :state => 'VT', :zip_code => '55555')
-    @pnt = ClinicalTrials::Participant.new(:name => 'Test Participant', :address => address)
-    @study = ClinicalTrials::Study.new(:name => 'Test Study', :coordinator => @crd, :enrollment => [@pnt])
+    @sbj = ClinicalTrials::Subject.new(:name => 'Test Subject', :address => address)
+    @study = ClinicalTrials::Study.new(:name => 'Test Study', :coordinator => @crd, :enrollment => [@sbj])
     @evt = ClinicalTrials::StudyEvent.new(:study => @study, :calendar_event_point => 1.0)
   end
 
   def test_alias
     assert(ClinicalTrials::Study.method_defined?(:events), "Study alias not recognized: events")
-    assert_equal(@pnt.address.zip_code, @pnt.address.postal_code, 'zip_code not aliased to postal_code')
-    assert_equal(:zip_code, @pnt.address.class.standard_attribute(:postal_code), 'postal_code does not map to a standard attribute symbol')
+    assert_equal(@sbj.address.zip_code, @sbj.address.postal_code, 'zip_code not aliased to postal_code')
+    assert_equal(:zip_code, @sbj.address.class.standard_attribute(:postal_code), 'postal_code does not map to a standard attribute symbol')
   end
 
   def test_redefine
-    @pnt.address.zip_code = 55555
-    assert_equal('55555', @pnt.address.zip_code, "Address zip_code not redefined to support a numeric value")
+    @sbj.address.zip_code = 55555
+    assert_equal('55555', @sbj.address.zip_code, "Address zip_code not redefined to support a numeric value")
   end
 
   def test_merge_attributes
-    assert_same(@study.enrollment.first, @pnt, "Merge incorrect")
-  end
-
-  def test_merge_unambiguous_dependent_collection_attribute
-    @study.enrollment.clear
-    assert_same(@study.enrollment, @study.merge_attribute(:enrollment, [@pnt]), "Merge collection attribute result incorrect")
-    assert_not_nil(@study.enrollment.first, "Merge collection attribute didn't add source item")
-    assert_same(@study.enrollment.first, @pnt, "Merge collection attribute incorrect")
-  end
-
-  def test_merge_ambiguous_dependent_collection_attribute
-    @study.enrollment.clear
-    assert_same(@study.enrollment, @study.merge_attribute(:enrollment, [@pnt]), "Merge collection attribute result incorrect")
-    assert_not_nil(@study.enrollment.first, "Merge collection attribute didn't add source item")
-    assert_same(@study.enrollment.first, @pnt, "Merge collection attribute incorrect")
+    assert_same(@study.enrollment.first, @sbj, "Merge incorrect")
   end
 
   def test_owner_inverse_setter
@@ -72,9 +58,9 @@ class DomainTest < Test::Unit::TestCase
 
   # Tests whether add_defaults method propagates to dependents.
   def test_participant_defaults
-    assert_nil(@pnt.address.country, 'Participant address country is already set')
-    @pnt.add_defaults
-    assert_equal('US', @pnt.address.country, 'Participant address country is not set to default')
+    assert_nil(@sbj.address.country, 'Subject address country is already set')
+    @sbj.add_defaults
+    assert_equal('US', @sbj.address.country, 'Subject address country is not set to default')
   end
 
   def test_dependents
@@ -91,9 +77,9 @@ class DomainTest < Test::Unit::TestCase
     assert_equal([@study, 1.0], @evt.key, "Event key incorrect")
   end
 
-#  def test_address_key
-#    assert_nil(@pnt.address.key, "Address key incorrect")
-#  end
+  def test_address_key
+    assert_nil(@sbj.address.key, "Address key incorrect")
+  end
 
   def test_set_collection_attribute
     consent = ClinicalTrials::Consent.new(:statement => 'Test Statement 1')
@@ -115,7 +101,7 @@ class DomainTest < Test::Unit::TestCase
   def test_visit_path
     visited = []
     @study.visit_path([:enrollment, :address]) { |ref| visited << ref }
-    assert_equal([@study, @pnt, @pnt.address], visited, "Path visitor incorrect")
+    assert_equal([@study, @sbj, @sbj.address], visited, "Path visitor incorrect")
   end
 
   def test_visit_dependents

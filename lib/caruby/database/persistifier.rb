@@ -90,7 +90,7 @@ module CaRuby
       end
       
       # Sets each of the toxic attributes in the given domain object to the corresponding
-      # {ResourceMetadata#empty_value}.
+      # {Metadata#empty_value}.
       #
       # @param [Resource] toxic the toxic domain object
       def clear_toxic_attributes(toxic)
