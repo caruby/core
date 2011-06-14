@@ -13,7 +13,7 @@ module Galena
       FIXTURES = 'examples/galena/data'
     
       # The migration input data directory.
-      SHIMS = 'examples/galena/lib/galena/migration'
+      SHIMS = 'examples/galena/lib/galena/clinical_trials/migration'
       
       # The migration configuration directory.
       CONFIGS = 'examples/galena/conf/migration'
