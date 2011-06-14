@@ -173,11 +173,11 @@ class CollectionTest < Test::Unit::TestCase
   end
 
   def test_hash_enum_keys
-    assert_equal([1, 2], { 1 => :a, 2 => :b }.enum_keys.sort)
-  end
-
-  def test_hash_partition
-    assert_equal([{:a => 1}, { :b => 2}], { :a => 1, :b => 2 }.partition { |key, value| value < 2 }, "Hash partition incorrect")
+    hash = { 1 => :a, 2 => :b }
+    ek = hash.enum_keys
+    assert_equal([1, 2], ek.sort, "Hash key enumerator incorrect")
+    hash[3] = :c
+    assert_equal([1, 2, 3], ek.sort, "Hash key enumerator does not reflect hash change")
   end
 
   def test_hash_enum_keys_with_value
@@ -186,6 +186,18 @@ class CollectionTest < Test::Unit::TestCase
 
   def test_hash_enum_keys_with_value_block
     assert_equal([:b, :c], {:a => 1, :b => 2, :c => 3}.enum_keys_with_value { |value| value > 1 }.to_a, "Hash filtered value block keys incorrect")
+  end
+
+  def test_hash_enum_values
+    hash = { :a => 1, :b => 2 }
+    ev = hash.enum_values
+    assert_equal([1, 2], ev.sort, "Hash value enumerator incorrect")
+    hash[:c] = 3
+    assert_equal([1, 2, 3], ev.sort, "Hash value enumerator does not reflect hash change")
+  end
+
+  def test_hash_partition
+    assert_equal([{:a => 1}, { :b => 2}], { :a => 1, :b => 2 }.partition { |key, value| value < 2 }, "Hash partition incorrect")
   end
 
   def test_hash_flatten
