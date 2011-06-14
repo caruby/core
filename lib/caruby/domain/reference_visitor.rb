@@ -21,7 +21,7 @@ module CaRuby
     # Creates a new ReferenceVisitor on domain reference attributes.
     #
     # If a selector block is given to this initializer, then the reference attributes to visit
-    # are determined by calling the block. Otherwise, the {ResourceAttributes#saved_domain_attributes}
+    # are determined by calling the block. Otherwise, the {Attributes#saved_domain_attributes}
     # are visited.
     #
     # @param options (see Visitor#initialize)
@@ -345,6 +345,8 @@ module CaRuby
     # @param [Resource] target the domain object to merge into
     # @return [Resource] the merged target
     def merge(source, target)
+      # trivial case
+      return target if source.equal?(target)
       # the domain attributes to merge
       attrs = @mergeable.call(source)
       logger.debug { format_merge_log_message(source, target, attrs) }
@@ -391,9 +393,9 @@ module CaRuby
     # @param (see MergeVisitor#visit)
     # @yield (see MergeVisitor#visit)
     # @yieldparam (see MergeVisitor#visit)
-    def visit(source, &block)
+    def visit(source)
       target = @copier.call(source)
-      super(source, target, &block)
+      super(source, target)
     end
   end
 

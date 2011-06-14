@@ -67,7 +67,6 @@ module CaRuby
         coll = oldval.send(inverse)
         coll.delete(self) if coll
       end
-
       # call the writer on this object
       send(wtr, newval)
       # add self to the inverse collection

@@ -20,13 +20,13 @@ module CaRuby
     #
     # If other is not a Hash, then the other object's attributes values are merged into
     # this object. The default attributes is this mergeable's class
-    # {ResourceAttributes#mergeable_attributes}.
+    # {Attributes#mergeable_attributes}.
     #
     # The merge is performed by calling {#merge_attribute} on each attribute with the matches
     # and merger block given to this method.
     #
     # @param [Mergeable, {Symbol => Object}] other the source domain object or value hash to merge from
-    # @param [<Symbol>, nil] attributes the attributes to merge (default {ResourceAttributes#nondomain_attributes})
+    # @param [<Symbol>, nil] attributes the attributes to merge (default {Attributes#nondomain_attributes})
     # @param [{Resource => Resource}, nil] the optional merge source => target reference matches
     # @yield [attribute, oldval, newval] the optional merger block
     # @yieldparam [Symbol] attribute the merge target attribute
@@ -109,9 +109,13 @@ module CaRuby
     # @see #merge_attribute
     def merge_domain_attribute_value(attr_md, oldval, newval, matches)
       # the dependent owner writer method, if any
-      inv_md = attr_md.inverse_metadata
-      if inv_md and not inv_md.collection? then
-        owtr = inv_md.writer
+      if attr_md.dependent? then
+        val = attr_md.collection? ? newval.first : newval
+        klass = val.class if val
+        inv_md = self.class.inverse_attribute_metadata(attr_md, klass)
+        if inv_md and not inv_md.collection? then
+          owtr = inv_md.writer
+        end
       end
 
       # If the attribute is a collection, then merge the matches into the current attribute
