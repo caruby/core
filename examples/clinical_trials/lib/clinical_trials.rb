@@ -5,9 +5,10 @@ require 'rubygems'
 begin
   gem 'caruby-core'
 rescue LoadError
-  # if the gem is not available, then try a local development source
+  # The gem is not available; try a local development source.
   $:.unshift 'lib'
 end
 
 require 'caruby'
 require 'clinical_trials/resource'
+require 'clinical_trials/database'

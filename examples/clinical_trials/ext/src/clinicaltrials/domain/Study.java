@@ -4,15 +4,15 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.TreeSet;
-import clinicaltrials.domain.Participant;
+import clinicaltrials.domain.Subject;
 import clinicaltrials.domain.Consent;
 
 public class Study extends DomainObject
 {
-	/**
-	 * The event calendarEventPoint comparator.
-	 */
-	private static final Comparator<StudyEvent> eventComparator = createEventComparator();
+    /**
+     * The event calendarEventPoint comparator.
+     */
+    private static final Comparator<StudyEvent> eventComparator = createEventComparator();
 
     /**
      * The Study name.
@@ -48,7 +48,7 @@ public class Study extends DomainObject
      * This property exercises an independent multi-valued reference.
      * </p>
      */
-    private Collection<Participant> enrollment = new HashSet<Participant>();
+    private Collection<Subject> enrollment = new HashSet<Subject>();
 
     /**
      * Collection of consents in the Study.
@@ -145,7 +145,7 @@ public class Study extends DomainObject
     /**
      * @return the collection of participants for this study.
      */
-    public Collection<Participant> getEnrollment()
+    public Collection<Subject> getEnrollment()
     {
         return enrollment;
     }
@@ -153,23 +153,23 @@ public class Study extends DomainObject
     /**
      * @param the collection of participants for this study.
      */
-    public void setEnrollment(Collection<Participant> enrollment)
+    public void setEnrollment(Collection<Subject> enrollment)
     {
         this.enrollment = enrollment;
     }
 
     private static Comparator<StudyEvent> createEventComparator()
     {
-    	return new Comparator<StudyEvent>() {
-			public int compare(StudyEvent e1, StudyEvent e2) {
-				Double p1 = e1.getCalendarEventPoint();
-				Double p2 = e2.getCalendarEventPoint();
-				if (p1 == null) {
-					return p2 == null ? 0 : -1;
-				} else {
-					return p2 == null ? 1 : p1.compareTo(p2);
-				}
-			}
-		};
+        return new Comparator<StudyEvent>() {
+            public int compare(StudyEvent e1, StudyEvent e2) {
+                Double p1 = e1.getCalendarEventPoint();
+                Double p2 = e2.getCalendarEventPoint();
+                if (p1 == null) {
+                    return p2 == null ? 0 : -1;
+                } else {
+                    return p2 == null ? 1 : p1.compareTo(p2);
+                }
+            }
+        };
     }
 }

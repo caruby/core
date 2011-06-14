@@ -1,31 +1,31 @@
 package clinicaltrials.domain;
 
-public class Participant extends DomainObject
+public class Subject extends DomainObject
 {
     /**
-     * The Participant SSN.
+     * The Subject SSN.
      */
     private Integer ssn;
 
     /**
-     * The Participant name.
+     * The Subject name.
      */
     private String name;
 
     /**
-     * The Participant address.
+     * The Subject address.
      * <p>
      * This property exercises a dependent single-valued, unidirectional reference.
      * </p>
      */
     private Address address;
 
-    public Participant()
+    public Subject()
     {
     }
 
     /**
-     * @return the Participant SSN
+     * @return the Subject SSN
      */
     public Integer getSSN()
     {
@@ -40,7 +40,7 @@ public class Participant extends DomainObject
         this.ssn = ssn;
     }
     /**
-     * @return the Participant name
+     * @return the Subject name
      */
     public String getName()
     {
@@ -56,7 +56,7 @@ public class Participant extends DomainObject
     }
 
     /**
-     * @return the Participant address
+     * @return the Subject address
      */
     public Address getAddress()
     {

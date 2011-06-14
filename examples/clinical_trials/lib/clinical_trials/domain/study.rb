@@ -1,7 +1,7 @@
 require 'caruby/util/validation'
 
 module ClinicalTrials
-  # import the Java class into Ruby
+  # Import the Java class into Ruby.
   resource_import Java::clinicaltrials.domain.Study
 
   # Extends the Study domain class.
