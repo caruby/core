@@ -34,9 +34,9 @@ module Enumerable
   # Returns the transitive closure over all items in this Enumerable.
   #
   # @see Object#transitive_closure
-  def transitive_closure(method=nil, &navigator)
+  def transitive_closure(method=nil)
     # delegate to Object if there is a method argument
-    return super(method, &navigator) if method
+    return super(method) if method
     # this Enumerable's children are this Enumerable's contents
     closure = super() { |node| node.equal?(self) ? self : yield(node) }
     # remove this collection from the closure
