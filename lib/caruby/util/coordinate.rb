@@ -41,9 +41,34 @@ class Coordinate < Array
     self[2] = value
   end
 
+  # @param [Coordinate] other the coordinate to compare
   # @return [Boolean] whether other is a Coordinate and has the same content as this Coordinate
   def ==(other)
     super rescue false
+  end
+  
+  # @param (see #==)
+  # @return [Boolean] the comparison result
+  def <(other)
+    (self <=> other) < 0
+  end
+  
+  # @param (see #==)
+  # @return (see #<)
+  def <=(other)
+    (self <=> other) <= 0
+  end
+  
+  # @param (see #==)
+  # @return (see #<)
+  def >(other)
+    (self <=> other) > 0
+  end
+  
+  # @param (see #==)
+  # @return (see #<)
+  def >=(other)
+    (self <=> other) >= 0
   end
 
   # Returns the comparison of the highest dimension which differs from the other
@@ -51,12 +76,13 @@ class Coordinate < Array
   # coordinates in z-y-x order.
   # @example
   #   Coordinate.new(2, 1) < Coordinate.new(1, 2) #=> true
+  # @param [Coordinate] other the coordinate to compare
   # @return [Integer] the high-to-low dimension comparison
   # @raise [ArgumentError] if this Coordinate dimension size Coordinate differs from that
   #   of the other Dimension or any of the dimension values are nil
   # @raise [TypeError] if other is not a Coordinate
   def <=>(other)
-    return true if equal?(other)
+    return 0 if equal?(other)
     raise TypeError.new("Can't compare #{self} with #{other} since it is not a Coordinate") unless Coordinate === other
     raise ArgumentError.new("Can't compare #{self} with #{other} since it has a different dimension count") unless size == other.size
     REXML::SyncEnumerator.new(self.reverse, other.reverse).each_with_index do |pair, index|
