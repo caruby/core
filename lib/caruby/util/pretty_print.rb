@@ -7,14 +7,15 @@ require 'caruby/util/collection'
 require 'caruby/util/inflector'
 
 class PrettyPrint
-  # Fixes the standard prettyprint gem SingleLine to add an output accessor and an optional output argument to {#initialize}.
+  # The standard +prettyprint+ gem SingleLine is adjusted to add an output accessor and an optional output argument to {#initialize}.
   class SingleLine
+    # @return [String] the print target
     attr_reader :output
 
     alias :base__initialize :initialize
     private :base__initialize
 
-    # Allow output to be optional, defaulting to ''
+    # Overrides the standard SingleLine initializer to supply an output parameter default.
     def initialize(output='', maxwidth=nil, newline=nil)
       base__initialize(output, maxwidth, newline)
     end
@@ -29,13 +30,14 @@ class PrintWrapper < Proc
     @args = args
   end
 
-  # Sets the arguments to wrap with this wrapper's print block and returns self.
+  # @param args this wrapper's print block parameters
+  # @return [PrintWrapper] self
   def wrap(*args)
     @args = args
     self
   end
 
-  # Calls this PrintWrapper's print procedure on its arguments.
+  # Calls this PrintWrapper's print procedure on the arguments set in the initializer.
   def to_s
     @args.empty? ? 'nil' : call(*@args)
   end
@@ -44,7 +46,7 @@ class PrintWrapper < Proc
 end
 
 class Object
-  # Prints this object's class demodulized name and object id.
+  # @return [String] this object's class demodulized name and object id
   def print_class_and_id
     "#{self.class.qp}@#{object_id}"
   end
@@ -52,11 +54,14 @@ class Object
   # qp, an abbreviation for quick-print, calls {#print_class_and_id} in this base implementation.
   alias :qp :print_class_and_id
 
-  # Formats this object as a String with PrettyPrint.
-  # If the :single_line option is set, then the output is printed to a single line.
-  def pp_s(options=nil)
+  # Formats this object with the standard {PrettyPrint}.
+  #
+  # @param [Hash, Symbol, nil] opts the print options
+  # @option opts [Boolean] :single_line print the output on a single line
+  # @return [String] the formatted print result
+  def pp_s(opts=nil)
     s = StringIO.new
-    if Options.get(:single_line, options) then
+    if Options.get(:single_line, opts) then
       PP.singleline_pp(self, s)
     else
       PP.pp(self, s)
@@ -67,58 +72,70 @@ class Object
 end
 
 class Numeric
-  # qp, an abbreviation for quick-print, is an alias for {#to_s} in this primitive class.
+  # Alias #{Object#qp} to {#to_s} in this primitive class.
   alias :qp :to_s
 end
 
 class String
-  # qp, an abbreviation for quick-print, is an alias for {#to_s} in this primitive class.
+  # Alias #{Object#qp} to {#to_s} in this primitive class.
   alias :qp :to_s
 end
 
 class TrueClass
-  # qp, an abbreviation for quick-print, is an alias for {#to_s} in this primitive class.
+  # Alias #{Object#qp} to {#to_s} in this primitive class.
   alias :qp :to_s
 end
 
 class FalseClass
-  # qp, an abbreviation for quick-print, is an alias for {#to_s} in this primitive class.
+  # Alias #{Object#qp} to {#to_s} in this primitive class.
   alias :qp :to_s
 end
 
 class NilClass
-  # qp, an abbreviation for quick-print, is an alias for {#inspect} in this NilClass.
+  # Alias #{Object#qp} to {#to_s} in this primitive class.
   alias :qp :inspect
 end
 
 class Symbol
-  # qp, an abbreviation for quick-print, is an alias for {#inspect} in this Symbol class.
+  # Alias #{Object#qp} to {#to_s} in this primitive class.
   alias :qp :inspect
 end
 
 class Module
-  # qp, an abbreviation for quick-print, prints this module's name unqualified by a parent module prefix.
+  # @return [String ] the demodulized name
   def qp
     name[/\w+$/]
   end
 end
 
 module Enumerable
-  # qp, short for quick-print, prints a collection Enumerable with a filter that calls qp on each item.
-  # Non-collection Enumerables delegate to the superclass method.
-  def qp
-    wrap { |item| item.qp }.pp_s
+  # Prints this Enumerable with a filter that calls qp on each item.
+  # Non-collection Enumerable classes override this method to delegate to {Object#qp}.
+  #
+  # Unlike {Object#qp}, this implementation accepts the {Object#pp_s} options.
+  # The options are used to format this Enumerable, but are not propagated to the
+  # enumerated items.
+  #
+  # @param (see Object#pp_s)
+  # @return [String] the formatted result
+  def qp(opts=nil)
+    wrap { |item| item.qp }.pp_s(opts)
   end
 
-  # If the transformer block is given to this method, then the transformer block to each
+  # If a transformer block is given to this method, then the block is applied to each
   # enumerated item before pretty-printing the result.
-  def pp_s(options=nil, &transformer)
+  #
+  # @param (see Object#pp_s)
+  # @yield [item] transforms the item to print
+  # @yieldparam item the item to print
+  # @return (see Oblect#pp_s)
+  def pp_s(opts=nil)
     # delegate to Object if no block
-    return super(options) unless block_given?
+    return super unless block_given?
     # make a print wrapper
     wrapper = PrintWrapper.new { |item| yield item }
     # print using the wrapper on each item
-    wrap { |item| wrapper.wrap(item) }.pp_s(options)
+    wrap { |item| wrapper.wrap(item) }.pp_s(opts)
   end
 
   # Pretty-prints the content within brackets, as is done by the Array pretty printer.
@@ -138,6 +155,8 @@ end
 
 module Hashable
   # qp, short for quick-print, prints this Hashable with a filter that calls qp on each key and value.
+  #
+  # @return [String] the quick-print result
   def qp
     qph = {}
     each { |k, v| qph[k.qp] = v.qp }
@@ -161,6 +180,7 @@ class String
 end
 
 class DateTime
+  # @return [String] the formatted +strftime+
   def pretty_print(q)
     q.text(strftime)
   end
