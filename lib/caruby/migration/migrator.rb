@@ -298,7 +298,7 @@ module CaRuby
       attr_mds.each do |attr_md|
         # the attribute migration method
         mth = attr_mth_hash[attr_md.to_sym]
-        # associate the AttributeMetadata => method
+        # associate the Attribute => method
         @attr_md_mgt_mth_map[attr_md] ||= mth if mth
       end
       @mgt_mth_hash[klass] = attr_mth_hash
@@ -320,7 +320,9 @@ module CaRuby
     end
 
     # Migrates all rows in the input.
-    # The required block to this method is described in {#migrate}.
+    #
+    # @yield (see #migrate)
+    # @yieldparam (see #migrate)
     def migrate_rows # :yields: target
       # open an CSV output for bad records if the option is set
       if @bad_rec_file then
@@ -358,8 +360,7 @@ module CaRuby
           # clear the migration state
           clear(target)
        else
-          # If there is a bad file then warn, reject and continue.
-          # Otherwise, bail.
+          # If there is a bad file then warn, reject and continue. Otherwise, bail.
           if @bad_rec_file then
             logger.warn("Migration not performed on record #{rec_no}.")
             @loader.reject(row)
@@ -367,6 +368,7 @@ module CaRuby
             raise MigrationError.new("Migration not performed on record #{rec_no}")
           end
         end
+        # Bump the record count.
         @rec_cnt += 1
       end
       logger.info("Migrated #{mgt_cnt} of #{@rec_cnt} records.")
@@ -483,7 +485,7 @@ module CaRuby
       end
     end
 
-    # Fills the given reference AttributeMetadata path starting at obj.
+    # Fills the given reference Attribute path starting at obj.
     #
     # @param row (see #create)
     # @param created (see #create)
@@ -499,7 +501,7 @@ module CaRuby
     # Sets the given migrated object's reference attribute to a new referenced domain object.
     #
     # @param [Resource] obj the domain object being migrated
-    # @param [AttributeMetadata] attr_md the attribute being migrated
+    # @param [Attribute] attr_md the attribute being migrated
     # @param row (see #create)
     # @param created (see #create)
     # @return the new object
@@ -515,7 +517,7 @@ module CaRuby
       ref
     end
 
-    # Sets the obj migratable AttributeMetadata attr_md to value from the given input row.
+    # Sets the obj migratable Attribute attr_md to value from the given input row.
     def migrate_attribute(obj, attr_md, value, row)
       # a single value can be used for both a Numeric and a String attribute; coerce the value if necessary
       # if there is a shim migrate_<attribute> method, then call it on the input value
@@ -556,7 +558,7 @@ module CaRuby
     end
 
     # @param [String] file the migration fields configuration file
-    # @return [{Class => {AttributeMetadata => Symbol}}] the class => path => header hash
+    # @return [{Class => {Attribute => Symbol}}] the class => path => header hash
     #   loaded from the configuration file
     def load_field_map(file)
       # load the field mapping config file
@@ -623,7 +625,7 @@ module CaRuby
     end
 
     # @param [String] path_s a period-delimited path string path_s in the form _class_(._attribute_)+
-    # @return [<AttributeMetadata>] the corresponding attribute metadata path
+    # @return [<Attribute>] the corresponding attribute metadata path
     # @raise [MigrationError] if the path string is malformed or an attribute is not found
     def create_attribute_path(path_s)
       names = path_s.split('.')
@@ -634,7 +636,7 @@ module CaRuby
       if names.empty? then
         raise MigrationError.new("Attribute entry in migration configuration is not in <class>.<attribute> format: #{value}")
       end
-      # build the AttributeMetadata path
+      # build the Attribute path
       path = []
       names.inject(klass) do |parent, name|
         attr = name.to_sym
@@ -649,7 +651,7 @@ module CaRuby
         path << attr_md
         attr_md.type
       end
-      # return the starting class and AttributeMetadata path.
+      # return the starting class and Attribute path.
       # note that the starting class is not necessarily the first path attribute declarer, since the
       # starting class could be the concrete target class rather than an abstract declarer. this is
       # important, since the class must be instantiated.

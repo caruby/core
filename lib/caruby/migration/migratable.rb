@@ -64,7 +64,7 @@ module CaRuby
   #    collection attributes mentioned above, or to fill in missing values.
   #
   #    Note that there is an extensive set of attribute defaults defined in
-  #    the CaRuby::ResourceMetadata application domain classes. These defaults
+  #    the CaRuby::Metadata application domain classes. These defaults
   #    are applied in a migration database save action and need not be set in
   #    a migration shim. For example, if an acceptable default for a +Study+
   #    +active?+ flag is defined in the +Study+ meta-data, then the flag does not
@@ -102,8 +102,8 @@ module CaRuby
     # for the _attribute_ to modify.
     #
     # The migratable reference attributes consist of the non-collection
-    # {ResourceAttributes#saved_independent_attributes} and 
-    # {ResourceAttributes#unidirectional_dependent_attributes} which don't already have a value.
+    # {Attributes#saved_independent_attributes} and 
+    # {Attributes#unidirectional_dependent_attributes} which don't already have a value.
     # For each such migratable attribute, if there is a single instance of the attribute
     # type in the given migrated domain objects, then the attribute is set to that
     # migrated instance.
@@ -146,7 +146,7 @@ module CaRuby
       end
     end
     
-    # @param [AttributeMetadata::Filter] the attributes to set
+    # @param [Attribute::Filter] the attributes to set
     # @param row (see #migrate_references)
     # @param migrated (see #migrate_references)
     # @param mth_hash (see #migrate_references)
@@ -168,7 +168,7 @@ module CaRuby
       end
     end
     
-    # @param [AttributeMetadata] attr_md the reference attribute
+    # @param [Attribute] attr_md the reference attribute
     # @param row (see #migrate_references)
     # @param migrated (see #migrate_references)
     # @param mth_hash (see #migrate_references)

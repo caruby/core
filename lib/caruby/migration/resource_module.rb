@@ -1,5 +1,5 @@
 module CaRuby
-  module ResourceModule
+  module Domain
     # Declares the given classes which will be dynamically modified for migration.
     # The Java caBIG classes are auto-loaded and wrapped as a CaRuby::Resource, if necessary, and enhanced in the migration shim.
     def shims(*classes)
