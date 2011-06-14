@@ -20,6 +20,11 @@ class JavaTest < Test::Unit::TestCase
     end
   end
   
+  def test_zero_date
+    jdt = Java::JavaUtil::Date.new(0)
+    verify_java_to_ruby_date_conversion(jdt)
+  end
+  
   def flip_DST(cal)
     isdt = cal.timeZone.inDaylightTime(cal.time)
     11.times do
