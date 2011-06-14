@@ -65,7 +65,14 @@ module Enumerable
   end
 
   # Returns a new Hash generated from this Enumerable with a block whose arguments include the enumerated item
-  # and its index. nil or empty values are excluded.
+  # and its index. Every value which is {#nil_or_empty} is excluded.
+  #
+  # @example
+  #   [1, 2, 3].to_compact_hash_with_index { |item, index| item + index } #=> { 1 => 1, 2 => 3, 3 => 5 }
+  # @yield [item, index] the hash value
+  # @yieldparam item the enumerated value
+  # @yieldparam index the enumeration index
+  # @return [Hash] this {Enumerable} converted to a hash by the given block
   def to_compact_hash_with_index
     hash = {}
     self.each_with_index do |item, index|
@@ -77,38 +84,38 @@ module Enumerable
     hash
   end
 
-  # Returns whether this Enumerable iterates over at least one item.
-  #
   # This method is functionally equivalent to +to_a.empty+ but is more concise and efficient.
+  #
+  # @return [Boolean] whether this Enumerable iterates over at least one item
   def empty?
     not any? { true }
   end
 
-  # Returns the first enumerated item in this Enumerable, or nil if this Enumerable is empty.
-  #
   # This method is functionally equivalent to +to_a.first+ but is more concise and efficient.
+  #
+  # @return the first enumerated item in this Enumerable, or nil if this Enumerable is empty
   def first
     detect { true }
   end
 
-  # Returns the last enumerated item in this Enumerable, or nil if this Enumerable is empty.
-  #
   # This method is functionally equivalent to +to_a.last+ but is more concise and efficient.
+  #
+  # @return the last enumerated item in this Enumerable, or nil if this Enumerable is empty
   def last
     detect { true }
   end
 
-  # Returns the count of items enumerated in this Enumerable.
-  #
   # This method is functionally equivalent to +to_a.size+ but is more concise and efficient
   # for an Enumerable which does not implement the {#size} method.
+  #
+  # @return [Integer] the count of items enumerated in this Enumerable
   def size
     inject(0) { |size, item| size + 1 }
   end
 
   alias :length :size
 
-  # Prints the content of this Enumerable as a series using {Array#to_series}.
+  # @return [String] the content of this Enumerable as a series using {Array#to_series}
   def to_series(conjunction=nil)
     to_a.to_series
   end
@@ -157,12 +164,12 @@ module Enumerable
   # Note, however, that unlike select, filter does not return an Array.
   # The default filter block returns the passed item.
   #
+  # @example
+  #   [1, nil, 3].filter.to_a #=> [1, 3]
   # @yield [item] filter the selection filter
   # @yieldparam item the collection member to filter
   # @return [Enumerable] the filtered result
-  # @example
-  #   [1, nil, 3].filter.to_a #=> [1, 3]
-  def filter(&filter) # :yields: item
+  def filter(&filter)
     Filter.new(self, &filter)
   end
 
@@ -247,6 +254,7 @@ module Enumerable
 
   private
 
+  # This Filter helper class applies a selection block to a base enumeration.
   class Filter
     include Enumerable
 
@@ -272,7 +280,7 @@ module Enumerable
       super
     end
 
-    # Adds an item to the base Enumerable, if thif Filter's base supports it.
+    # Adds an item to the base Enumerable, if this Filter's base supports it.
     #
     # @param item the item to add
     # @return [Filter] self
@@ -297,6 +305,7 @@ module Enumerable
     end
   end
 
+  # This Transformer helper class applies a transformer block to a base enumeration.
   class Transformer
     include Enumerable
 
@@ -320,7 +329,9 @@ module Enumerable
   end
 
   # A MultiEnumerator iterates over several Enumerators in sequence. Unlike Array#+, MultiEnumerator reflects changes to the
-  # underlying enumerators, e.g.:
+  # underlying enumerators.
+  #
+  # @example
   #   a = [1, 2]
   #   b = [4, 5]
   #   ab = MultiEnumerator.new(a, b)
@@ -329,7 +340,9 @@ module Enumerable
   class MultiEnumerator
     include Enumerable
 
-    # Creates a new MultiEnumerator on the given Enumerator enums.
+    # Initializes a new {MultiEnumerator} on the given components.
+    #
+    # @param [<Enumerable>] the component enumerators to compose
     def initialize(*enums)
       super()
       @enums = enums
@@ -343,11 +356,12 @@ module Enumerable
   end
 end
 
-# The Collector utility module implements the {on} method to apply a block to
-# a collection transitive closure.
+# The Collector utility implements the {on} method to apply a block to a collection
+# transitive closure.
 module Collector
   # Collects the result of applying the given block to the given obj.
-  # If obj is a collection, then collects the result of recursively calling this Collector on the enumerated members.
+  # If obj is a collection, then collects the result of recursively calling this
+  # Collector on the enumerated members.
   # If obj is nil, then returns nil.
   # Otherwise, calls block on obj and returns the result.
   #
@@ -355,6 +369,7 @@ module Collector
   #  Collector.on([1, 2, [3, 4]]) { |n| n * 2 } #=> [2, 4, [6, 8]]]
   #  Collector.on(nil) { |n| n * 2 } #=> nil
   #  Collector.on(1) { |n| n * 2 } #=> 2
+  # @param obj the collection or item to enumerate
   def self.on(obj, &block)
     obj.collection? ? obj.map { |item| on(item, &block) } : yield(obj) unless obj.nil?
   end
@@ -366,12 +381,17 @@ class Object
   # item in this Enumerable.
   # * Otherwise, if this object is non-nil, then the the block is called on self.
   # * Otherwise, this object is nil and this method is a no-op.
+  #
+  # @yield [item] the block to apply to this object
+  # @yieldparam item the enumerated items, or this object if it is non-nil and not an Enumerable 
   def enumerate(&block)
     Enumerable === self ? each(&block) : yield(self) unless nil?
   end
 
   # Returns an enumerator on this Object. This default implementation returns an Enumerable::Enumerator
   # on enumerate.
+  #
+  # @return [Enumerable] this object as an enumerable item
   def to_enum
     Enumerable::Enumerator.new(self, :enumerate)
   end
@@ -395,8 +415,9 @@ class Flattener
     obj.collection? ? obj.each { |item| on(item, &block) } : yield(obj) unless obj.nil?
   end
 
-  # Creates a new Flattener on the given object. obj can be an Enumerable,
-  # a single non-collection object or nil.
+  # Initializes a new Flattener on the given object.
+  #
+  # @param obj the Enumerable or non-collection object
   def initialize(obj)
     @base = obj
   end
@@ -416,9 +437,9 @@ class Flattener
   end
 end
 
-# ConditionalEnumerator applies a filter to another Enumerable, e.g.:
+# ConditionalEnumerator applies a filter to another Enumerable.
+# @example
 #   ConditionalEnumerator.new([1, 2, 3]) { |i| i < 3 }.to_a #=> [1, 2]
-#
 class ConditionalEnumerator
   include Enumerable
 
