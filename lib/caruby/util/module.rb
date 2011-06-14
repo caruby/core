@@ -1,34 +1,18 @@
 class Module
-  # Returns the class or module with name in the parent module.
-  # If parent is nil, then name is looked up in the global context.
-  # Otherwise, this method returns {#module_with_name}.
-  def self.module_with_name(parent, name)
-    return parent.module_with_name(name) if parent
-    begin
-      constant = eval(name)
-    rescue Exception
-      return
-    end
-    constant if constant.is_a?(Module)
-  end
-
-  # Returns the class or module with name in this module.
-  # name can qualified by parent modules, e.g. +MyApp::Person+.
+  # Returns the class or module with the given name defined in this module.
+  # The name can qualified by parent modules, e.g. +MyApp::Person+.
   # If name cannot be resolved as a Module, then this method returns nil.
+  #
+  # @param [String] the class name
+  # @return [Module, nil] the class or module defined in this module, or nil if none 
   def module_with_name(name)
-    begin
-      constant = name.split('::').inject(parent) { |parent, name| parent.const_get(name) }
-    rescue Exception
-      return
-    end
-    constant if constant.is_a?(Module)
+    name.split('::').inject(self) { |parent, part| parent.const_get(part) } rescue nil
   end
-
-  # Returns the class with name in this module.
-  # name can qualified by parent modules, e.g. +MyApp::Person+.
-  # If name cannot be resolved as a Class, then this method returns nil.
-  def class_with_name
-    mod = module_with_name
-    mod if mod.is_a?(Class)
+  
+  # @example
+  #   A::B.parent_module #=> A
+  # @return [Module] this module's definition context
+  def parent_module
+    Kernel.module_with_name(name.split('::')[0..-2].join('::'))
   end
 end
