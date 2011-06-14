@@ -42,3 +42,7 @@ for change details.
 === 1.4.9 / 2011-05-04
 
 * Support Oracle driver.
+
+=== 1.5.1 / 2011-06-17
+
+* Domain refactoring.
