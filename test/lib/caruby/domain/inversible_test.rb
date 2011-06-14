@@ -5,7 +5,7 @@ require "test/unit"
 
 class InversibleTest < Test::Unit::TestCase
   module Domain
-    extend CaRuby::ResourceModule
+    extend CaRuby::Domain
   end
   
   module Resource
