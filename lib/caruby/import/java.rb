@@ -261,9 +261,13 @@ class Class
     method_defined?(:java_class)
   end
 
-  # Returns a Ruby class for the given klass. If klass is already a Ruby Class, then returns klass.
-  # If klass is a String, then returns the Ruby wrapper class for the corresponding Java class name.
-  # Otherwise, this method returns the Ruby class for the name of the presumed Java klass.
+  # Returns the Ruby class for the given class, as follows:
+  # * If the given class is already a Ruby class, then return the class.
+  # * If the class argument is a Java class or a Java class name, then
+  #   the Ruby class is the JRuby wrapper for the Java class.
+  #
+  # @param [Class, String] the class or class name
+  # @return [Class] the corresponding Ruby class
   def self.to_ruby(klass)
     case klass
       when Class then klass
