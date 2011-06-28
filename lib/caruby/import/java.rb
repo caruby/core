@@ -168,27 +168,21 @@ module Java
     end
 
     class Date
-      # millisecond-to-day conversion factor
-      MILLIS_PER_HR = 60 * 60 * 1000
-      MILLIS_PER_DAY = MILLIS_PER_HR * 24
+      # The millisecond-to-day conversion factor.
+      MILLIS_PER_DAY = (60 * 60 * 1000) * 24
 
       # Converts this Java Date to a Ruby DateTime.
       #
-      # caTissue alert - Bug #165: API CPR create date validation is time zone dependent.
-      # Since Java Date accounts for DST and Ruby DateTime doesn't,
-      # this method makes the DST adjustment by subtracting a compensatory
-      # one-hour DST offset from the Java Date time zone offset and using
-      # that to set the DateTime offset. This ensures that Date
-      # conversion is idempotent, i.e.
-      #   date.to_ruby_date().to_java_date == date
+      # @quirk caTissue Bug #165: API CPR create date validation is time zone dependent.
+      #   Since Java Date accounts for DST and Ruby DateTime doesn't, this method makes the
+      #   DST adjustment by subtracting a compensatory one-hour DST offset from the
+      #   Java Date time zone offset and using that to set the DateTime offset.
+      #   This ensures that Date conversion is idempotent, i.e.
+      #     date.to_ruby_date().to_java_date == date
       #
-      # However, there can be adverse consequences for an application that assumes
-      # that the client time zone is the same as the server time zone, as described
-      # in caTissue Bug #165.
-      #
-      # TODO: Revisit {CaRuby::Resource.value_equal?} which must resort to a 
-      # date-as-string comparison, always a bad idea. If that can be fixed, then
-      # increment/decrement the hour field rather than the offset field.
+      #   However, there can be adverse consequences for an application that assumes that the
+      #   client time zone is the same as the server time zone, as described in caTissue
+      #   Bug #165.
       #
       # @return [DateTime] the Ruby date
       def to_ruby_date
@@ -199,9 +193,13 @@ module Java
         time = Time.at(secs)
         # convert UTC timezone millisecond offset to Rational fraction of a day
         offset_millis = calendar.timeZone.getOffset(calendar.timeInMillis).to_f
-        offset_days = offset_millis / MILLIS_PER_DAY
-        offset_fraction = 1 / offset_days
-        offset = Rational(1, offset_fraction)
+        if offset_millis.zero? then
+          offset = 0
+        else
+          offset_days = offset_millis / MILLIS_PER_DAY
+          offset_fraction = 1 / offset_days
+          offset = Rational(1, offset_fraction)
+        end
         # convert to DateTime
         DateTime.civil(time.year, time.mon, time.day, time.hour, time.min, time.sec, offset)
       end
@@ -351,10 +349,12 @@ class Class
     newsym
   end
 
-  # Returns the property descriptor pd introspected or discovered Java read Method.
+  # @quirk caCORE java.lang.Boolean is<name> is not introspected as a read method, since the type
+  # must be primitive, i.e. `boolean is`<name>.
+  #
+  # @return [Symbol] the property descriptor pd introspected or discovered Java read Method
   def property_read_method(pd)
     return pd.read_method if pd.read_method
-    # caCORE alert - java.lang.Boolean is<name> is not introspected as a read method, since type must be primitive boolean is<name>
     return unless pd.get_property_type == Java::JavaLang::Boolean.java_class
     rdr = java_class.java_method("is#{pd.name.capitalize_first}") rescue nil
     logger.debug { "Discovered #{qp} #{pd.name} property non-introspected reader method #{rdr.name}." } if rdr
