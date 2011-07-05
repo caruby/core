@@ -210,7 +210,7 @@ module CaRuby
     def add_owners(klass)
       klass.owners.each do |owner|
         next if @cls_paths_hash.detect_key { |other| other <= owner } or owner.abstract?
-        logger.debug { "Migrator adding #{klass.qp} owner #{owner.qp}" }
+        logger.debug { "Migrator adding #{klass.qp} owner #{owner}" }
         @cls_paths_hash[owner] = Array::EMPTY_ARRAY
         add_owners(owner)
       end
