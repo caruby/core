@@ -1,4 +1,4 @@
-# JRuby alert - SyncEnumerator moved from generator to REXML in JRuby 1.5
+# JRuby SyncEnumerator moved from generator to REXML in JRuby 1.5
 require 'rexml/document'
 
 # A Coordinate is a convenience Array wrapper class with aliased #x, #y and {#z} dimensions.
