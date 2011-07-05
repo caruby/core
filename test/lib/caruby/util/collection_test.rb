@@ -127,6 +127,12 @@ class CollectionTest < Test::Unit::TestCase
     b << 5
     assert_equal([1, 2, 3, 3, 4, 5], ab.to_a, "Addition does not reflect change to second enumerable")
   end
+  
+  def test_partial_sort
+    sorted = [Array, Object, Numeric, Enumerable, Set].partial_sort
+    assert(sorted.index(Array) < sorted.index(Enumerable), "Partial sort order incorrect")
+    assert(sorted.index(Set) < sorted.index(Enumerable), "Partial sort order incorrect")
+  end
 
   def test_hash_union
     a = {:a => 1, :b => 2}

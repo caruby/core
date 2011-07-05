@@ -245,6 +245,25 @@ module Enumerable
     Joiner.new(self, other)
   end
   
+  # Sorts this collection's members with a partial sort operator, i.e. the comparison returns -1, 0, 1 or nil.
+  # The resulting sorted order places each non-nil comparable items in the sort order. The order of nil
+  # comparison items is indeterminate.
+  #
+  # #example
+  #    [Array, Numeric, Enumerable, Set].partial_sort #=> [Array, Numeric, Set, Enumerable]
+  # @return [Enumerable] the items in this collection in partial sort order
+  def partial_sort
+    unless block_given? then return partial_sort { |item1, item2| item1 <=> item2 } end
+    sort { |item1, item2| yield(item1, item2) or 1 }
+  end
+  
+  # Sorts this collection's members with a partial sort operator on the results of applying the block.
+  #
+  # @return [Enumerable] the items in this collection in partial sort order
+  def partial_sort_by
+    partial_sort { |item1, item2| yield(item1) <=> yield(item2) }
+  end
+  
   # @yield [item] the transformer on the enumerated items
   # @yieldparam item an enumerated item
   # @return [Enumerable] the mapped values excluding null values
@@ -339,19 +358,22 @@ module Enumerable
   #   a << 3; b << 6; ab.to_a #=> [1, 2, 3, 4, 5, 6]
   class MultiEnumerator
     include Enumerable
+    
+    # @return [<Enumerable>] the enumerated collections
+    attr_reader :components
 
     # Initializes a new {MultiEnumerator} on the given components.
     #
     # @param [<Enumerable>] the component enumerators to compose
     def initialize(*enums)
       super()
-      @enums = enums
-      @enums.compact!
+      @components = enums
+      @components.compact!
     end
 
     # Iterates over each of this MultiEnumerator's Enumerators in sequence.
     def each
-      @enums.each { |enum| enum.each { |item| yield item  } }
+      @components.each { |enum| enum.each { |item| yield item  } }
     end
   end
 end
@@ -829,29 +851,32 @@ module Hashable
   # Combines hashes. See Hash#+ for details.
   class MultiHash
     include Hashable
+    
+    # @return [<Hashable>] the enumerated hashes
+    attr_reader :components
 
     def initialize(*hashes)
       if hashes.include?(nil) then raise ArgumentError.new("MultiHash is missing a component hash.") end
-      @hashes = hashes
+      @components = hashes
     end
 
     def [](key)
-      @hashes.each { |hash| return hash[key] if hash.has_key?(key) }
+      @components.each { |hash| return hash[key] if hash.has_key?(key) }
       nil
     end
 
     def has_key?(key)
-      @hashes.any? { |hash| hash.has_key?(key) }
+      @components.any? { |hash| hash.has_key?(key) }
     end
 
     def has_value?(value)
-      @hashes.any? { |hash| hash.has_value?(value) }
+      @components.any? { |hash| hash.has_value?(value) }
     end
 
     def each
-      @hashes.each_with_index do |hash, index|
+      @components.each_with_index do |hash, index|
         hash.each do |key, value|
-           yield(key, value) unless (0...index).any? { |i| @hashes[i].has_key?(key) }
+           yield(key, value) unless (0...index).any? { |i| @components[i].has_key?(key) }
         end
       end
       self
