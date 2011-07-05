@@ -432,8 +432,7 @@ module CaRuby
       
       # @return [Boolean] whether this attribute is a dependent which does not have a Java inverse owner attribute
       def unidirectional_java_dependent?
-        # TODO - can this be relaxed to java_unidirectional? i.e. eliminate dependent filter
-        dependent? and not bidirectional_java_association?
+        dependent? and java_property? and not bidirectional_java_association?
       end
   
       # @return [Boolean] whether this is a Java attribute which has a Java inverse
