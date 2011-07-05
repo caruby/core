@@ -60,7 +60,7 @@ module CaRuby
       # the current inverse
       oldval = send(rdr)
       # no-op if no change
-      return newval if oldval == newval
+      return newval if newval == oldval
 
       # delete self from the current inverse reference collection
       if oldval then
