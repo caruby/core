@@ -107,11 +107,11 @@ module CaRuby
       # Queries the given obj_or_hql as described in {#query} and makes a detoxified copy of the
       # toxic caCORE search result.
       #
-      # caCORE alert - The query result consists of new domain objects whose content is copied
-      # from the caBIG application search result. The caBIG result is Hibernate-enhanced but
-      # sessionless. This result contains toxic broken objects whose access methods fail.
-      # Therefore, this method sanitizes the toxic caBIG result to reflect the persistent state
-      # of the domain objects.
+      # @quirk caCORE The query result consists of new domain objects whose content is copied
+      #   from the caBIG application search result. The caBIG result is Hibernate-enhanced but
+      #   sessionless. This result contains toxic broken objects whose access methods fail.
+      #   Therefore, this method sanitizes the toxic caBIG result to reflect the persistent state
+      #   of the domain objects.
       #
       # @param (see #query)
       # @return (see #query)
@@ -209,8 +209,8 @@ module CaRuby
       # If a template could not be built and obj is dependent, then this method
       # queries the obj owner with a dependent filter.
       #
-      # caCORE alert - Bug #79 - API search with only id returns entire table.
-      # Work around this bug by issuing a HQL query instead.
+      # @quirk caCORE Bug #79 - API search with only id returns entire table.
+      #   Work around this bug by issuing a HQL query instead.
       #
       # @param [Resource] obj the query template object
       # @param [Symbol, nil] attribute the optional attribute to fetch
@@ -273,9 +273,9 @@ module CaRuby
 
       # Queries the given query object attribute by querying an attribute type template which references obj.
       #
-      # caCORE alert - caCORE caCORE search enters an infinite loop when the search argument has an object
-      # reference graph cycle. Work-around is to ensure that reference integrity is broken in the search
-      # argument by not setting inverse attributes.
+      # @quirk caCORE caCORE caCORE search enters an infinite loop when the search argument has an object
+      #   reference graph cycle. Work-around is to ensure that reference integrity is broken in the search
+      #   argument by not setting inverse attributes.
       #
       # @param (see #query_object)
       def query_with_inverted_reference(obj, attribute=nil)
@@ -308,6 +308,9 @@ module CaRuby
       # If a match is found, then each missing search object non-domain-valued attribute is set to
       # the fetched attribute value and this method returns the search object.
       #
+      # @quirk caCORE there is no caCORE find utility method to update a search target with persistent content,
+      #   so it is done manually here.
+      #
       # @param obj (see #find)
       # @return [Resource, nil] obj if there is a matching database record, nil otherwise
       # @raise [DatabaseError] if more than object matches the obj attribute values or if
@@ -326,11 +329,8 @@ module CaRuby
         
         logger.debug { "Fetch #{obj.qp} matched database object #{fetched}." }
         @transients.delete(obj)
-        # caCORE alert - there is no caCORE find utility method to update a search target with persistent content,
-        # so it is done manually here.
-        # recursively copy the nondomain attributes, esp. the identifer, of the fetched domain object references
+        #   recursively copy the nondomain attributes, esp. the identifer, of the fetched domain object references
         merge_fetched(fetched, obj)
-        # caCORE alert - see query method alerts.
         # Inject the lazy loader for loadable domain reference attributes.
         persistify(obj, fetched)
         obj
@@ -407,38 +407,38 @@ module CaRuby
 
       # Returns a copy of obj containing only those key attributes used in a find operation.
       #
-      # caCORE alert - Bug #79: caCORE search fetches on all non-nil attributes, except
-      # occasionally the identifier. There is no indication of how to identify uniquely
-      # searchable attributes, so the secondary and alternate key is added manually in the
-      # application configuration.
+      # @quirk caCORE Bug #79: caCORE search fetches on all non-nil attributes, except
+      #   occasionally the identifier. There is no indication of how to identify uniquely
+      #   searchable attributes, so the secondary and alternate key is added manually in the
+      #   application configuration.
       def finder_template(obj)
         hash = finder_parameters(obj) || return
         @srch_tmpl_bldr.build_template(obj, hash)
       end
 
       # Fetches the given obj attribute from the database.
-      # caCORE alert - there is no association fetch for caCORE 3.1 and earlier;
-      # caCORE 4 association search is not yet adequately proven in caRuby testing.
-      # Fall back on a general query instead (the devil we know). See also the
-      # following alert.
+      # @quirk caCORE there is no association fetch for caCORE 3.1 and earlier;
+      #   caCORE 4 association search is not yet adequately proven in caRuby testing.
+      #   Fall back on a general query instead (the devil we know). See also the
+      #  following alert.
       #
-      # caCORE alert - caCORE search on a non-collection attribute returns a collection result,
-      # even with the caCORE 4 association search. caRuby rectifies this by returning
-      # an association fetch result consistent with the association attribute return type.
+      # @quirk caCORE caCORE search on a non-collection attribute returns a collection result,
+      #   even with the caCORE 4 association search. caRuby rectifies this by returning
+      #   an association fetch result consistent with the association attribute return type.
       #
-      # caCORE alert - Preliminary indication is that caCORE 4 does not validate that
-      # a non-collection association search returns at most one item.
+      # @quirk caCORE Preliminary indication is that caCORE 4 does not validate that
+      #   a non-collection association search returns at most one item.
       #
-      # caCORE alert - Since the caCORE search result has toxic references which must be purged,
-      # the detoxified copy loses reference integrity. E.g. a query on the children attribute of
-      # a parent object forces lazy load of each child => parent reference separately resolving
-      # in separate parent copies. There is no recognition that the children reference the parent
-      # which generated the query. This anomaly is partially rectified in this fetch_association
-      # method by setting the fetched objects inverse to the given search target object. The
-      # inconsistent and inefficient caCORE behavior is further corrected by setting inverse
-      # owners when the fetch result is persistified, as described in {Persistifier#persistify}.
-      # Callers who do not persistify the result should call {Persistifier#set_inverses} on the
-      # result.
+      # @quirk caCORE Since the caCORE search result has toxic references which must be purged,
+      #   the detoxified copy loses reference integrity. E.g. a query on the children attribute of
+      #   a parent object forces lazy load of each child => parent reference separately resolving
+      #   in separate parent copies. There is no recognition that the children reference the parent
+      #   which generated the query. This anomaly is partially rectified in this fetch_association
+      #   method by setting the fetched objects inverse to the given search target object. The
+      #   inconsistent and inefficient caCORE behavior is further corrected by setting inverse
+      #   owners when the fetch result is persistified, as described in {Persistifier#persistify}.
+      #   Callers who do not persistify the result should call {Persistifier#set_inverses} on the
+      #   result.
       #
       # @param [Resource] obj the search target object
       # @param [Symbol] attribute the association to fetch
@@ -466,10 +466,10 @@ module CaRuby
 
       # Returns a copy of obj containing only those key attributes used in a find operation.
       #
-      # caCORE alert - caCORE search fetches on all non-nil attributes, except occasionally the identifier
-      # (cf. https://cabig-kc.nci.nih.gov/Bugzilla/show_bug.cgi?id=79).
-      # there is no indication of how to identify uniquely searchable attributes, so the secondary key
-      # is added manually in the application configuration.
+      # @quirk caCORE caCORE search fetches on all non-nil attributes, except occasionally the identifier
+      #   (cf. https://cabig-kc.nci.nih.gov/Bugzilla/show_bug.cgi?id=79).
+      #   there is no indication of how to identify uniquely searchable attributes, so the secondary key
+      #   is added manually in the application configuration.
       def finder_parameters(obj)
         key_value_hash(obj, obj.class.primary_key_attributes) or
         key_value_hash(obj, obj.class.secondary_key_attributes) or
@@ -513,13 +513,15 @@ module CaRuby
 
       # Sets the template attribute to a new search reference object created from source.
       # The reference contains only the source identifier.
-      # Returns the search reference, or nil if source does not exist in the database.
+      #
+      # @quirk caCORE The search template must break inverse integrity by clearing an owner inverse reference,
+      #   since a dependent => onwer => dependent cycle causes a caCORE search infinite loop.
+      #
+      # @return [Resource, nil] the search reference, or nil if source does not exist in the database
       def add_search_template_reference(template, source, attribute)
         return if not exists?(source)
         ref = source.copy(:identifier)
         template.set_attribute(attribute, ref)
-        # caCORE alert - clear an owner inverse reference, since the template attr assignment might have added a reference
-        # from ref to template, which introduces a template => ref => template cycle that causes a caCORE search infinite loop.
         inverse = template.class.attribute_metadata(attribute).derived_inverse
         ref.clear_attribute(inverse) if inverse
         logger.debug { "Search reference parameter #{attribute} for #{template.qp} set to #{ref} copied from #{source.qp}" }

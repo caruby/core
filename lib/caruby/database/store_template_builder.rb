@@ -26,7 +26,7 @@ module CaRuby
       # the savable attributes filter the given block with exclusions
       savable = Proc.new { |obj| savable_attributes(obj, yield(obj)) }
       # the domain attributes to copy is determined by the constructor caller
-      # caTissue alert - must copy all of the non-domain attributes rather than just the identifier,
+      # @quirk caTissue must copy all of the non-domain attributes rather than just the identifier,
       # since caTissue auto-generated Specimen update requires the parent collection status. This
       # is the only known occurrence of a referenced object required non-identifier attribute.
       # The copy attributes are parameterized by the top-level save target.
@@ -47,31 +47,31 @@ module CaRuby
     # to store obj. The template object graph contains only those references which are
     # essential to the store operation.
     #
-    # caCORE alert - +caCORE+ expects the store argument to be carefully prepared prior to
-    # the create or update. build_storable_template culls the target object with a template
-    # which includes only those references which are necessary for the store to succeed.
-    # This template builder ensures that mandatory independent references exist. Cascaded
-    # dependent references are included in the template but are not created before submission
-    # to +caCORE+. These reference attribute distinctions are implicit application rules which
-    # are explicated in the +caRuby+ application domain class definition using Metadata
-    # methods.
+    # @quirk caCORE +caCORE+ expects the store argument to be carefully prepared prior to
+    #   the create or update. build_storable_template culls the target object with a template
+    #   which includes only those references which are necessary for the store to succeed.
+    #   This template builder ensures that mandatory independent references exist. Cascaded
+    #   dependent references are included in the template but are not created before submission
+    #   to +caCORE+. These reference attribute distinctions are implicit application rules which
+    #   are explicated in the +caRuby+ application domain class definition using Metadata
+    #   methods.
     #
-    # caCORE alert - +caCORE+ create issues an error if a create argument directly or
-    # indirectly references a non-cascaded domain object without an identifier, even if the
-    # reference is not relevant to the create. The template returned by this method elides
-    # all non-essential references.
+    # @quirk caCORE +caCORE+ create issues an error if a create argument directly or
+    #   indirectly references a non-cascaded domain object without an identifier, even if the
+    #   reference is not relevant to the create. The template returned by this method elides
+    #   all non-essential references.
     #
-    # caCORE alert - application business logic performs unnecessary verification
-    # of uncascaded references as if they were a cascaded create. This can result in
-    # an obscure ApplicationException. The server.log stack trace indicates the
-    # extraneous verification code. For example, +caTissue+ +NewSpecimenBizLogic.validateStorageContainer+
-    # is unnecessarily called on a SpecimenCollectionGroup (SCG) update. SCG does not
-    # cascade to Specimen, but caTissue considers the SCG update a Specimen create
-    # anyway if the SCG references a Specimen without an identifier. The Specimen
-    # business logic then raises an exception when it finds a StorageContainer
-    # without an identifier in the Specimen object graph. Therefore, an update must
-    # build a storable template which prunes the update object graph to exclude uncascaded
-    # objects. These uncascaded objects should be ignored by the application but aren't.
+    # @quirk caCORE application business logic performs unnecessary verification
+    #   of uncascaded references as if they were a cascaded create. This can result in
+    #   an obscure ApplicationException. The server.log stack trace indicates the
+    #   extraneous verification code. For example, +caTissue+ +NewSpecimenBizLogic.validateStorageContainer+
+    #   is unnecessarily called on a SpecimenCollectionGroup (SCG) update. SCG does not
+    #   cascade to Specimen, but caTissue considers the SCG update a Specimen create
+    #   anyway if the SCG references a Specimen without an identifier. The Specimen
+    #   business logic then raises an exception when it finds a StorageContainer
+    #   without an identifier in the Specimen object graph. Therefore, an update must
+    #   build a storable template which prunes the update object graph to exclude uncascaded
+    #   objects. These uncascaded objects should be ignored by the application but aren't.
     #
     # @param [Resource] obj the domain object to save
     # @return [Resource] the template to use as the caCORE argument
@@ -92,10 +92,10 @@ module CaRuby
     # Ensure that the given domain object obj can be created or updated by setting the identifier for
     # each independent reference in the create template object graph.
     #
-    # caCORE alert - +caCORE+ raises an ApplicationException if an independent reference in the create or
-    # update argument does not have an identifier. The +caCORE+ server log error is as follows:
-    #   java.lang.IllegalArgumentException: id to load is required for loading
-    # The server log stack trace indicates a bizlogic line that offers a clue to the offending reference.
+    # @quirk caCORE +caCORE+ raises an ApplicationException if an independent reference in the create or
+    #   update argument does not have an identifier. The +caCORE+ server log error is as follows:
+    #     java.lang.IllegalArgumentException: id to load is required for loading
+    #   The server log stack trace indicates a bizlogic line that offers a clue to the offending reference.
     def ensure_storable(obj)
       # Add defaults, which might introduce independent references. Enable the lazy loader to fetch
       # create references from the database where needed to build defaults.
@@ -121,10 +121,10 @@ module CaRuby
     #   only if every referenced object has an identifier, and therefore does not
     #   need to be proxied.
     #
-    # caTissue alert - caTissue ignores some references, e.g. Participant CPR, and auto-generates
-    # the values instead. Therefore, the create template builder excludes these auto-generated
-    # attributes. After the create, the auto-generated references are merged into the created
-    # object graph and the references are updated if necessary.
+    # @quirk caTissue caTissue ignores some references, e.g. Participant CPR, and auto-generates
+    #   the values instead. Therefore, the create template builder excludes these auto-generated
+    #   attributes. After the create, the auto-generated references are merged into the created
+    #   object graph and the references are updated if necessary.
     #
     # @param [Resource] obj the domain object copied to the update template
     # @return [<Symbol>] the reference attributes to include in the update template
@@ -189,15 +189,15 @@ module CaRuby
     
     # Copies proxied references as needed.
     #
-    # caTissue alert - even though Specimen save cascades to SpecimenPosition,
-    # SpecimenPosition cannot be updated directly. Rather than simply not
-    # cascading to the SpecimenPosition, caTissue checks a Specimen save argument
-    # to ensure that the SpecimenPosition reflects the current database state
-    # rather than the desired cascaded state. Play along with this bizarre
-    # mechanism by adding our own bizarre work-around mechanism to copy a
-    # proxied reference only if it has an identifier. This works only because
-    # another work-around in the #{CaRuby::Database::Writer} updates proxied
-    # references via the proxy create before building the update template.
+    # @quirk caTissue even though Specimen save cascades to SpecimenPosition,
+    #   SpecimenPosition cannot be updated directly. Rather than simply not
+    #   cascading to the SpecimenPosition, caTissue checks a Specimen save argument
+    #   to ensure that the SpecimenPosition reflects the current database state
+    #   rather than the desired cascaded state. Play along with this bizarre
+    #   mechanism by adding our own bizarre work-around mechanism to copy a
+    #   proxied reference only if it has an identifier. This works only because
+    #   another work-around in the #{CaRuby::Database::Writer} updates proxied
+    #   references via the proxy create before building the update template.
     def copy_proxied_save_references(obj, template)
       return unless obj.identifier
       obj.class.proxied_savable_template_attributes.each do |attr|

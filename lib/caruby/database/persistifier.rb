@@ -61,21 +61,21 @@ module CaRuby
         cached
       end
 
-      # caCORE alert - Dereferencing a caCORE search result uncascaded collection attribute
-      # raises a Hibernate missing session error.
-      # This problem is addressed by post-processing the +caCORE+ search result to set the
-      # toxic attributes to an empty value.
-      #
-      # caCORE alert - The caCORE search result does not set the obvious inverse attributes,
-      # e.g. children fetched with a parent do not have the children inverse parent attribute
-      # set to the parent. Rather, it is a toxic caCORE reference which must be purged. This
-      # leaves an empty reference which must be lazy-loaded, which is inefficient and inconsistent.
-      # This situation is rectified in this detoxify method by setting the dependent owner
-      # attribute to the fetched owner in the detoxification {ReferenceVisitor} copy-match-merge.
-      #
       # This method copies each result domain object into a new object of the same type.
       # The copy nondomain attribute values are set to the fetched object values.
       # The copy fetched reference attribute values are set to a copy of the result references.
+      #
+      # @quirk caCORE Dereferencing a caCORE search result uncascaded collection attribute
+      #   raises a Hibernate missing session error.
+      #   This problem is addressed by post-processing the +caCORE+ search result to set the
+      #   toxic attributes to an empty value.
+      #
+      # @quirk caCORE The caCORE search result does not set the obvious inverse attributes,
+      #   e.g. children fetched with a parent do not have the children inverse parent attribute
+      #   set to the parent. Rather, it is a toxic caCORE reference which must be purged. This
+      #   leaves an empty reference which must be lazy-loaded, which is inefficient and inconsistent.
+      #   This situation is rectified in this detoxify method by setting the dependent owner
+      #   attribute to the fetched owner in the detoxification {ReferenceVisitor} copy-match-merge.
       #
       # @return [Resource, <Resource>] the detoxified object(s)
       def detoxify(toxic)

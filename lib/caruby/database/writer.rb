@@ -237,42 +237,42 @@ module CaRuby
       # Creates obj by submitting a template to the persistence service. Ensures that the domain
       # objects referenced by the created obj exist and are correctly stored.
       #
-      # caCORE alert - submitting the object directly for create runs into various caTissue bizlogic
-      # traps, e.g. Participant CPR is not cascaded but Participant bizlogic checks that each CPR
-      # referenced by Participant is ready to be created. It is treacherous to make assumptions
-      # about what caTissue bizlogic will or will not check. Therefore, the safer strategy is to
-      # build a template for submission that includes only the object cascaded and direct
-      # non-cascaded independent references. The independent references are created if necessary.
-      # The template thus includes only as much content as can safely pass through the caTissue
-      # bizlogic minefield.
+      # @quirk caCORE submitting the object directly for create runs into various caTissue bizlogic
+      #   traps, e.g. Participant CPR is not cascaded but Participant bizlogic checks that each CPR
+      #   referenced by Participant is ready to be created. It is treacherous to make assumptions
+      #   about what caTissue bizlogic will or will not check. Therefore, the safer strategy is to
+      #   build a template for submission that includes only the object cascaded and direct
+      #   non-cascaded independent references. The independent references are created if necessary.
+      #   The template thus includes only as much content as can safely pass through the caTissue
+      #   bizlogic minefield.
       #
-      # caCORE alert - caCORE create does not update the submitted object to reflect the created
-      # content. The create result is a separate object, which in turn does not always reflect
-      # the created content, e.g. caTissue ignores auto-generated attributes such as Container
-      # name. Work-around is to merge the create result into the object being created, being
-      # careful to merge only the fetched content in order to avoid the dreaded out-of-session
-      # error message. The post-create cascaded dependent hierarchy is traversed to capture
-      # the created state for each created object.
+      # @quirk caCORE caCORE create does not update the submitted object to reflect the created
+      #   content. The create result is a separate object, which in turn does not always reflect
+      #   the created content, e.g. caTissue ignores auto-generated attributes such as Container
+      #   name. Work-around is to merge the create result into the object being created, being
+      #   careful to merge only the fetched content in order to avoid the dreaded out-of-session
+      #   error message. The post-create cascaded dependent hierarchy is traversed to capture
+      #   the created state for each created object.
       #
-      # The ignored content is handled separately by fetching the ignored content from
-      # the database, comparing it to the desired content as reflected in the submitted
-      # create argument object, and submitting a post-create caCORE update as necessary to
-      # force caCORE to reflect the desired content. This is complicated by the various
-      # auto-generation schemes, e.g. in caTissue, that require a careful fetch, match and
-      # merge logic to make sense of how what was actually created corresponds to the desired
-      # content expressed in the create argument object graph.
+      #   The ignored content is handled separately by fetching the ignored content from
+      #   the database, comparing it to the desired content as reflected in the submitted
+      #   create argument object, and submitting a post-create caCORE update as necessary to
+      #   force caCORE to reflect the desired content. This is complicated by the various
+      #   auto-generation schemes, e.g. in caTissue, that require a careful fetch, match and
+      #   merge logic to make sense of how what was actually created corresponds to the desired
+      #   content expressed in the create argument object graph.
       #
-      # There are thus several objects involved in the create process:
-      # * the object to create
-      # * the template for caCORE createObject submission
-      # * the caCORE createObject result
-      # * the post-create fetched object that reflects the persistent content
-      # * the template for post-create caCORE updateObject submission
+      #   There are thus several objects involved in the create process:
+      #   * the object to create
+      #   * the template for caCORE createObject submission
+      #   * the caCORE createObject result
+      #   * the post-create fetched object that reflects the persistent content
+      #   * the template for post-create caCORE updateObject submission
       #
-      # This object menagerie is unfortunate but unavoidable if we are to navigate the treacherous
-      # caCORE create process and ensure that:
-      # 1. the database reflects the create argument.
-      # 2. the created object reflects the database content.
+      #   This object menagerie is unfortunate but unavoidable if we are to navigate the treacherous
+      #   caCORE create process and ensure that:
+      #   1. the database reflects the create argument.
+      #   2. the created object reflects the database content.
       #
       # @param (see #create)
       # @return obj
@@ -280,7 +280,6 @@ module CaRuby
         # The create template. Independent saved references are created as necessary.
         tmpl = build_create_template(obj)
         save_with_template(obj, tmpl) { |svc| svc.create(tmpl) }
-
         # If obj is a top-level create, then ensure that remaining references exist.
         if @operations.first.subject == obj then
           refs = obj.references.reject { |ref| ref.identifier }
@@ -297,7 +296,7 @@ module CaRuby
         build_save_template(obj, @cr_tmpl_bldr)
       end
 #
-      # caCORE alert - application create logic might ignore a non-domain attribute value,
+      # @quirk caCORE application create logic might ignore a non-domain attribute value,
       # e.g. the caTissue StorageContainer auto-generated name attribute. In other cases, the application
       # always ignores a non-domain attribute value, so the object should not be saved even if it differs
       # from the stored result, e.g. the caTissue CollectionProtocolRegistration unsaved
@@ -455,27 +454,27 @@ module CaRuby
         obj.take_snapshot
       end
       
-      # caTissue alert - the conditions for when and how to include a proxied dependent are
-      # are intricate and treacherous. So far as can be determined, in the case of a
-      # SpecimenPosition proxied by a TransferEventParameters, the sequence is as follows:
-      # * If a Specimen without a previous position is updated with a position, then
-      #   the update template should not include the target position. Subsequent to the
-      #   Specimen update, the TransferEventParameters proxy is created.
-      #   This creates a new position in the database as a server side-effect. caRuby
-      #   then fetches the new position and merges it into the target position.
-      # * If a Specimen with a previous position is updated, then the update template
-      #   must reflect the current datbase position state. Therefore, caRuby first
-      #   creates the proxy to update the database state.
-      # * The TransferEventParameters create must reference a Specimen with the current
-      #   database position state, not the new position state.
-      # * Update of a Specimen with a current database position must reference a
-      #   position which reflects that database state. This is true even if the position
-      #   has not changed. The position must be complete and consistent with the database
-      #   state. E.g. omitting the position storage container is accepted by caTissue
-      #   but corrupts the database side and has adverse delayed effects.
-      # * Specimen create (but not auto-generated update) cannot include a position
-      #   (although that might have changed in the 1.1.2 release). The target position
-      #   must be created via the proxy after the Specimen is created.
+      # @quirk caTissue the conditions for when and how to include a proxied dependent are
+      #   are intricate and treacherous. So far as can be determined, in the case of a
+      #   SpecimenPosition proxied by a TransferEventParameters, the sequence is as follows:
+      #   * If a Specimen without a previous position is updated with a position, then
+      #     the update template should not include the target position. Subsequent to the
+      #     Specimen update, the TransferEventParameters proxy is created.
+      #     This creates a new position in the database as a server side-effect. caRuby
+      #     then fetches the new position and merges it into the target position.
+      #   * If a Specimen with a previous position is updated, then the update template
+      #     must reflect the current datbase position state. Therefore, caRuby first
+      #     creates the proxy to update the database state.
+      #   * The TransferEventParameters create must reference a Specimen with the current
+      #     database position state, not the new position state.
+      #   * Update of a Specimen with a current database position must reference a
+      #     position which reflects that database state. This is true even if the position
+      #     has not changed. The position must be complete and consistent with the database
+      #     state. E.g. omitting the position storage container is accepted by caTissue
+      #     but corrupts the database side and has adverse delayed effects.
+      #   * Specimen create (but not auto-generated update) cannot include a position
+      #     (although that might have changed in the 1.1.2 release). The target position
+      #     must be created via the proxy after the Specimen is created.
       #
       # @param (see #update)
       # @return [<Resource>] the #{Attributes#proxied_savable_template_attributes} dependents
@@ -554,7 +553,6 @@ module CaRuby
         sync_saved_result_with_database(source, target)
         # merge the source into the target
         merge_saved(target, source)
-
         # If saved must be updated, then update recursively.
         # Otherwise, save dependents as needed.
         if update_saved?(target, source) then
@@ -578,12 +576,12 @@ module CaRuby
       # Merges the database content into the given saved domain object.
       # Dependents are merged recursively.
       #
-      # caTissue alert - the auto-generated references are not necessarily valid, e.g. the auto-generated
-      # SpecimenRequirement characteristics tissue site is nil rather than the default 'Not Specified'.
-      # This results in an obscure downstream error when creating an CPR which auto-generates a SCG
-      # which auto-generates a Specimen which copies the invalid characteristics. The work-around for
-      # this bug is to add defaults to auto-generated references. Then, if the content differs from
-      # the database, the difference induces an update of the reference.
+      # @quirk caTissue the auto-generated references are not necessarily valid, e.g. the auto-generated
+      #   SpecimenRequirement characteristics tissue site is nil rather than the default 'Not Specified'.
+      #   This results in an obscure downstream error when creating an CPR which auto-generates a SCG
+      #   which auto-generates a Specimen which copies the invalid characteristics. The work-around for
+      #   this bug is to add defaults to auto-generated references. Then, if the content differs from
+      #   the database, the difference induces an update of the reference.
       #
       # @param (see #sync_saved)
       # @return [Resource] the merged target object

@@ -47,16 +47,16 @@ module CaRuby
     # object following the given attribute path. The query condition is determined by the values set in the
     # template. Every non-nil attribute in the template is used as a select condition.
     #
-    # caCORE alert - this method returns the direct result of calling the +caCORE+ application service
-    # search method. Calling reference attributes of this result is broken by +caCORE+ design.
+    # @quirk caCORE this method returns the direct result of calling the +caCORE+ application service
+    #   search method. Calling reference attributes of this result is broken by +caCORE+ design.
     def query(template_or_hql, *path)
       String === template_or_hql ? query_hql(template_or_hql) : query_template(template_or_hql, path)
     end
 
     # Submits the create to the application service and returns the created object.
     #
-    # caCORE alert - this method returns the direct result of calling the +caCORE+ application service
-    # create method. Calling reference attributes of this result is broken by +caCORE+ design.
+    # @quirk caCORE this method returns the direct result of calling the +caCORE+ application service
+    #   create method. Calling reference attributes of this result is broken by +caCORE+ design.
     def create(obj)
       logger.debug { "Submitting create #{obj.pp_s(:single_line)} to application service #{name}..." }
       begin
@@ -91,9 +91,9 @@ module CaRuby
 
     # Returns a freshly initialized ApplicationServiceProvider remote instance.
     #
-    # caCORE alert - When more than one application service is used, each call to the service
-    # must reinitialize the remote instance. E.g. this is done in the caTissue DE examples,
-    # and is a good general practice.
+    # @quirk caCORE When more than one application service is used, each call to the service
+    #   must reinitialize the remote instance. E.g. this is done in the caTissue DE examples,
+    #  and is a good general practice.
     #
     # @return [ApplicationServiceProvider] the CaCORE service provider wrapped by this PersistenceService
     def app_service
@@ -135,11 +135,14 @@ module CaRuby
       'localhost'
     end
     
+    # Dispatches the given HQL to the application service.
+    #
+    # @quirk caCORE query target parameter is necessary for caCORE 3.x but deprecated in caCORE 4+.
+    #
+    # @param [String] hql the HQL to submit
     def query_hql(hql)
       logger.debug { "Building HQLCriteria..." }
       criteria = HQLCriteria.new(hql)
-      # caCORE alert - query target parameter is necessary for caCORE 3.x but deprecated in caCORE 4+
-      # TODO caCORE 4 - remove target parameter
       target = hql[/from\s+(\S+)/i, 1]
       raise DatabaseError.new("HQL does not contain a FROM clause: #{hql}") unless target
       logger.debug { "Submitting search on target class #{target} with the following HQL:\n  #{hql}" }

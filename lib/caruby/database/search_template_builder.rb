@@ -8,16 +8,15 @@ module CaRuby
     # The default hash attributes are the {Attributes#searchable_attributes}.
     # The template includes only the non-domain attributes of the hash references.
     #
-    # caCORE alert - Because of caCORE API limitations, the obj searchable attribute
-    # values are limited to the following:
-    # * non-domain attribute values
-    # * non-collection domain attribute references which contain a key
+    # @quirk caCORE Because of caCORE API limitations, the obj searchable attribute
+    #   values are limited to the following:
+    #   * non-domain attribute values
+    #   * non-collection domain attribute references which contain a key
     #
-    # caCORE alert - the caCORE query builder breaks on reference cycles and
-    # is easily confused by extraneous references, so it is necessary to search
-    # with a template instead that contains only references essential to the
-    # search. Each reference is confirmed to exist and the reference content in
-    # the template consists entirely of the fetched identifier attribute.
+    # @quirk caCORE the caCORE query builder breaks on reference cycles and is easily confused
+    #   by extraneous references, so it is necessary to search with a template instead that contains
+    #   only references essential to the search. Each reference is confirmed to exist and the
+    #   reference content in the template consists entirely of the fetched identifier attribute.
     def build_template(obj, hash=nil)
       # split the attributes into reference and non-reference attributes.
       # the new search template object is built from the non-reference attributes.
