@@ -1,6 +1,6 @@
 $:.unshift 'lib'
 
-# JRuby alert - SyncEnumerator moved from generator to REXML in JRuby 1.5
+# JRuby SyncEnumerator moved from generator to REXML in JRuby 1.5
 require 'rexml/document'
 require "test/unit"
 require 'caruby/util/collection'
