@@ -76,7 +76,7 @@ module CaRuby
     # @return the merged attribute value
     def merge_attribute(attribute, newval, matches=nil)
       # the previous value
-      oldval = send(attribute)      
+      oldval = send(attribute)
       # If nothing to merge or a block can take over, then bail. 
       if newval.nil? or mergeable__equal?(oldval, newval) then
         return oldval
@@ -165,9 +165,8 @@ module CaRuby
         oldval.merge(newval)
       else
         # No target; set the attribute to the source.
-        # the target is either a source match or the source itself
-        ref = matches[newval] if matches
-        ref ||= newval
+        # The target is either a source match or the source itself.
+        ref = (matches[newval] if matches) || newval
         logger.debug { "Setting #{qp} #{attr_md} reference #{ref.qp}..." }
         # If the target is a dependent, then set the dependent owner, which will in turn
         # set the attribute to the dependent. Otherwise, set the attribute to the target.
@@ -176,7 +175,7 @@ module CaRuby
       newval
     end
 
-    # Java alert - Java TreeSet comparison uses the TreeSet comparator rather than an
+    # Java Java TreeSet comparison uses the TreeSet comparator rather than an
     # element-wise comparator. Work around this rare aberration by converting the TreeSet
     # to a Ruby Set.
     def mergeable__equal?(v1, v2)
