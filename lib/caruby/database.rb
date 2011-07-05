@@ -77,23 +77,23 @@ module CaRuby
 
     # Creates a new Database with the specified service name and options.
     #
-    # caCORE alert - obtaining a caCORE session instance mysteriously depends on referencing the
-    # application service first. Therefore, the default persistence service appService method must
-    # be called after it is instantiated and before the session is instantiated. However, when
-    # the appService method is called just before a session is acquired, then this call corrupts
-    # the object state of existing objects.
+    # @quirk caCORE obtaining a caCORE session instance mysteriously depends on referencing the
+    #   application service first. Therefore, the default persistence service appService method must
+    #   be called after it is instantiated and before the session is instantiated. However, when
+    #   the appService method is called just before a session is acquired, then this call corrupts
+    #   the object state of existing objects.
     #
-    # Specifically, when a CaTissue::CollectionProtocol is created which references a
-    # CaTissue::CollectionProtocolRegistration which in turn references a CaTissue::Participant,
-    # then the call to PersistenceService.appService replaces the CaTissue::Participant
-    # reference with a difference CaTissue::Participant instance. The work-around for
-    # this extremely bizarre bug is to call appService immediately after instantiating
-    # the default persistence service.
+    #   Specifically, when a CaTissue::CollectionProtocol is created which references a
+    #   CaTissue::CollectionProtocolRegistration which in turn references a CaTissue::Participant,
+    #   then the call to PersistenceService.appService replaces the CaTissue::Participant
+    #   reference with a difference CaTissue::Participant instance. The work-around for
+    #   this extremely bizarre bug is to call appService immediately after instantiating
+    #   the default persistence service.
     #
-    # This bug might be a low-level JRuby-Java-caCORE-Hibernate confusion where something in
-    # caCORE stomps on an existing JRuby object graph. To reproduce, move the appService call
-    # to the start_session method and run PCBIN::MigrationTest#test_save with all but the
-    # verify_save(:biopsy, BIOPSY_OPTS) line commented out.
+    #   This bug might be a low-level JRuby-Java-caCORE-Hibernate confusion where something in
+    #   caCORE stomps on an existing JRuby object graph. To reproduce, move the appService call
+    #   to the start_session method and run {PCBIN::MigrationTest#test_save} with all but the
+    #   verify_save(:biopsy, BIOPSY_OPTS) line commented out.
     #
     # @param [String] service_name the name of the default {PersistenceService}
     # @param [{Symbol => String}] opts access options
@@ -251,10 +251,10 @@ module CaRuby
     
     # @return [Cache] a new object cache.
     def create_cache
-      # JRuby alert - identifier is not a stable object when fetched from the database, i.e.:
-      #   obj.identifier.equal?(obj.identifier) #=> false
-      # This is probably an artifact of jRuby Numeric - Java Long conversion interaction
-      # combined with hash access use of the eql? method. Work-around is to make a Ruby Integer.
+      # @quirk JRuby identifier is not a stable object when fetched from the database, i.e.:
+      #     obj.identifier.equal?(obj.identifier) #=> false
+      #   This is probably an artifact of jRuby Numeric - Java Long conversion interaction
+      #   combined with hash access use of the eql? method. Work-around is to make a Ruby Integer.
       Cache.new do |obj|
         raise ArgumentError.new("Can't cache object without identifier: #{obj}") unless obj.identifier
         obj.identifier.to_s.to_i
