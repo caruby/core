@@ -1,3 +1,4 @@
+require 'enumerator'
 require 'caruby/util/collection'
 require 'caruby/domain/merge'
 require 'caruby/domain/attribute'
@@ -361,6 +362,11 @@ module CaRuby
           @hash.each { |attr, attr_md| yield(attr, attr_md) if @filter.call(attr_md) }
         end
         
+        # @return [<(Symbol, Attribute)>] the (symbol, attribute) enumerator
+        def enum_pairs
+          enum_for(:each_pair)
+        end
+        
         # @yield [attribute] block to apply to each filtered attribute
         # @yieldparam [Symbol] the attribute which satisfies the filter condition
         def each_attribute(&block)
@@ -373,6 +379,11 @@ module CaRuby
         # @yieldparam [Attribute] attr_md the attribute metadata
         def each_metadata
           each_pair { |attr, attr_md| yield(attr_md) }
+        end
+        
+        # @return [<Attribute>] the attribute metadata enumerator
+        def enum_metadata
+          enum_for(:each_metadata)
         end
         
         # @yield [attribute] the block to apply to the attribute
@@ -523,17 +534,19 @@ module CaRuby
           @local_mndty_attrs.delete(std_attr)
           @local_std_attr_hash.delete_if { |aliaz, attr| attr == std_attr }
         else
-          @attr_md_hash = @attr_md_hash.filter_on_key { |attr| attr != attribute }
-          @attributes = Enumerable::Enumerator.new(@attr_md_hash, :each_key)
-          @alias_std_attr_map = @alias_std_attr_map.filter_on_key { |attr| attr != attribute }
+          # Filter the superclass hashes.
+          anc_md_hash = @attr_md_hash.components[1]
+          @attr_md_hash.components[1] = anc_md_hash.filter_on_key { |attr| attr != attribute }
+          anc_alias_hash = @alias_std_attr_map.components[1]
+          @alias_std_attr_map.components[1] = anc_alias_hash.filter_on_key { |attr| attr != attribute }
         end
       end
   
       def add_attribute_metadata(attr_md)
-        symbol = attr_md.to_sym
-        @local_attr_md_hash[symbol] = attr_md
+        attr = attr_md.to_sym
+        @local_attr_md_hash[attr] = attr_md
         # map the attribute symbol to itself in the alias map
-        @local_std_attr_hash[symbol] = symbol
+        @local_std_attr_hash[attr] = attr
       end
   
       # Records that the given aliaz aliases a standard attribute.
