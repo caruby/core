@@ -21,9 +21,9 @@ module CaRuby
   module Resource
     include Mergeable, Migratable, Persistable, Inversible
     
-    # JRuby alert - Bug #5090 - JRuby 1.5 object_id is no longer a reserved method, and results
-    # in a String value rather than an Integer (cf. http://jira.codehaus.org/browse/JRUBY-5090).
-    # Work-around is to make a proxy object id.
+    # @quirk JRuby Bug #5090 - JRuby 1.5 object_id is no longer a reserved method, and results
+    #   in a String value rather than an Integer (cf. http://jira.codehaus.org/browse/JRUBY-5090).
+    #   Work-around is to make a proxy object id.
     #
     # @return [Integer] the object id
     def proxy_object_id
