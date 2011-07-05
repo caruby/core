@@ -50,7 +50,7 @@ module CaRuby
       shift_age = Options.get(:shift_age, options, 4)
       shift_size = Options.get(:shift_size, options, 16 * 1048576)
       @logger = MultilineLogger.new(dev, shift_age, shift_size)
-      @logger.level = Options.get(:debug, options, ENV["DEBUG"]) ? Logger::DEBUG : Logger::INFO
+      @logger.level = Options.get(:debug, options, ENV['DEBUG']) ? Logger::DEBUG : Logger::INFO
       @logger.info('============================================')
       @logger.info('Logging started.')
       @dev = dev
