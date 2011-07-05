@@ -139,7 +139,7 @@ module CaRuby
   
     # @return [Enumerable] iterator over each visited node
     def to_enum(node)
-      # JRuby alert - could use Generator instead, but that results in dire behavior on any error
+      # JRuby could use Generator instead, but that results in dire behavior on any error
       # by crashing with an elided Java lineage trace.
       VisitorEnumerator.new(self, node)
     end
