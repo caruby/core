@@ -18,12 +18,8 @@ module CaRuby
       # @return [Module] the {Domain} module context
       attr_accessor :domain_module
       
-      # JRuby 1.6 alert - if a concrete class implements a constructor, then calling super in an
-      # included module initialize method results in a recursive call back into that initialize. 
-      # The work-around is to redefine each domain class new method to call the initalize_content
-      # method instead. All Resource domain classes or included modules must not override
-      # initialize. They can implement initialize_content instead.
       def self.extended(klass)
+        super
         klass.class_eval do
           # Add this class's metadata.
           introspect
