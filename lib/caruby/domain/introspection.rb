@@ -123,9 +123,9 @@ module CaRuby
       # Makes a standard attribute for the given property descriptor.
       # Adds a camelized Java-like alias to the standard attribute.
       #
-      # caTissue alert - DE annotation collection attributes are often misnamed,
-      # e.g. +histologic_grade+ for a +HistologicGrade+ collection attribute.
-      # This is fixed by adding a pluralized alias, e.g. +histologic_grades+.
+      # @quirk caTissue DE annotation collection attributes are often misnamed,
+      #   e.g. +histologic_grade+ for a +HistologicGrade+ collection attribute.
+      #   This is fixed by adding a pluralized alias, e.g. +histologic_grades+.
       #
       # @return a new attribute symbol created for the given PropertyDescriptor pd
       def create_java_attribute(pd)
@@ -157,6 +157,7 @@ module CaRuby
       # Calling rather than aliasing the attribute accessor allows the aliaz accessor to
       # reflect a change to the attribute accessor.
       def delegate_to_attribute(aliaz, attribute)
+        if aliaz == attribute then raise MetadataError.new("Cannot delegate #{self} #{aliaz} to itself.") end
         rdr, wtr = attribute_metadata(attribute).accessors
         define_method(aliaz) { send(rdr) }
         define_method("#{aliaz}=".to_sym) { |value| send(wtr, value) }
