@@ -3,16 +3,22 @@ require 'caruby/util/collection'
 class TopologicalSyncEnumerator
   include Enumerable
 
-  def initialize(targets, sources, symbol, &matcher)
+  # @param targets the objects to synch to
+  # @param sources the objects to synch from
+  # @param [Symbol] method the topological order reference method
+  # @yield (see #each)
+  def initialize(targets, sources, method, &matcher)
     @tgts = targets
     @srcs = sources
-    @mthd = symbol
+    @mthd = method
     @matcher = matcher || lambda { |tgt, srcs| srcs.first }
   end
 
   # Calls the given block on each matching target and source.
-  # Returns the matching target => source hash.
-  def each # :yields: target, source
+  #
+  # @yield [target, source] the objects to synchronize
+  # @return [Hash] the matching target => source hash
+  def each
     # the parent hashes for targets and sources
     pt = @tgts.to_compact_hash { |tgt| tgt.send(@mthd) }
     ps = @srcs.to_compact_hash { |src| src.send(@mthd) }
