@@ -41,7 +41,7 @@ module CaRuby
         begin
           klass = eval "Java::#{@pkg}.#{symbol}"
           resource_import klass
-        rescue
+        rescue NameError
           logger.debug { "#{symbol} is not recognized as a #{@pkg} Java class - #{$!}\n#{caller.qp}." }
           super
         end
@@ -166,9 +166,9 @@ module CaRuby
         srcs.map do |file|
           base_name = File.basename(file, ".rb")
           sym = base_name.camelize.to_sym
-          # JRuby alert - autoload of classes defined in a submodule of a Java wrapper class is
-          # not supported. However, this only occurs with the caTissue Specimen Pathology annotation
-          # class definitions, not the caTissue Participant or SCG annotations. TODO - isolate and report.
+          # JRuby autoload of classes defined in a submodule of a Java wrapper class is not supported.
+          # However, this only occurs with the caTissue Specimen Pathology annotation class definitions,
+          # not the caTissue Participant or SCG annotations. TODO - confirm, isolate and report.
           # Work-around is to require the files instead.
           if name[/^Java::/] then
             require file
