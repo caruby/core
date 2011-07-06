@@ -13,7 +13,7 @@ SPEC = Gem::Specification.new do |s|
   s.email         = "caruby.org@gmail.com"
   s.homepage      = "http://caruby.rubyforge.org"
   s.platform      = Gem::Platform::RUBY
-  s.files         = Dir.glob("{conf,lib,test/{bin,lib}}/**/*") + ['History.txt', 'LEGAL', 'LICENSE', 'README.md']
+  s.files         = Dir.glob("{conf,lib,test/{bin,lib}}/**/*") + ['History.md', 'LEGAL', 'LICENSE', 'README.md']
   s.require_paths = ['lib']
   s.add_dependency('dbi')
   s.add_dependency('dbd-jdbc')

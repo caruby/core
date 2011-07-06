@@ -13,7 +13,7 @@ SUDO = WINDOWS ? '' : 'sudo'
 
 # the archive include files
 TAR_FILES = Dir.glob("{bin,lib,sql,*.gemspec,doc/website,test/{bin,fixtures,lib}}") +
-  ['.gitignore', 'History.txt', 'LEGAL', 'LICENSE', 'Rakefile', 'README.md']
+  ['.gitignore', 'History.md', 'LEGAL', 'LICENSE', 'Rakefile', 'README.md']
 
 desc "Builds the gem"
 task :gem do
