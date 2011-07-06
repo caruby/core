@@ -6,7 +6,6 @@ require 'rbconfig'
 # the gem name
 GEM = 'caruby-core'
 GEM_VERSION = CaRuby::VERSION
-GEM_VERSION.replace(ENV['CARUBY_CORE_VERSION']) if ENV['CARUBY_CORE_VERSION']
 
 WINDOWS = (Config::CONFIG['host_os'] =~ /mingw|win32|cygwin/ ? true : false) rescue false
 SUDO = WINDOWS ? '' : 'sudo'
