@@ -1,7 +1,11 @@
 This history lists major release themes. See the GitHub Commits (https://github.com/caruby/core)
 for change details.
 
-1.5.1 / 2011-06-28
+1.5.2 / 2011-07-06
+------------------
+* Minor gem build improvement.
+
+1.5.1 / 2011-07-05
 ------------------
 * Domain refactoring.
 
