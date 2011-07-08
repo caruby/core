@@ -79,7 +79,7 @@ module CaRuby
       end
 
       # Configures this importer with the given options. This method is intended for use by the
-      # {#extend_module} method.
+      # +extend_module+ method.
       #
       # @param [{Symbol => Object}] opts the extension options
       # @option opts [String] :package the required Java package name

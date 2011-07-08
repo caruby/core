@@ -24,9 +24,9 @@ module CaRuby
   #
   # Database strives to provide a simple WYEIWYG (What You Expect Is What You Get) API, consisting of
   # the following workhorse methods:
-  # * {Query#query} - fetch domain objects which match a template
-  # * {Store#find} - fetch a specific domain object by key
-  # * {Store#store} - if a domain object exists in the database, then update it, otherwise create it
+  # * {Reader#query} - fetch domain objects which match a template
+  # * {Reader#find} - fetch a specific domain object by key
+  # * {Writer#save} - if a domain object exists in the database, then update it, otherwise create it
   #
   # Any domain object can serve as a query argument. If an optional attribute path is specified, then
   # that path is followed to the result, e.g.:
@@ -36,10 +36,10 @@ module CaRuby
   # A domain object find argument must contain enough data to determine whether it exists in the database,
   # i.e. the find argument has a database identifier or a complete secondary key.
   #
-  # The {Store#store} method creates or updates references as necessary to persist its argument domain object.
+  # The {Writer#save} method creates or updates references as necessary to persist its argument domain object.
   # It is not necessary to fetch references first or follow dependency ordering rules, which can be
   # implicit and tortuous in caBIG applications. Build the object you want to persist and call the
-  # store method. CaRuby::Resource sets reasonable default values, recognizes application dependencies and steers
+  # store method. {Resource} sets reasonable default values, recognizes application dependencies and steers
   # around caBIG idiosyncracies to the extent possible.
   class Database
     include Reader, Writer, Persistifier
@@ -92,8 +92,7 @@ module CaRuby
     #
     #   This bug might be a low-level JRuby-Java-caCORE-Hibernate confusion where something in
     #   caCORE stomps on an existing JRuby object graph. To reproduce, move the appService call
-    #   to the start_session method and run {PCBIN::MigrationTest#test_save} with all but the
-    #   verify_save(:biopsy, BIOPSY_OPTS) line commented out.
+    #   to the start_session method and run the +PSBIN::MigrationTest+ biopsy save test case.
     #
     # @param [String] service_name the name of the default {PersistenceService}
     # @param [{Symbol => String}] opts access options

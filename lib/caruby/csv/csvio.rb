@@ -14,7 +14,7 @@ module CaRuby
   # * allow one custom converter with different semantics: if the converter block
   #   call returns nil, then continue conversion, otherwise return the converter
   #   result. This differs from FasterCSV converter semantics which calls converters
-  #   as long the result ==  the input field value. The CsvIO converter semantics
+  #   as long the result equals the input field value. The CsvIO converter semantics
   #   supports converters that intend a String result to be the converted result.
   #
   # CsvIO is Enumerable, but does not implement the complete Ruby IO interface.
@@ -38,7 +38,7 @@ module CaRuby
       end
     end
   
-    # {#open}s the given CSV file and calls {#each} with the given block.
+    # Opens the given CSV file and calls {#each} with the given block.
     #
     # @param (see #initialize)
     # @option (see #initialize)

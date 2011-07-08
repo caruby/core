@@ -79,8 +79,8 @@ module CaRuby
     # Subclasses can modify this method to complete the migration. The overridden
     # methods should call +super+ to pick up the superclass migration.
     #
-    # @param [Hash] row the input row
-    # @param [Enumerable] migrated the migrated instances, including this Resource
+    # @param [{Symbol => Object}] row the input row field => value hash
+    # @param [<Resource>] migrated the migrated instances, including this domain object
     def migrate(row, migrated)
     end
 
@@ -102,8 +102,8 @@ module CaRuby
     # for the _attribute_ to modify.
     #
     # The migratable reference attributes consist of the non-collection
-    # {Attributes#saved_independent_attributes} and 
-    # {Attributes#unidirectional_dependent_attributes} which don't already have a value.
+    # {Domain::Attributes#saved_independent_attributes} and 
+    # {Domain::Attributes#unidirectional_dependent_attributes} which don't already have a value.
     # For each such migratable attribute, if there is a single instance of the attribute
     # type in the given migrated domain objects, then the attribute is set to that
     # migrated instance.

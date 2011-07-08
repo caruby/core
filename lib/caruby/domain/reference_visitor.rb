@@ -21,7 +21,7 @@ module CaRuby
     # Creates a new ReferenceVisitor on domain reference attributes.
     #
     # If a selector block is given to this initializer, then the reference attributes to visit
-    # are determined by calling the block. Otherwise, the {Attributes#saved_domain_attributes}
+    # are determined by calling the block. Otherwise, the {Domain::Attributes#saved_domain_attributes}
     # are visited.
     #
     # @param options (see Visitor#initialize)
@@ -70,7 +70,7 @@ module CaRuby
     end
 
     # Adds a default matcher block if necessary and delegates to {Visitor#sync}. The default matcher block
-    # calls {CaRuby::Resource#match_in} to match the candidate domain objects to visit.
+    # calls {Resource#match_in} to match the candidate domain objects to visit.
     #
     # @yield [ref, others] matches ref in others (optional)
     # @yieldparam [Resource] ref the domain object to match

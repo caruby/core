@@ -17,7 +17,7 @@ module CaRuby
     # The service name.
     attr_reader :name
 
-    # The {Util::Stopwatch} which captures the time spent in database operations performed by the application service.
+    # The {Stopwatch} which captures the time spent in database operations performed by the application service.
     attr_reader :timer
 
     # Creates a new PersistenceService with the specified application service name and options.

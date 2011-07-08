@@ -3,7 +3,7 @@ require 'caruby/util/log'
 
 module CaRuby
   module CLI
-    # Extends the standard Logger::Application to use the {CaRuby::Log} and add start
+    # Extends the standard Logger::Application to use the {Log} and add start
     # functionality.
     class Application < Logger::Application
       # @param [String] appname the application name

@@ -65,7 +65,7 @@ module Enumerable
   end
 
   # Returns a new Hash generated from this Enumerable with a block whose arguments include the enumerated item
-  # and its index. Every value which is {#nil_or_empty} is excluded.
+  # and its index. Every value which is nil or empty is excluded.
   #
   # @example
   #   [1, 2, 3].to_compact_hash_with_index { |item, index| item + index } #=> { 1 => 1, 2 => 3, 3 => 5 }

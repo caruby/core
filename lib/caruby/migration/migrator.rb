@@ -27,7 +27,7 @@ module CaRuby
     # Creates a new Migrator.
     #
     # @param [{Symbol => Object}] opts the migration options
-    # @option opts [String] :database required application {CaRuby::Database}
+    # @option opts [String] :database required application {Database}
     # @option opts [String] :target required target domain class
     # @option opts [String] :mapping required input field => caTissue attribute mapping file
     # @option opts [String] :defaults optional caTissue attribute => value default mapping file

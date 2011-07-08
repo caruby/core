@@ -35,7 +35,7 @@ module CaRuby
       assert_nothing_raised(ValidationError, msg) { subject.validate }
     end
 
-    # Tests saving the subject. Calls {Database#save} on the subject and verifies that subject and its
+    # Tests saving the subject. Calls {Database::Writer#save} on the subject and verifies that subject and its
     # references were persisted.
     #
     # @param [Resource] subject the object to save
