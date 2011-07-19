@@ -9,6 +9,8 @@ rescue LoadError
   $:.unshift 'lib'
 end
 
+# Add the example Ruby files to the class path.
+$:.unshift File.dirname(__FILE__)
+
 require 'caruby'
-require 'clinical_trials/resource'
-require 'clinical_trials/database'
+require 'clinical_trials/domain'

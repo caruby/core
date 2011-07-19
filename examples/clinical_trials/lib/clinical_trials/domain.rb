@@ -1,9 +1,9 @@
 require 'caruby/domain'
 require 'clinical_trials/resource'
+require 'clinical_trials/database'
 
 # Example CaRuby::Domain containing some simple domain classes.
 module ClinicalTrials
-  extend CaRuby::Domain
 
   private
 
@@ -21,6 +21,9 @@ module ClinicalTrials
   SRC_DIR = File.join(File.dirname(__FILE__), 'domain')
 
   # Enable the resource metadata aspect.
-  CaRuby::Domain.extend_module(self, :mixin => Resource, :package => PKG, :directory => SRC_DIR)
+  CaRuby::Domain.extend_module(self, :mixin => Resource, :package => PKG)
+  
+  # Load the class definitions.
+  load_dir(SRC_DIR)
 end
 
