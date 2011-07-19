@@ -29,10 +29,11 @@ module CaRuby
     # @param [{Symbol => Object}] opts the migration options
     # @option opts [String] :database required application {Database}
     # @option opts [String] :target required target domain class
-    # @option opts [String] :mapping required input field => caTissue attribute mapping file
-    # @option opts [String] :defaults optional caTissue attribute => value default mapping file
+    # @option opts [<String>, String] :mapping required input field => caTissue attribute mapping file(s)
+    # @option opts [<String>, String] :defaults optional caTissue attribute => value default mapping file(s)
+    # @option opts [<String>, String] :filters optional caTissue attribute input value => caTissue value filter file(s)
     # @option opts [String] :input required source file to migrate
-    # @option opts [String] :shims optional array of shim files to load
+    # @option opts [<String>, String] :shims optional shim file(s) to load
     # @option opts [String] :unique ensures that migrated objects which include the {Resource::Unique}
     # @option opts [String] :create optional flag indicating that existing target objects are ignored
     # @option opts [String] :bad optional invalid record file
@@ -75,8 +76,6 @@ module CaRuby
 
     private
 
-    UNIQUIFY_SHIM = File.join(File.dirname(__FILE__), 'uniquify.rb')
-
     # Class {#migrate} with a {#save} block.
     def execute_save
       if @database.nil? then
@@ -106,10 +105,10 @@ module CaRuby
     end
 
     def parse_options(opts)
-      logger.debug { "Migrator options: #{opts.qp}" }
-      @fld_map_file = opts[:mapping]
-      raise MigrationError.new("Migrator missing required field mapping file parameter") if @fld_map_file.nil?
-      @def_file = opts[:defaults]
+      @fld_map_files = opts[:mapping]
+      raise MigrationError.new("Migrator missing required field mapping file parameter") if @fld_map_files.nil?
+      @def_files = opts[:defaults]
+      @filter_files = opts[:filters]
       @shims = opts[:shims] ||= []
       @offset = opts[:offset] ||= 0
       @input = Options.get(:input, opts)
@@ -136,14 +135,15 @@ module CaRuby
       raise MigrationError.new("No file to migrate") if @input.nil?
 
       # make a CSV loader which only converts input fields corresponding to non-String attributes
-      logger.info("Migration input file: #{@input}.")
       @loader = CsvIO.new(@input, &method(:convert))
       logger.debug { "Migration data input file #{@input} headers: #{@loader.headers.qp}" } 
 
       # create the class => path => default value hash
-      @def_hash = @def_file ? load_defaults(@def_file) : LazyHash.new { Hash.new }
+      @def_hash = @def_files ? load_defaults_files(@def_files) : {}
+      # create the class => path => default value hash
+      @filter_hash = @filter_files ? load_filter_files(@filter_files) : {}
       # create the class => path => header hash
-      fld_map = load_field_map(@fld_map_file)
+      fld_map = load_field_map_files(@fld_map_files)
       # create the class => paths hash
       @cls_paths_hash = create_class_paths_hash(fld_map, @def_hash)
       # create the path => class => header hash
@@ -208,30 +208,40 @@ module CaRuby
     
     # Adds missing klass owner classes to the migration class path hash (with empty paths).
     def add_owners(klass)
-      klass.owners.each do |owner|
-        next if @cls_paths_hash.detect_key { |other| other <= owner } or owner.abstract?
-        logger.debug { "Migrator adding #{klass.qp} owner #{owner}" }
-        @cls_paths_hash[owner] = Array::EMPTY_ARRAY
-        add_owners(owner)
+      owner = missing_owner_for(klass) || return
+      logger.debug { "Migrator adding #{klass.qp} owner #{owner}" }
+      @cls_paths_hash[owner] = Array::EMPTY_ARRAY
+      add_owners(owner)
+    end
+    
+    # @param [Class] klass the migration class
+    # @return [Class, nil] the missing class owner, if any
+    def missing_owner_for(klass)
+      # check for an owner among the current migration classes
+      return if klass.owners.any? do |owner|
+        @cls_paths_hash.detect_key { |other| other <= owner }
       end
+      # find the first non-abstract candidate owner
+      klass.owners.detect { |owner| not owner.abstract? }
     end
 
     # Creates the class => +migrate_+_<attribute>_ hash for the given klasses.
     def create_migration_method_hashes
-      # the attribute metadata => migration method hash variable
-      @attr_md_mgt_mth_map = {}
-      # the class => attribute => migration method hash variable
-      @mgt_mth_hash = {}
-      # collect the migration methods
-      customizable_class_attributes.each { |klass, attr_mds| add_migration_methods(klass, attr_mds) }
+      # the class => attribute => migration filter hash
+      @attr_flt_hash = {}
+      customizable_class_attributes.each do |klass, attr_mds|
+        flts = migration_filters(klass, attr_mds) || next
+        @attr_flt_hash[klass] = flts
+      end
+
       # print the migration shim methods
-      unless @mgt_mth_hash.empty? then
+      unless @attr_flt_hash.empty? then
         printer_hash = LazyHash.new { Array.new }
-        @mgt_mth_hash.each do |klass, attr_mth_hash|
-          mthds = attr_mth_hash.values
-          printer_hash[klass.qp] = mthds unless mthds.empty?
+        @attr_flt_hash.each do |klass, hash|
+          mths = hash.values.select { |flt| Symbol === flt }
+          printer_hash[klass.qp] = mths unless mths.empty?
         end
-        logger.info("Migration shim methods: #{printer_hash.pp_s}.")
+        logger.info("Migration shim methods: #{printer_hash.pp_s}.") unless printer_hash.empty?
       end
     end
 
@@ -275,13 +285,27 @@ module CaRuby
     # Discovers methods of the form +migrate+__attribute_ implemented for the paths
     # in the given class => paths hash the given klass. The migrate method is called
     # on the input field value corresponding to the path.
-    def add_migration_methods(klass, attr_mds)
+    def migration_filters(klass, attr_mds)
       # the migrate methods, excluding the Migratable migrate_references method
       mths = klass.instance_methods(true).select { |mth| mth =~ /^migrate.(?!references)/ }
-      return if mths.empty?
 
       # the attribute => migration method hash
-      attr_mth_hash = {}
+      mth_hash = attribute_method_hash(klass, attr_mds)
+      proc_hash = attribute_proc_hash(klass, attr_mds)
+      return if mth_hash.empty? and proc_hash.empty?
+
+      # for each class path terminal attribute metadata, add the migration filters
+      # to the attribute metadata => filter hash
+      attr_mds.to_compact_hash do |attr_md|
+        mth_hash[attr_md.to_sym] or proc_hash[attr_md.to_sym]
+      end
+    end
+    
+    def attribute_method_hash(klass, attr_mds)
+      # the migrate methods, excluding the Migratable migrate_references method
+      mths = klass.instance_methods(true).select { |mth| mth =~ /^migrate.(?!references)/ }
+      # the attribute => migration method hash
+      mth_hash = {}
       mths.each do |mth|
         # the attribute suffix, e.g. name for migrate_name or Name for migrateName
         suffix = /^migrate(_)?(.*)/.match(mth).captures[1]
@@ -290,24 +314,44 @@ module CaRuby
         # the attribute for the name, or skip if no such attribute
         attr = klass.standard_attribute(attr_nm) rescue next
         # associate the attribute => method
-        attr_mth_hash[attr] = mth
+        mth_hash[attr] = mth
       end
-
-      # for each class path terminal attribute metadata, add the migration methods
-      # to the attribute metadata => migration method hash
+      mth_hash
+    end
+    
+    # @return [Attribute => {Object => Object}] the filter migration methods
+    def attribute_proc_hash(klass, attr_mds)
+      hash = @filter_hash[klass]
+      if hash.nil? then return Hash::EMPTY_HASH end
+      proc_hash = {}
       attr_mds.each do |attr_md|
-        # the attribute migration method
-        mth = attr_mth_hash[attr_md.to_sym]
-        # associate the Attribute => method
-        @attr_md_mgt_mth_map[attr_md] ||= mth if mth
+        flt = hash[attr_md.to_sym] || next
+        proc_hash[attr_md.to_sym] = to_filter_proc(flt)
       end
-      @mgt_mth_hash[klass] = attr_mth_hash
+      proc_hash
+    end
+    
+    # @param [{Object => Object}] filter the config value mapping
+    # @return [Proc] the filter migration block
+    def to_filter_proc(filter)
+      # Split the filter into a straight value => value hash and a regexp => value hash.
+      reh, vh = filter.split { |k, v| Regexp === k }
+      Proc.new do |value|
+        if vh.has_key?(value) then
+          vh[value]
+        else
+          match = reh.detect_key { |re| value =~ re }
+          match ? reh[match] : value
+        end
+      end
     end
 
-    # loads the shim files.
+    # Loads the shim files.
+    #
+    # @param [<String>, String] files the file or file array
     def load_shims(files)
       logger.debug { "Loading shims with load path #{$:.pp_s}..." }
-      files.each do |file|
+      files.enumerate do |file|
         # load the file
         begin
           require file
@@ -323,7 +367,7 @@ module CaRuby
     #
     # @yield (see #migrate)
     # @yieldparam (see #migrate)
-    def migrate_rows # :yields: target
+    def migrate_rows
       # open an CSV output for bad records if the option is set
       if @bad_rec_file then
         @loader.trash = @bad_rec_file
@@ -339,6 +383,12 @@ module CaRuby
         begin
           # migrate the row
           logger.debug { "Migrating record #{rec_no}..." }
+          
+          
+          
+          puts "m #{rec_no}..."
+          
+          
           target = migrate_row(row)
           # call the block on the migrated target
           if target then
@@ -359,7 +409,7 @@ module CaRuby
           mgt_cnt += 1
           # clear the migration state
           clear(target)
-       else
+        else
           # If there is a bad file then warn, reject and continue. Otherwise, bail.
           if @bad_rec_file then
             logger.warn("Migration not performed on record #{rec_no}.")
@@ -403,7 +453,7 @@ module CaRuby
       # remove invalid migrations
       valid, invalid = migrated.partition { |obj| migration_valid?(obj) }
       # set the references
-      valid.each { |obj| obj.migrate_references(row, migrated, @mgt_mth_hash[obj.class]) }
+      valid.each { |obj| obj.migrate_references(row, migrated, @attr_flt_hash[obj.class]) }
       # the target object
       target = valid.detect { |obj| @target_class === obj } || return
       # the target is invalid if it has an invalid owner
@@ -477,7 +527,8 @@ module CaRuby
     # @param row (see #create)
     # @param [<Resource>] created (see #create)
     def add_defaults(obj, row, created)
-      @def_hash[obj.class].each do |path, value|
+      dh = @def_hash[obj.class] || return
+      dh.each do |path, value|
         # fill the reference path
         ref = fill_path(obj, path[0...-1], row, created)
         # set the attribute to the default value unless there is already a value
@@ -519,13 +570,8 @@ module CaRuby
 
     # Sets the obj migratable Attribute attr_md to value from the given input row.
     def migrate_attribute(obj, attr_md, value, row)
-      # a single value can be used for both a Numeric and a String attribute; coerce the value if necessary
       # if there is a shim migrate_<attribute> method, then call it on the input value
-      mth = @attr_md_mgt_mth_map[attr_md]
-      if mth and obj.respond_to?(mth) then
-        value = obj.send(mth, value, row)
-        return if value.nil?
-      end
+      value = filter_value(obj, attr_md, value, row) || return
       # set the attribute
       begin
         obj.send(attr_md.writer, value)
@@ -533,6 +579,24 @@ module CaRuby
         raise MigrationError.new("Could not set #{obj.qp} #{attr_md} to #{value.qp} - #{$!}")
       end
       logger.debug { "Migrated #{obj.qp} #{attr_md} to #{value}." }
+    end
+    
+    # Calls the shim migrate_<attribute> method or config filter on the input value.
+    #
+    # @param value the input value
+    # @return the input value, if there is no filter, otherwise the filtered value
+    def filter_value(obj, attr_md, value, row)
+      filter = filter_for(obj, attr_md)
+      case filter
+        when String then obj.send(filter, value, row)
+        when Proc then filter.call(value)
+        else value
+      end
+    end
+    
+    def filter_for(obj, attr_md)
+      flts = @attr_flt_hash[obj.class] || return
+      flts[attr_md]
     end
 
     # @param [Resource] obj the domain object to save in the database
@@ -557,30 +621,12 @@ module CaRuby
       @rec_cnt + 1
     end
 
-    # @param [String] file the migration fields configuration file
+    # @param [<String>, String] files the migration fields mapping file or file array
     # @return [{Class => {Attribute => Symbol}}] the class => path => header hash
-    #   loaded from the configuration file
-    def load_field_map(file)
-      # load the field mapping config file
-      begin
-        config = YAML::load_file(file)
-      rescue
-        raise MigrationError.new("Could not read field map file #{file}: " + $!)
-      end
-
-      # collect the class => path => header entries
+    #   loaded from the mapping files
+    def load_field_map_files(files)
       map = LazyHash.new { Hash.new }
-      config.each do |field, attr_list|
-        next if attr_list.blank?
-        # the header accessor method for the field
-        header = @loader.accessor(field)
-        raise MigrationError.new("Field defined in migration configuration #{file} not found in input file #{@input} headers: #{field}") if header.nil?
-        # associate each attribute path in the property value with the header
-        attr_list.split(/,\s*/).each do |path_s|
-          klass, path = create_attribute_path(path_s)
-          map[klass][path] = header
-        end
-      end
+      files.enumerate { |file| load_field_map_file(file, map) }
 
       # include the target class
       map[@target_class] ||= Hash.new
@@ -602,26 +648,95 @@ module CaRuby
       map.delete_if do |klass, paths|
         klass.abstract? or classes.any? { |other| other < klass }
       end
+
       map
     end
     
-    def load_defaults(file)
+    # @param [String] file the migration fields configuration file
+    # @param [{Class => {Attribute => Symbol}}] hash the class => path => header hash
+    #   loaded from the configuration file
+    def load_field_map_file(file, hash)
       # load the field mapping config file
+      begin
+        config = YAML::load_file(file)
+      rescue
+        raise MigrationError.new("Could not read field map file #{file}: " + $!)
+      end
+
+      # collect the class => path => header entries
+      config.each do |field, attr_list|
+        next if attr_list.blank?
+        # the header accessor method for the field
+        header = @loader.accessor(field)
+        raise MigrationError.new("Field defined in migration configuration #{file} not found in input file #{@input} headers: #{field}") if header.nil?
+        # associate each attribute path in the property value with the header
+        attr_list.split(/,\s*/).each do |path_s|
+          klass, path = create_attribute_path(path_s)
+          hash[klass][path] = header
+        end
+      end
+    end
+    
+    # Loads the defaults config files.
+    #
+    # @param [<String>, String] files the file or file array to load
+    # @result [<Class => <String => Object>>] the class => path => default value entries 
+    def load_defaults_files(files)
+      # collect the class => path => value entries from each defaults file
+      hash = LazyHash.new { Hash.new }
+      files.enumerate { |file| load_defaults_file(file, hash) }
+      hash
+    end
+    
+    # Loads the defaults config file into the given hash.
+    #
+    # @param [String] file the file to load
+    # @param [<Class => <String => Object>>] hash the class => path => default value entries 
+    def load_defaults_file(file, hash)
       begin
         config = YAML::load_file(file)
       rescue
         raise MigrationError.new("Could not read defaults file #{file}: " + $!)
       end
-
       # collect the class => path => value entries
-      map = LazyHash.new { Hash.new }
       config.each do |path_s, value|
         next if value.nil_or_empty?
         klass, path = create_attribute_path(path_s)
-        map[klass][path] = value
+        hash[klass][path] = value
       end
-
-      map
+    end    
+    # Loads the filter config files.
+    #
+    # @param [<String>, String] files the file or file array to load
+    # @result [<Class => <String => Object>>] the class => path => default value entries 
+    def load_filter_files(files)
+      # collect the class => path => value entries from each defaults file
+      hash = LazyHash.new { Hash.new }
+      files.enumerate { |file| load_filter_file(file, hash) }
+      hash
+    end
+    
+    # Loads the filter config file into the given hash.
+    #
+    # @param [String] file the file to load
+    # @param [<Class => <String => <Object => Object>>>] hash the class => path => input value => caTissue value entries 
+    def load_filter_file(file, hash)
+      begin
+        config = YAML::load_file(file)
+      rescue
+        raise MigrationError.new("Could not read filter file #{file}: " + $!)
+      end
+      # collect the class => attribute => filter entries
+      config.each do |path_s, flt|
+        next if flt.nil_or_empty?
+        klass, path = create_attribute_path(path_s)
+        unless path.size == 1 then
+          raise MigrationError.new("Migration filter configuration path not supported: #{path_s}")
+        end
+        attr = klass.standard_attribute(path.first.to_sym)
+        flt_hash = hash[klass] ||= {}
+        flt_hash[attr] = flt
+      end
     end
 
     # @param [String] path_s a period-delimited path string path_s in the form _class_(._attribute_)+
