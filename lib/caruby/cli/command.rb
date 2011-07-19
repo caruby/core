@@ -32,11 +32,12 @@ module CaRuby
       #
       # Built-in options include the following:
       # * --help : print the help message and exit
-      # * --version : print the version and exit
+      # * --verbose : print additional information to the console
       # * --log FILE : log file
       # * --debug : print debug messages to the log
       # * --file FILE: configuration file containing other options
       # * --quiet: suppress printing messages to stdout
+      #
       # This class processes these built-in options, with the exception of +--version+,
       # which is a subclass responsibility. Subclasses are responsible for
       # processing any remaining options.
