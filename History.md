@@ -1,6 +1,10 @@
 This history lists major release themes. See the GitHub Commits (https://github.com/caruby/core)
 for change details.
 
+1.5.4 / 2011-07-19
+------------------
+* Add migration value filter option.
+
 1.5.3 / 2011-07-08
 ------------------
 * Clean up documentation.
