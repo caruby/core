@@ -46,9 +46,11 @@ module CaRuby
     #
     # @return [Resource] self
     def add_defaults
-      # apply owner defaults
-      if owner and owner.identifier.nil? then
-        owner.add_defaults
+      # If there is an owner, then delegate to the owner.
+      # Otherwise, add defaults to this object.
+      par = owner
+      if par and par.identifier.nil? then
+        par.add_defaults
       else
         logger.debug { "Adding defaults to #{qp} and its dependents..." }
         # apply the local and dependent defaults
