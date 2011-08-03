@@ -530,8 +530,13 @@ module CaRuby
       def remove_attribute(attribute)
         std_attr = standard_attribute(attribute)
         # if the attribute is local, then delete it, otherwise filter out the superclass attribute
-        if @local_attr_md_hash.delete(std_attr) then
+        attr_md = @local_attr_md_hash.delete(std_attr)
+        if attr_md then
+          # clear the inverse, if any
+          attr_md.inverse = nil
+          # remove from the mandatory attributes, if necessary
           @local_mndty_attrs.delete(std_attr)
+          # remove from the attribute => metadata hash
           @local_std_attr_hash.delete_if { |aliaz, attr| attr == std_attr }
         else
           # Filter the superclass hashes.
