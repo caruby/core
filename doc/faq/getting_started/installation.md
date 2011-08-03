@@ -6,18 +6,14 @@ Set up a caRuby environment as follows:
 
 2. Install [JRuby](http://jruby.org).       
 
-3. Open a command console and enter the following:
-       jgem install rubygems
-
-   Precede the command with `sudo` for a Mac or Linux environment.
-
-4. Add the JRuby executable directory to your PATH environment variable. The JRuby executable directory is determined by executing the following:
+3. Add the JRuby executable directory to your PATH environment variable. The JRuby executable directory is determined by executing the following:
         jgem environment
 
-5. The preceding steps set up a standard caBIG and JRuby environment. Now install the desired caRuby gem using the `jgem install` command, e.g.:
+4. The preceding steps set up a standard caBIG and JRuby environment. Now install the desired caRuby gem using the `jgem install` command, e.g.:
        jgem install caruby-tissue
 
-6. The caRuby gem is ready for use. Consult the specific gem FAQ for usage and examples, e.g. the caRuby Tissue Configuration [FAQ](/kb/tissue/how-do-i-configure-caruby-to-work-with-catissue).
+5. The caRuby gem is ready for use. Consult the specific gem FAQ for usage and examples, e.g. the caRuby Tissue Configuration [FAQ](/kb/tissue/how-do-i-configure-caruby-to-work-with-catissue).
 
-7. Update to a new version of the gem using the `gem update` command, e.g.:
+6. Update to a new version of the gem using the `gem update` command, e.g.:
        jgem update caruby-tissue
+
