@@ -625,14 +625,6 @@ module Hashable
     filter_on_value { |value| not value.nil? }
   end
   
-  # Partitions this Hashable into two Hashables based on the given filter block
-  #
-  # @yield [key, value] the partition block
-  # @return [(Hashable, Hashable)] the partitioned result
-  def hash_partition(&block)
-    [filter(&block), filter { |k, v| not yield(k, v) }]
-  end
-  
   # Returns the difference between this Hashable and the other Hashable in a Hash of the form:
   #
   # _key_ => [_mine_, _theirs_]
@@ -753,14 +745,14 @@ module Hashable
   def flatten
     Flattener.new(self).to_a
   end
-
+  
   # @yield [key, value] hash splitter
-  # @return [Hash] two hashes split by whether calling the block on the
+  # @return [(Hash, Hash)] two hashes split by whether calling the block on the
   #   entry returns a non-nil, non-false value
   # @example
-  #   {:a => 1, :b => 2}.partition { |key, value| value < 2 } #=> [{:a => 1}, {:b => 2}]
-  def partition(&block)
-    super(&block).map { |pairs| pairs.to_assoc_hash }
+  #   {:a => 1, :b => 2}.split { |key, value| value < 2 } #=> [{:a => 1}, {:b => 2}]
+  def split(&block)
+    partition(&block).map { |pairs| pairs.to_assoc_hash }
   end
 
   # Returns a new Hash that recursively copies this hash's values. Values of type hash are copied using copy_recursive.
@@ -1065,10 +1057,11 @@ class Array
   # element is associated with the second element. If there is less than two elements in the member,
   # the first element is associated with nil. An empty array is ignored.
   #
-  # Example:
+  # @example
   #   [[:a, 1], [:b, 2, 3], [:c], []].to_assoc_hash #=> { :a => 1, :b => [2,3], :c => nil }
+  # @return [Hash] the first => rest hash
   def to_assoc_hash
-    hash = Hash.new
+    hash = {}
     each do |item|
       raise ArgumentError.new("Array member must be an array: #{item.pp_s(:single_line)}") unless Array === item
       key = item.first
