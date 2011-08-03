@@ -75,6 +75,8 @@ module CaRuby
     alias :each :migrate
 
     private
+    
+    REGEXP_PAT = /^\/(.*[^\\])\/([inx]+)?$/
 
     # Class {#migrate} with a {#save} block.
     def execute_save
@@ -286,9 +288,6 @@ module CaRuby
     # in the given class => paths hash the given klass. The migrate method is called
     # on the input field value corresponding to the path.
     def migration_filters(klass, attr_mds)
-      # the migrate methods, excluding the Migratable migrate_references method
-      mths = klass.instance_methods(true).select { |mth| mth =~ /^migrate.(?!references)/ }
-
       # the attribute => migration method hash
       mth_hash = attribute_method_hash(klass, attr_mds)
       proc_hash = attribute_proc_hash(klass, attr_mds)
@@ -297,7 +296,26 @@ module CaRuby
       # for each class path terminal attribute metadata, add the migration filters
       # to the attribute metadata => filter hash
       attr_mds.to_compact_hash do |attr_md|
-        mth_hash[attr_md.to_sym] or proc_hash[attr_md.to_sym]
+        # the filter proc
+        proc = proc_hash[attr_md.to_sym]
+        # the migration shim method
+        mth = mth_hash[attr_md.to_sym]
+        if mth then
+          if proc then
+            Proc.new do |obj, value, row|
+              # filter the value
+              fval = proc.call(value)
+              # call the migration method on the filtered value
+              obj.send(mth, fval, row) unless fval.nil?
+            end
+          else
+            # call the migration method
+            Proc.new { |obj, value, row| obj.send(mth, value, row) }
+          end
+        else
+          # call the filter
+          Proc.new { |obj, value, row| proc.call(value) }
+        end
       end
     end
     
@@ -328,6 +346,7 @@ module CaRuby
         flt = hash[attr_md.to_sym] || next
         proc_hash[attr_md.to_sym] = to_filter_proc(flt)
       end
+      logger.debug { "Migration filters loaded for #{klass.qp} #{proc_hash.keys.to_series}." }
       proc_hash
     end
     
@@ -335,13 +354,28 @@ module CaRuby
     # @return [Proc] the filter migration block
     def to_filter_proc(filter)
       # Split the filter into a straight value => value hash and a regexp => value hash.
-      reh, vh = filter.split { |k, v| Regexp === k }
+      ph, vh = filter.split { |k, v| k =~ REGEXP_PAT }
+      reh = {}
+      ph.each do |k, v|
+        pat, opt = REGEXP_PAT.match(k).captures
+        reopt = if opt then
+          case opt
+            when 'i' then Regexp::IGNORECASE
+            else raise MigrationError.new("Migration value filter regular expression #{k} qualifier not supported: expected 'i', found '#{opt}'")
+          end
+        end
+        re = Regexp.new(pat, reopt)
+        reh[re] = v.gsub(/\$\d/, '%s') if String === v
+      end
       Proc.new do |value|
         if vh.has_key?(value) then
           vh[value]
         else
-          match = reh.detect_key { |re| value =~ re }
-          match ? reh[match] : value
+          # the first regex which matches the value
+          regexp = reh.detect_key { |re| value =~ re }
+          # If there is a match, then apply the filter to the match data.
+          # Otherwise, pass the value through unmodified.
+          regexp ? (reh[regexp] % $~.captures) : value
         end
       end
     end
@@ -383,12 +417,6 @@ module CaRuby
         begin
           # migrate the row
           logger.debug { "Migrating record #{rec_no}..." }
-          
-          
-          
-          puts "m #{rec_no}..."
-          
-          
           target = migrate_row(row)
           # call the block on the migrated target
           if target then
@@ -444,32 +472,55 @@ module CaRuby
     #
     # @param [{Symbol => Object}] row the input row field => value hash
     # @return the migrated target object if the migration is valid, nil otherwise
-    def migrate_row(row) # :yields: target
+    def migrate_row(row)
       # create an instance for each creatable class
       created = Set.new
       migrated = @creatable_classes.map { |klass| create(klass, row, created) }
       # migrate each object from the input row
       created.each { |obj| obj.migrate(row, migrated) }
-      # remove invalid migrations
-      valid, invalid = migrated.partition { |obj| migration_valid?(obj) }
-      # set the references
-      valid.each { |obj| obj.migrate_references(row, migrated, @attr_flt_hash[obj.class]) }
+      valid = migrate_valid_references(row, migrated)
       # the target object
       target = valid.detect { |obj| @target_class === obj } || return
-      # the target is invalid if it has an invalid owner
-      return unless owner_valid?(target, valid, invalid)
       logger.debug { "Migrated target #{target}." }
       target
     end
     
+    # Sets the migration references for each valid migrated object.
+    #
+    # @param [Array] the migrated objects
+    # @return [Array] the valid migrated objects
+    def migrate_valid_references(row, migrated)
+      # Split the valid and invalid objects. The iteration is in reverse dependency order,
+      # since invalidating a dependent can invalidate the owner.
+      valid, invalid = migrated.transitive_closure(:dependents).reverse.partition do |obj|
+        if migration_valid?(obj) then
+          obj.migrate_references(row, migrated, @attr_flt_hash[obj.class])
+          true
+        else
+          obj.class.owner_attributes.each { |attr| obj.clear_attribute(attr) }
+          false
+        end
+      end
+      
+      # Go back through the valid objects in dependency order to invalidate dependents
+      # whose owner is invalid.
+      valid.reverse.each do |obj|
+        unless owner_valid?(obj, valid, invalid) then
+          invalid << valid.delete(obj)
+          logger.debug { "Invalidated migrated #{obj} since it does not have a valid owner." }
+        end
+      end
+      valid
+    end
+    
     # Returns whether the given domain object satisfies at least one of the following conditions:
-    # * it has an owner among the valid objects
     # * it does not have an owner among the invalid objects
+    # * it has an owner among the valid objects
     #
     # @param [Resource] obj the domain object to check
     # @param [<Resource>] valid the valid migrated objects
     # @param [<Resource>] invalid the invalid migrated objects
-    # @return [Boolean] whether the domain object is valid 
+    # @return [Boolean] whether the owner is valid 
     def owner_valid?(obj, valid, invalid)
       otypes = obj.class.owners
       invalid.all? { |other| not otypes.include?(other.class) } or
@@ -477,7 +528,7 @@ module CaRuby
     end
 
     # @param [Migratable] obj the migrated object
-    # @return whether the migration is successful
+    # @return [Boolean] whether the migration is successful
     def migration_valid?(obj)
       if obj.migration_valid? then
         true
@@ -568,7 +619,16 @@ module CaRuby
       ref
     end
 
-    # Sets the obj migratable Attribute attr_md to value from the given input row.
+    # Sets the given attribute value to the filtered input value. If there is a filter
+    # defined for the attribute, then that filter is applied. If there is a migration
+    # shim method with name +migrate_+_attribute_, then than method is called on the
+    # (possibly filtered) value. The target object attribute is set to the resulting
+    # filtered value. 
+    #
+    # @param [Migratable] obj the target domain object
+    # @param [Attribute] attr_md the target attribute
+    # @param value the input value
+    # @param [{Symbol => Object}] row the input row
     def migrate_attribute(obj, attr_md, value, row)
       # if there is a shim migrate_<attribute> method, then call it on the input value
       value = filter_value(obj, attr_md, value, row) || return
@@ -587,11 +647,12 @@ module CaRuby
     # @return the input value, if there is no filter, otherwise the filtered value
     def filter_value(obj, attr_md, value, row)
       filter = filter_for(obj, attr_md)
-      case filter
-        when String then obj.send(filter, value, row)
-        when Proc then filter.call(value)
-        else value
+      return value if filter.nil?
+      fval = filter.call(obj, value, row)
+      unless value == fval then
+        logger.debug { "Migration filter transformed #{obj.qp} #{attr_md} value from #{value.qp} to #{fval.qp}." }
       end
+      fval
     end
     
     def filter_for(obj, attr_md)
@@ -680,7 +741,7 @@ module CaRuby
     # Loads the defaults config files.
     #
     # @param [<String>, String] files the file or file array to load
-    # @result [<Class => <String => Object>>] the class => path => default value entries 
+    # @return [<Class => <String => Object>>] the class => path => default value entries 
     def load_defaults_files(files)
       # collect the class => path => value entries from each defaults file
       hash = LazyHash.new { Hash.new }
@@ -708,10 +769,10 @@ module CaRuby
     # Loads the filter config files.
     #
     # @param [<String>, String] files the file or file array to load
-    # @result [<Class => <String => Object>>] the class => path => default value entries 
+    # @return [<Class => <String => Object>>] the class => path => default value entries 
     def load_filter_files(files)
       # collect the class => path => value entries from each defaults file
-      hash = LazyHash.new { Hash.new }
+      hash = {}
       files.enumerate { |file| load_filter_file(file, hash) }
       hash
     end
