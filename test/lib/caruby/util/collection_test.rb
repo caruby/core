@@ -60,7 +60,7 @@ class CollectionTest < Test::Unit::TestCase
 
   def test_detect_value
    assert_equal(4, [1, 2, 3].detect_value { |item| item * 2 if item > 1 }, "Detect value incorrect")
-   assert_nil([1, 2, 3].detect_value { |item| iitem * 2 if item > 3 }, "Value incorrectly detected")
+   assert_nil([1, 2, 3].detect_value { |item| item * 2 if item > 3 }, "Value incorrectly detected")
   end
 
   def test_detect_with_value
@@ -202,10 +202,6 @@ class CollectionTest < Test::Unit::TestCase
     assert_equal([1, 2, 3], ev.sort, "Hash value enumerator does not reflect hash change")
   end
 
-  def test_hash_partition
-    assert_equal([{:a => 1}, { :b => 2}], { :a => 1, :b => 2 }.partition { |key, value| value < 2 }, "Hash partition incorrect")
-  end
-
   def test_hash_flatten
     assert_equal([:a, :b, :c, :d, :e, :f, :g], {:a => {:b => :c}, :d => :e, :f => [:g]}.flatten, "Hash flatten incorrect")
   end
@@ -231,7 +227,7 @@ class CollectionTest < Test::Unit::TestCase
   end
 
   def test_hash_partition
-    assert_equal([{:a => 1, :c => 3}, {:b => 2}], {:a => 1, :b => 2, :c => 3}.hash_partition { |k, v| k == :a or v == 3 }, "Hash partition incorrect")
+    assert_equal([{:a => 1, :c => 3}, {:b => 2}], {:a => 1, :b => 2, :c => 3}.split { |k, v| k == :a or v == 3 }, "Hash partition incorrect")
   end
 
   def test_hash_filter_on_key
