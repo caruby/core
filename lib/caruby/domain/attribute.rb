@@ -127,7 +127,7 @@ module CaRuby
       # The inverse relation is symmetric, i.e. the inverse of the referenced Attribute
       # is set to this Attribute's subject attribute.
       #
-      # @param attribute the inverse attribute
+      # @param [Symbol, nil] attribute the inverse attribute
       def inverse=(attribute)
         return if inverse == attribute
         # if no attribute, then the clear the existing inverse, if any
@@ -522,9 +522,12 @@ module CaRuby
       def clear_inverse
         return unless @inv_md
         logger.debug { "Clearing #{@declarer.qp}.#{self} inverse #{type.qp}.#{inverse}..." }
-        inv_inv_md = @inv_md.inverse_metadata
+        # Capture the inverse before unsetting it.
+        inv_md = @inv_md
+        # Unset the inverse.
         @inv_md = nil
-        if inv_inv_md then inv_inv_md.inverse = nil end
+        # Clear the inverse of the inverse.
+        inv_md.inverse = nil
         logger.debug { "Cleared #{@declarer.qp}.#{self} inverse." }
       end
       
