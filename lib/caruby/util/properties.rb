@@ -86,7 +86,7 @@ module CaRuby
       end
       # if the key is a merge property key, then perform a deep merge.
       # otherwise, do a shallow merge of the property value into this property hash.
-      deep, shallow = properties.partition { |key, value| @merge_properties.include?(key) }
+      deep, shallow = properties.split { |key, value| @merge_properties.include?(key) }
       merge!(deep, :deep)
       merge!(shallow)
     end
