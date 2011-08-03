@@ -84,16 +84,13 @@ module CaRuby
     def migrate(row, migrated)
     end
 
-    # Returns whether this migration target domain object is valid. The default is true
-    # if this domain object either has no owner or its owner is valid.
+    # Returns whether this migration target domain object is valid. The default is true.
     # A migration shim should override this method on the target if there are conditions
     # which determine whether the migration should be skipped for this target object.
     #
     # @return [Boolean] whether this migration target domain object is valid
     def migration_valid?
-      # check that the owner is be valid
-      ownr = owner
-      ownr.nil? or ownr.migration_valid?
+      true
     end
 
     # Migrates this domain object's migratable references. This method is called by the
@@ -115,7 +112,7 @@ module CaRuby
     #
     # @param [{Symbol => Object}] row the input row field => value hash
     # @param [<Resource>] migrated the migrated instances, including this Resource
-    # @param [{Symbol => String}] mth_hash a hash that associates this domain object's
+    # @param [{Symbol => String}, nil] mth_hash a hash that associates this domain object's
     #   attributes to migration method names
     def migrate_references(row, migrated, mth_hash=nil)
       # migrate the owner
