@@ -321,15 +321,14 @@ module CaRuby
           return
         end
         @transients << obj
-
         logger.debug { "Fetching #{obj.qp} from the database..." }
         fetched = fetch_object(obj) || return
-        # fetch_object can return obj; if so, then done
+        # fetch_object can return obj; if so, then done, otherwise, merge fetched.
         return obj if obj.equal?(fetched)
         
         logger.debug { "Fetch #{obj.qp} matched database object #{fetched}." }
         @transients.delete(obj)
-        #   recursively copy the nondomain attributes, esp. the identifer, of the fetched domain object references
+        # recursively copy the nondomain attributes, esp. the identifer, of the fetched domain object references
         merge_fetched(fetched, obj)
         # Inject the lazy loader for loadable domain reference attributes.
         persistify(obj, fetched)
