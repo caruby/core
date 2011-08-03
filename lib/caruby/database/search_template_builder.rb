@@ -24,14 +24,14 @@ module CaRuby
       logger.debug { "Building search template for #{obj.qp}..." }
       hash ||= obj.value_hash(obj.class.searchable_attributes)
       # the searchable attribute => value hash
-      ref_hash, nonref_hash = hash.hash_partition { |attr, value| Resource === value }
+      rh, nrh = hash.split { |attr, value| Resource === value }
       # make the search template from the non-reference attributes
-      tmpl = obj.class.new.merge_attributes(nonref_hash)
+      tmpl = obj.class.new.merge_attributes(nrh)
       # get references for the search template
-      unless ref_hash.empty? then
-        logger.debug { "Collecting search reference parameters for #{obj.qp} from attributes #{ref_hash.keys.to_series}..." }
+      unless rh.empty? then
+        logger.debug { "Collecting search reference parameters for #{obj.qp} from attributes #{rh.keys.to_series}..." }
       end
-      ref_hash.each { |attr, ref| add_search_template_reference(tmpl, ref, attr) }
+      rh.each { |attr, ref| add_search_template_reference(tmpl, ref, attr) }
       tmpl
     end
 
