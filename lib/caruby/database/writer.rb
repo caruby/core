@@ -139,6 +139,7 @@ module CaRuby
       def ensure_exists(obj)
         raise ArgumentError.new("Database ensure_exists is missing a domain object argument") if obj.nil_or_empty?
         obj.enumerate { |ref| find(ref, :create) unless ref.identifier }
+        
       end
 
       private
@@ -286,7 +287,6 @@ module CaRuby
           logger.debug { "Ensuring that created #{obj.qp} references exist: #{refs.qp}..." } unless refs.empty?
           refs.each { |ref| ensure_exists(ref) }
         end
-        
         obj
       end
       
@@ -350,7 +350,7 @@ module CaRuby
       # * the attribute references a {#pending_create?} save context.
       #
       # @param obj (see #create)
-      # @param [Attribute] attr_md candidate attribute metadata
+      # @param [Attribute] attr_md the candidate attribute metadata
       # @return [Boolean] whether the attribute should not be included in the create template
       def exclude_pending_create_attribute?(obj, attr_md)
         attr_md.independent? and
@@ -413,7 +413,7 @@ module CaRuby
         # update a cascaded dependent by updating the owner
         owner = cascaded_owner(obj)
         if owner then return update_cascaded_dependent(owner, obj) end
-        
+
         # Not cascaded dependent; update using a template,
         tmpl = build_update_template(obj)
         # call the caCORE service with an obj update template
@@ -559,10 +559,9 @@ module CaRuby
           logger.debug { "Updating saved #{target} to store unsaved attributes..." }
           # call update_object(saved) rather than update(saved) to bypass the redundant update check
           perform(:update, target) { update_object(target) }
-        else
-          # recursively save the dependents
-          save_changed_dependents(target)
         end
+        # recursively save the dependents
+        save_changed_dependents(target)
       end
       
       # Synchronizes the given saved target result source with the database content.
@@ -685,9 +684,9 @@ module CaRuby
       # @param [Resource] obj the owner domain object
       def save_changed_dependents(obj)
         obj.class.dependent_attributes.each do |attr|
-          deps = obj.send(attr).to_enum
-          logger.debug { "Saving the #{obj} #{attr} dependents #{deps.qp(:single_line)} which have changed..." } unless deps.empty?
-          deps.each { |dep| save_dependent_if_changed(obj, attr, dep) }
+          deps = obj.send(attr)
+          logger.debug { "Saving the #{obj} #{attr} dependents #{deps.to_enum.qp(:single_line)} which have changed..." } unless deps.nil_or_empty?
+          deps.enumerate { |dep| save_dependent_if_changed(obj, attr, dep) }
         end
       end
       
