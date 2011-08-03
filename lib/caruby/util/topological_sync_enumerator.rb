@@ -1,5 +1,8 @@
 require 'caruby/util/collection'
 
+# A TopologicalSyncEnumerator iterates over (target, source) pairs with the target matched
+# to the source with a matcher block. Child targets are matched to child sources based on
+# a topological order reference method. The iteration is performed in depth-first order.
 class TopologicalSyncEnumerator
   include Enumerable
 
@@ -14,7 +17,7 @@ class TopologicalSyncEnumerator
     @matcher = matcher || lambda { |tgt, srcs| srcs.first }
   end
 
-  # Calls the given block on each matching target and source.
+  # Calls the given block on each matching target and source in depth-first order.
   #
   # @yield [target, source] the objects to synchronize
   # @return [Hash] the matching target => source hash
