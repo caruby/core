@@ -34,6 +34,9 @@ module CaRuby
     # @option opts [String] :database_driver_class the optional DBI connect driver class name
     # @raise [CaRuby::ConfigurationError] if an option is invalid
     def initialize(opts)
+      if opts.empty? then
+        raise CaRuby::ConfigurationError.new("The caRuby database connection properties were not found.") 
+      end
       app_host = Options.get(:host, opts, 'localhost')
       db_host = Options.get(:database_host, opts, app_host)
       db_type = Options.get(:database_type, opts, 'mysql')
@@ -52,9 +55,10 @@ module CaRuby
         :database_type => db_type,
         :database_port => db_port,
         :database_driver => db_driver,
-        :database_driver_class => @driver_class
-      }      
-      logger.debug { "Database connection options (excluding password): #{eff_opts.qp}" }
+        :database_driver_class => @driver_class,
+        :address => @address
+      }
+      logger.debug { "Database connection parameters (excluding password): #{eff_opts.qp}" }
     end
 
     # Connects to the database, yields the DBI handle to the given block and disconnects.
