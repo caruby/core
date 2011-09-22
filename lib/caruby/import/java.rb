@@ -264,13 +264,13 @@ class Class
   # * If the class argument is a Java class or a Java class name, then
   #   the Ruby class is the JRuby wrapper for the Java class.
   #
-  # @param [Class, String] the class or class name
+  # @param [Class, String] class_or_name the class or class name
   # @return [Class] the corresponding Ruby class
-  def self.to_ruby(klass)
-    case klass
-      when Class then klass
-      when String then Java.module_eval(klass)
-      else to_ruby(klass.name)
+  def self.to_ruby(class_or_name)
+    case class_or_name
+      when Class then class_or_name
+      when String then eval to_ruby_name(class_or_name)
+      else to_ruby(class_or_name.name)
     end
   end
 
@@ -364,6 +364,18 @@ class Class
   private
   
   OBJ_INST_MTHDS = Object.instance_methods
+  
+  # @param [String] jname the fully-qualified Java class or interface name
+  # @return [String] the JRuby class or module name
+  # #example
+  #   Java.to_ruby_class_name('com.test.Sample') #=> Java::ComTest::Sample
+  def self.to_ruby_name(jname)
+    path = jname.split('.')
+    return "Java::#{jname}" if path.size == 1
+    cname = path[-1]
+    pkg = path[0...-1].map { |s| s.capitalize_first }.join
+    "Java::#{pkg}::#{cname}"
+  end
 end
 
 class Array
