@@ -39,8 +39,8 @@ module CaRuby
         logger.debug { "Detecting whether #{symbol} is a #{@pkg} Java class..." }
         # Append the symbol to the package to make the Java class name.
         begin
-          klass = eval "Java::#{@pkg}.#{symbol}"
-          resource_import klass
+          klass = java_import "#{@pkg}.#{symbol}"
+          resource_import(klass)
         rescue NameError
           logger.debug { "#{symbol} is not recognized as a #{@pkg} Java class - #{$!}\n#{caller.qp}." }
           super
@@ -53,7 +53,7 @@ module CaRuby
       # The Java class is assumed to be defined in this module's package.
       # This module's mixin is added to the class.
       #
-      # @param [String] class_or_name the source directory
+      # @param [Class] class_or_name the source directory
       # @raise [NameError] if the symbol does not correspond to a Java class
       #   in this module's package
       def resource_import(klass)
