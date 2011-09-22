@@ -53,7 +53,7 @@ module CaRuby
       # The Java class is assumed to be defined in this module's package.
       # This module's mixin is added to the class.
       #
-      # @param [Class] class_or_name the source directory
+      # @param [Class] klass the source directory
       # @raise [NameError] if the symbol does not correspond to a Java class
       #   in this module's package
       def resource_import(klass)
