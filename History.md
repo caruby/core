@@ -1,9 +1,9 @@
 This history lists major release themes. See the GitHub Commits (https://github.com/caruby/core)
 for change details.
 
-1.5.4 / 2011-07-19
+1.5.4 / 2011-09-22
 ------------------
-* Add migration value filter option.
+* Support mixed-case package name.
 
 1.5.3 / 2011-07-08
 ------------------
