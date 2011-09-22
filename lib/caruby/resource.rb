@@ -7,6 +7,7 @@ require 'caruby/util/collection'
 require 'caruby/domain'
 require 'caruby/domain/mixin'
 require 'caruby/domain/merge'
+require 'caruby/json/serializer'
 require 'caruby/domain/reference_visitor'
 require 'caruby/database/persistable'
 require 'caruby/domain/inversible'
@@ -19,7 +20,7 @@ module CaRuby
   # This module defines essential common domain methods that enable the jRuby-Java API bridge.
   # Classes which include Domain must implement the +metadata+ Domain::Metadata accessor method.
   module Resource
-    include Mergeable, Migratable, Persistable, Inversible
+    include Mergeable, Migratable, Persistable, Inversible, JSON::Serializer
     
     # @quirk JRuby Bug #5090 - JRuby 1.5 object_id is no longer a reserved method, and results
     #   in a String value rather than an Integer (cf. http://jira.codehaus.org/browse/JRUBY-5090).
@@ -580,6 +581,9 @@ module CaRuby
       unless invalid.empty? then
         logger.error("Validation of #{qp} unsuccessful - missing #{invalid.join(', ')}:\n#{dump}")
         raise ValidationError.new("Required attribute value missing for #{self}: #{invalid.join(', ')}")
+      end
+      if self.class.bidirectional_dependent? and not owner then
+        raise ValidationError.new("Dependent #{self} does not reference an owner")
       end
     end
     
