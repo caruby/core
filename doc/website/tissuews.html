@@ -1,0 +1,89 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" >
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=iso-8859-1" />
+  <meta name="author" content="Fred Loney, OHSU" />
+  <meta name="keywords" content="caRuby, caTissue" />
+  <meta name="description" content="caRuby Tissue page." />
+  <meta name="robots" content="all" />
+  <title>caRuby Tissue</title>
+
+  <!-- to correct the unsightly Flash of Unstyled Content. http://www.bluerobot.com/web/css/fouc.asp -->
+  <script type="text/javascript"></script>
+
+  <style type="text/css" title="currentStyle" media="screen">
+    @import "/css/site.css";
+  </style>
+  <link rel='stylesheet' href='css/site.css' type='text/css' media="screen, projection">
+  <link rel="Shortcut Icon" href="images/favicon.ico" />
+</head>
+
+<body id="tissue">
+
+<div id="container">
+  <div id="head">
+    <h1><a href="index.html">caRuby:</a></h1>
+    <h2>Tissue</h2>
+    <ul>
+      <li><a href='index.html'>Home</a></li>
+      <li><a href='quick_start.html'><em>Quick Start</em></a></li>
+      <li><a href='http://caruby.tenderapp.com/'>Support</a></li>
+      <li><a href='contribute.html'>Contribute</a></li>
+      <li><a href='about.html'>About</a></li>
+    </ul>
+    <img src="images/logo.png"/>
+  </div>
+
+  <div id="features">
+    <h3>Features</h3>
+    <ul>
+      <li><a href="api.html">API</a></li>
+      <li><span class="currentPage">Tissue</span></li>
+      <li><a href="migrator.html">Migrator</a></li>
+      <li><a href="casmall.html">ca<font size="-1">Small</font></a></li>
+    </ul>
+  </div>
+
+  <div id="supportingText">
+    <h3>caRuby Tissue</h3>
+    <p>
+      The caRuby Tissue component applies the caRuby facade to the
+      <a href="https://cabig-kc.nci.nih.gov/Biospecimen/KC/index.php/CaTissue_Suite">caTissue</a>
+      application. This offers the following features:
+      <ul>
+        <li>flexible server interaction</li>
+        <li>data migration and extraction</li>
+        <li>a foundation for a <a href="casmall.html">caSmall</a> framework</li>
+      </ul>
+    </p>
+    <p>
+      Since the caRuby Tissue component is built on the caTissue API, all of the caTissue business logic applies.
+      In addition, caRuby augments the API as follows:
+      <ul>
+        <li>supplies default attribute values</li>
+        <li>validates mandatory attributes before submission to caTissue</li>
+        <li>validates additional attributes which are permitted by the caTissue API but corrupt the database</li>
+        <li>migrates an input CSV record to a caTissue object based on one simple configuration file</li>
+        <li>validates migration input diagnosis and tissue site permissible values</li>
+        <li>optionally maps diagnosis and tissue site migration input values to caTissue permissible values</li>
+        <li>determines how to save the caTissue object based on the caTissue object model</li>
+        <li>finds referenced objects based on secondary keys and alternative search strategies</li>
+        <li>creates whatever needs to be created in the required order based on the data model associations</li>
+        <li>works around caCORE and caTissue bugs and traps</li>
+        <li>provides helper methods for common tasks, e.g. aliquoting</li>
+      </ul>
+      The migration capability is described in the <a href="migrator.html">Migrator</a> page.
+    </p>
+    <p>
+      There is little class-specific caRuby business logic code similar to that found in caTissue.
+      Rather, there are basic design patterns driven by the model characteristics defined in the Ruby declarations.
+    </p>
+    <div id="footer">
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
+
