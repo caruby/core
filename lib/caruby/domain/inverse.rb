@@ -5,7 +5,6 @@ module CaRuby
   module Domain
     # Meta-data mix-in to infer and set inverse attributes.
     module Inverse
-      
       # Returns the inverse of the given attribute. If the attribute has an #{Attribute#inverse_metadata},
       # then that attribute's inverse is returned. Otherwise, if the attribute is an #{Attribute#owner?},
       # then the target class dependent attribute which matches this type is returned, if it exists.
