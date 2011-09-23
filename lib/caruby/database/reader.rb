@@ -463,7 +463,7 @@ module CaRuby
         obj.class.attribute_metadata(attribute).collection? ? result : result.first
       end
 
-      # Returns a copy of obj containing only those key attributes used in a find operation.
+      # @return [{Symbol => Object}, nil] the find operation key attributes, or nil if there is no complete key
       #
       # @quirk caCORE caCORE search fetches on all non-nil attributes, except occasionally the identifier
       #   (cf. https://cabig-kc.nci.nih.gov/Bugzilla/show_bug.cgi?id=79).
@@ -475,28 +475,32 @@ module CaRuby
         key_value_hash(obj, obj.class.alternate_key_attributes)
       end
 
-      # Returns the attribute => value hash suitable for a finder template if obj has searchable values
-      # for all of the given key attributes, nil otherwise.
+      # @return [{Symbol => Object}, nil] the attribute => value hash suitable for a finder template
+      #   if obj has searchable values for all of the given key attributes, nil otherwise
       def key_value_hash(obj, attributes)
         # the key must be non-trivial
         return if attributes.nil_or_empty?
         # the attribute => value hash
-        attributes.to_compact_hash do |attr|
-          value = obj.send(attr)
-          # validate that no key attribute is missing and each reference exists
-          if value.nil_or_empty? then
-            logger.debug { "Can't fetch #{obj.qp} based on #{attributes.qp} since #{attr} does not have a value." }
-            return
-          elsif obj.class.domain_attribute?(attr) then
-            unless exists?(value) then
-              logger.debug { "Can't fetch #{obj.qp} based on #{attributes.qp} since #{attr} does not exist in the database: #{value}." }
-              return
-            end
+        attributes.to_compact_hash { |attr| finder_parameter(obj, attr) or return }
+      end
+      
+      # @return a non-empty, existing find parameter for the given attribute
+      def finder_parameter(obj, attribute)
+        value = obj.send(attribute)
+        # validate that the key attribute is non-nil and each reference exists
+        if value.nil_or_empty? then
+          logger.debug { "Can't fetch #{obj.qp} based on key with missing attribute #{attribute}." }
+          nil
+        elsif obj.class.domain_attribute?(attribute) then
+          if exists?(value) then
             # the finder value is a copy of the reference with just the identifier
             value.copy(:identifier)
           else
-            value
+            logger.debug { "Can't fetch #{obj.qp} based on key with domain attribute #{attribute}, since the referenced value does not exist in the database: #{value}." }
+            nil
           end
+        else
+          value
         end
       end
 
