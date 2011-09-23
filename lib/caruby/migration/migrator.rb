@@ -139,6 +139,9 @@ module CaRuby
       # make a CSV loader which only converts input fields corresponding to non-String attributes
       @loader = CsvIO.new(@input, &method(:convert))
       logger.debug { "Migration data input file #{@input} headers: #{@loader.headers.qp}" } 
+      
+      # add shim modifiers
+      load_shims(@shims)
 
       # create the class => path => default value hash
       @def_hash = @def_files ? load_defaults_files(@def_files) : {}
@@ -151,6 +154,7 @@ module CaRuby
       # create the path => class => header hash
       @header_map = create_header_map(fld_map)
       # add missing owner classes (copy the keys rather than using each_key since the hash is updated)
+      @owners = Set.new
       @cls_paths_hash.keys.each { |klass| add_owners(klass) }
       # order the creatable classes by dependency, owners first, to smooth the migration process
       @creatable_classes = @cls_paths_hash.keys.sort! { |klass, other| other.depends_on?(klass) ? -1 : (klass.depends_on?(other) ? 1 : 0) }
@@ -168,9 +172,6 @@ module CaRuby
       logger.info { "Migration paths:\n#{print_hash.pp_s}" }
       logger.info { "Migration creatable classes: #{@creatable_classes.qp}." }
       unless @def_hash.empty? then logger.info { "Migration defaults: #{@def_hash.qp}." } end
-      
-      # add shim modifiers
-      load_shims(@shims)
       
       # the class => attribute migration methods hash
       create_migration_method_hashes
@@ -208,10 +209,14 @@ module CaRuby
       end
     end
     
-    # Adds missing klass owner classes to the migration class path hash (with empty paths).
+    # Adds missing owner classes to the migration class path hash (with empty paths)
+    # for the  the given migration class.
+    #
+    # @param [Class] klass the migration class
     def add_owners(klass)
       owner = missing_owner_for(klass) || return
       logger.debug { "Migrator adding #{klass.qp} owner #{owner}" }
+      @owners << owner
       @cls_paths_hash[owner] = Array::EMPTY_ARRAY
       add_owners(owner)
     end
@@ -312,7 +317,7 @@ module CaRuby
             # call the migration method
             Proc.new { |obj, value, row| obj.send(mth, value, row) }
           end
-        else
+        elsif proc then
           # call the filter
           Proc.new { |obj, value, row| proc.call(value) }
         end
@@ -350,32 +355,64 @@ module CaRuby
       proc_hash
     end
     
+    # Builds a proc that filters the input value. The config filter mapping entry is one of the following:
+    #   * literal: literal
+    #   * regexp: literal
+    #   * regexp: template
+    #
+    # The regexp template can include match references (+$1+, +$2+, etc.) corresponding to the regexp captures.
+    # If the input value equals a literal, then the mapped literal is returned. Otherwise, if the input value
+    # matches a regexp, then the mapped transformation is returned after reference substitution. Otherwise,
+    # the input value is returned unchanged.
+    #
+    # For example, the config:
+    #   /(\d{1,2})\/x\/(\d{1,2})/: $1/1/$2
+    #   n/a: ~
+    # converts the input value as follows:
+    #   3/12/02 => 3/12/02 (no match)
+    #   5/x/04 => 5/1/04
+    #   n/a => nil 
+    #
     # @param [{Object => Object}] filter the config value mapping
     # @return [Proc] the filter migration block
+    # @raise [MigrationError] if the filter includes a regexp option other than +i+ (case-insensitive)
     def to_filter_proc(filter)
-      # Split the filter into a straight value => value hash and a regexp => value hash.
+      # Split the filter into a straight value => value hash and a pattern => value hash.
       ph, vh = filter.split { |k, v| k =~ REGEXP_PAT }
+      # The Regexp => value hash is built from the pattern => value hash.
       reh = {}
       ph.each do |k, v|
+        # The /pattern/opts string is parsed to the pattern and options.
         pat, opt = REGEXP_PAT.match(k).captures
+        # Convert the regexp i option character to a Regexp initializer parameter.
         reopt = if opt then
           case opt
             when 'i' then Regexp::IGNORECASE
             else raise MigrationError.new("Migration value filter regular expression #{k} qualifier not supported: expected 'i', found '#{opt}'")
           end
         end
+        # the Regexp object
         re = Regexp.new(pat, reopt)
-        reh[re] = v.gsub(/\$\d/, '%s') if String === v
+        # The regexp value can include match references ($1, $2, etc.). In that case, replace the $
+        # match reference with a %s print reference, since the filter formats the matching input value.
+        reh[re] = String === v ? v.gsub(/\$\d/, '%s') : v
       end
+      # The new proc matches preferentially on the literal value, then the first matching regexp.
+      # If no match on either a literal or a regexp, then the value is preserved.
       Proc.new do |value|
         if vh.has_key?(value) then
           vh[value]
         else
-          # the first regex which matches the value
+          # The first regex which matches the value.
           regexp = reh.detect_key { |re| value =~ re }
           # If there is a match, then apply the filter to the match data.
           # Otherwise, pass the value through unmodified.
-          regexp ? (reh[regexp] % $~.captures) : value
+          if regexp then
+            v = reh[regexp]
+            String === v ? v % $~.captures : v
+          else
+            value
+          end
         end
       end
     end
@@ -510,7 +547,18 @@ module CaRuby
           logger.debug { "Invalidated migrated #{obj} since it does not have a valid owner." }
         end
       end
-      valid
+      
+      # Go back through the valid objects in reverse dependency order to invalidate owners
+      # created only to hold a dependent which was subsequently invalidated.
+      valid.reject do |obj|
+        if @owners.include?(obj.class) and obj.dependents.all? { |dep| invalid.include?(dep) } then
+          # clear all references from the invalidated owner
+          obj.class.domain_attributes.each_metadata { |attr_md| obj.clear_attribute(attr_md.to_sym) }
+          invalid << obj
+          logger.debug { "Invalidated #{obj.qp} since it was created solely to hold subsequently invalidated dependents." }
+          true
+        end
+      end
     end
     
     # Returns whether the given domain object satisfies at least one of the following conditions:
