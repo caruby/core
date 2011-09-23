@@ -51,26 +51,6 @@ module CaRuby
         inv_type.add_owner(self, attribute, inverse)
       end
       
-      # Makes a new owner attribute. The attribute name is the lower-case demodulized
-      # owner class name. The owner class must reference this class via the given
-      # inverse dependent attribute.
-      #
-      # @param klass (see #detect_owner_attribute)
-      # @param [Symbol] the owner -> dependent inverse attribute 
-      # @return [Symbol] this class's new owner attribute
-      # @raise [ArgumentError] if the inverse is nil
-      def create_owner_attribute(klass, inverse)
-        if inverse.nil? then
-          raise ArgumentError.new("Cannot create a #{qp} owner attribute to #{klass} without a dependent attribute to this class.")
-        end
-        attr = klass.name.demodulize.underscore.to_sym
-        attr_accessor(attr)
-        attr_md = add_attribute(attr, klass)
-        attr_md.inverse = inverse
-        logger.debug { "Created #{qp} owner attribute #{attr} with inverse #{klass.qp}.#{inverse}." }
-        attr
-      end
-      
       # @return [Boolean] whether this class depends on an owner
       def dependent?
         not owners.empty?
@@ -97,6 +77,11 @@ module CaRuby
       # @return [<Symbol>] this class's owner attributes
       def owner_attributes
         @oattrs ||= owner_attribute_metadata_enumerator.transform { |attr_md| attr_md.to_sym }
+      end
+      
+      # @return [Boolean] whether this {Resource} class is dependent and reference its owners
+      def bidirectional_dependent?
+        dependent? and not owner_attributes.empty?
       end
   
       # @return [<Class>] this class's dependent types
