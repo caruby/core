@@ -5,6 +5,7 @@ require 'caruby/domain/introspection'
 require 'caruby/domain/inverse'
 require 'caruby/domain/dependency'
 require 'caruby/domain/attributes'
+require 'caruby/json/deserializer'
 
 module CaRuby
   module Domain
@@ -13,7 +14,7 @@ module CaRuby
     
     # Adds introspected metadata to a Class.
     module Metadata
-      include Introspection, Inverse, Dependency, Attributes
+      include Introspection, Inverse, Dependency, Attributes, JSON::Deserializer
       
       # @return [Module] the {Domain} module context
       attr_accessor :domain_module
