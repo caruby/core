@@ -10,7 +10,7 @@ module ClinicalTrials
   # Add the Java jar file to the Java path.
   # For a real application, the jar directories path is set in the application properties file,
   # e.g. ~/.clinicaltrials, which is loaded on demand by {Domain#access_properties}.
-  $CLASSPATH << File.join(File.dirname(__FILE__), '..', '..', 'ext', 'bin', 'clinicaltrials.jar')
+  require File.join(File.dirname(__FILE__), '..', '..', 'ext', 'bin', 'clinicaltrials.jar')
 
   # Load the domain class definitions.
 
