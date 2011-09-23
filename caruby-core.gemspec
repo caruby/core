@@ -1,7 +1,7 @@
 require 'caruby/version'
 require 'date'
 
-Gem::Specification.new do |s|
+SPEC = Gem::Specification.new do |s|
   s.name          = "caruby-core"
   s.summary       = "Ruby facade for caBIG applications." 
   s.description   = <<-eof
