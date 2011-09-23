@@ -7,7 +7,6 @@ module CaRuby
   module Domain
     # Meta-data mix-in for attribute accessors.
     module Attributes
-  
       # @return [<Symbol>] this class's attributes
       attr_reader :attributes
       
@@ -37,7 +36,7 @@ module CaRuby
         attr_md
       end
   
-      # Returns the +[:identifier]+ primary key attribute array.
+      # @return [(Symbol)] the +[:identifier]+ primary key attribute singleton array
       def primary_key_attributes
         IDENTIFIER_ATTR_ARRAY
       end
@@ -45,13 +44,17 @@ module CaRuby
       # Returns this class's secondary key attribute array.
       # If this class's secondary key is not set, then the secondary key is the Metadata superclass
       # secondary key, if any.
+      #
+      # @return [<Symbol>] the secondary key attributes
       def secondary_key_attributes
         @scndy_key_attrs or superclass < Resource ? superclass.secondary_key_attributes : Array::EMPTY_ARRAY
       end
   
-       # Returns this class's alternate key attribute array.
-       # If this class's secondary key is not set, then the alternate key is the Metadata superclass
-       # alternate key, if any.
+      # Returns this class's alternate key attribute array.
+      # If this class's secondary key is not set, then the alternate key is the {Metadata} superclass
+      # alternate key, if any.
+      #
+      # @return [<Symbol>] the alternate key attributes
       def alternate_key_attributes
         @alt_key_attrs or superclass < Resource ? superclass.alternate_key_attributes : Array::EMPTY_ARRAY
       end
@@ -71,9 +74,10 @@ module CaRuby
         attr_md || (attribute_missing(attribute) && @local_attr_md_hash[attribute])
       end
   
-      # Returns the standard attribute symbol for the given name_or_alias.
-      #
-      # Raises NameError if the attribute is not found
+      # @param [Symbol, String] name_or_alias the attribute name or alias
+      # @return [Symbol] the standard attribute symbol for the given name or alias
+      # @raise [ArgumentError] if the attribute name or alias argument is missing
+      # @raise [NameError] if the attribute is not found
       def standard_attribute(name_or_alias)
         if name_or_alias.nil? then
           raise ArgumentError.new("#{qp} standard attribute call is missing the attribute name/alias parameter")
@@ -81,7 +85,7 @@ module CaRuby
         @alias_std_attr_map[name_or_alias.to_sym] or raise NameError.new("#{self} attribute not found: #{name_or_alias}")
       end
   
-      ## the built-in Metadata attribute filters ##
+      ## Metadata ATTRIBUTE FILTERS ##
   
       # @return [<Symbol>] the domain attributes which wrap a java property
       # @see Attribute#java_property?
@@ -228,7 +232,11 @@ module CaRuby
       def fetched_dependent_attributes
         @ftchd_dep_attrs ||= (fetched_domain_attributes & dependent_attributes).to_a
       end
-
+      
+      def nonowner_attributes
+        @nownr_atts ||= attribute_filter { |attr_md| not attr_md.owner? }
+      end
+      
       # @return [<Symbol>] the saved dependent attributes
       # @see Attribute#dependent?
       # @see Attribute#saved?
@@ -269,7 +277,7 @@ module CaRuby
       end
   
       # @return [<Symbol>] the domain attributes whose referents must exist before an instance of this
-      #   metadata's subject classcan be created
+      #   metadata's subject class can be created
       # @see Attribute#storable_prerequisite?
       def storable_prerequisite_attributes
         @stbl_prereq_dom_attrs ||= attribute_filter { |attr_md| attr_md.storable_prerequisite? }
