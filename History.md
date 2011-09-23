@@ -3,7 +3,11 @@ for change details.
 
 1.5.4 / 2011-09-22
 ------------------
-* Support mixed-case package name.
+* Support mixed-case custom DE package name.
+
+1.5.4 / 2011-09-22
+------------------
+* Add migration value filter option.
 
 1.5.3 / 2011-07-08
 ------------------
