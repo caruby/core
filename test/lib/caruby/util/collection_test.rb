@@ -77,6 +77,11 @@ class CollectionTest < Test::Unit::TestCase
     assert_equal([1, 2, 3, 4, 5], base.to_a, 'Filter does not modify the base')
   end
 
+  def test_enum_join
+    assert_equal("1", [1].filter { true }.join, "Enumerable singleton join incorrect")
+    assert_equal("1,2", [1, 2].filter { true }.join(','), "Enumerable join incorrect")
+  end
+
   def test_array_filter_without_block
     assert_equal([1, 3], [1, nil, 3, false].filter.to_a, 'Filter incorrect')
   end

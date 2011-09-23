@@ -241,8 +241,8 @@ module Enumerable
   
   alias :wrap :transform
   
-  def join(other)
-    Joiner.new(self, other)
+  def join(sep = $,)
+    to_a.join(sep)
   end
   
   # Sorts this collection's members with a partial sort operator, i.e. the comparison returns -1, 0, 1 or nil.
