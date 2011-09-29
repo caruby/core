@@ -17,7 +17,7 @@ TAR_FILES = Dir.glob("{bin,lib,sql,*.gemspec,doc/website,test/{bin,fixtures,lib}
 desc "Builds the gem"
 task :gem do
   load "#{GEM}.gemspec"
-  Gem::Builder.new(SPEC).build
+  Gem::Builder.new(CaRuby::SPEC).build
 end
 
 desc "Installs the gem"
