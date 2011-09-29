@@ -1,7 +1,7 @@
 require 'caruby/version'
 require 'date'
 
-SPEC = Gem::Specification.new do |s|
+CaRuby::SPEC = Gem::Specification.new do |s|
   s.name          = "caruby-core"
   s.summary       = "Ruby facade for caBIG applications." 
   s.description   = <<-eof
@@ -15,11 +15,10 @@ SPEC = Gem::Specification.new do |s|
   s.platform      = Gem::Platform::RUBY
   s.files         = Dir.glob("{conf,lib,test/{bin,lib}}/**/*") + ['History.md', 'LEGAL', 'LICENSE', 'README.md']
   s.require_paths = ['lib']
-  s.add_dependency('dbi')
-  s.add_dependency('dbd-jdbc')
-  s.add_dependency('fastercsv')
-  s.add_dependency('json')
-  s.add_dependency('uom')
+  %w(dbi dbd-jdbc fastercsv json_pure uom).each { |lib| s.add_dependency lib }
+  if s.respond_to?(:add_development_dependency) then
+    %w(bundler yard rake).each { |lib| s.add_development_dependency lib }
+  end
   s.has_rdoc      = 'yard'
   s.license       = 'MIT'
   s.rubyforge_project = 'caruby'
