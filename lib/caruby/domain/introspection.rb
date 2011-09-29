@@ -12,7 +12,7 @@ module CaRuby
       # @return [Boolean] whether this {Resource} class meta-data has been introspected
       def introspected?
         # initialization sets the attribute => metadata hash
-        not @attr_md_hash.nil?
+        !!@attr_md_hash
       end
   
       # Defines the Java property attribute and standard attribute methods, e.g.

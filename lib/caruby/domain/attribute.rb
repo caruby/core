@@ -279,7 +279,7 @@ module CaRuby
       #
       # @return [Boolean] whether this attribute is derived from another attribute
       def derived?
-        @flags.include?(:derived) or (dependent? and not inverse.nil?)
+        @flags.include?(:derived) or (dependent? and !!inverse)
       end
   
       # @return [Boolean] this attribute's inverse attribute if the inverse is a derived attribute, or nil otherwise

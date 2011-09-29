@@ -127,7 +127,7 @@ module CaRuby
 
     # @return [Boolean] whether this Persistable has a {#snapshot}
     def snapshot_taken?
-      not @snapshot.nil?
+      !!@snapshot
     end
     
     # Merges the other domain object non-domain attribute values into this domain object's snapshot,
