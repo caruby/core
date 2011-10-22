@@ -128,7 +128,9 @@ module CaRuby
       # @param [Symbol, nil] attribute the dependent -> owner attribute, if known
       # @raise [ValidationError] if the inverse is nil
       def add_owner(klass, inverse, attribute=nil)
-        if inverse.nil? then raise ValidationError.new("Owner #{klass.qp} missing dependent attribute for dependent #{qp}") end
+        if inverse.nil? then
+          raise ValidationError.new("Owner #{klass.qp} missing dependent attribute for dependent #{qp}")
+        end
         logger.debug { "Adding #{qp} owner #{klass.qp}#{' attribute ' + attribute.to_s if attribute}#{' inverse ' + inverse.to_s if inverse}..." }
         if @owner_attr_hash then
           raise MetadataError.new("Can't add #{qp} owner #{klass.qp} after dependencies have been accessed")
