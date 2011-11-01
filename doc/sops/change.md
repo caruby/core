@@ -39,7 +39,7 @@ applies to any caRuby gem.
 
         git checkout -b save_gleason_score_fix origin/master
 
-* Fix the bug on on the branch, e.g.:
+* Fix the bug on on the branch and add it to git, e.g.:
 
         git commit -a -- lib/domain/specimen.rb test/lib/catissue/domain/specimen_test.rb
         Fixed bug #42 - Prostate specimen annotation Gleason score is not saved. Added the
