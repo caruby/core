@@ -47,7 +47,10 @@ applies to any caRuby gem.
         
   The commit message begins with a capital letter and end with a period.
 
-* Run the full test script and confirm that there are no regressions:
+* Continue making changes until you are ready to push the changes to the server.
+
+* When you are ready to push your changes to the server, run the full test script and confirm
+  that there are no regressions:
 
         rake test
 
