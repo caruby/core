@@ -44,6 +44,8 @@ applies to any caRuby gem.
         git commit -a -- lib/domain/specimen.rb test/lib/catissue/domain/specimen_test.rb
         Fixed bug #42 - Prostate specimen annotation Gleason score is not saved. Added the
         Gleason score properties as caRuby attributes.
+        
+  Commit messages begin with a capital letter and end with a period.
 
 * Run the full test script and confirm that there are no regressions:
 
