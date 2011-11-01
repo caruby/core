@@ -9,8 +9,9 @@ applies to any caRuby gem.
         cd /path/to/workspace
         git clone git@github.com:caruby/tissue.git
 
-* Update the master tracking branch, if necessary:
+* Update the master tracking branch:
 
+        git branch master
         git pull
     
 * Isolate the problem to a test case, e.g.:
@@ -35,9 +36,10 @@ applies to any caRuby gem.
           ...
         end
 
-* Check out a branch:
+* Check out a tracking branch. All changes are made on a branch rather than the master.
+  The master branch is reserved for syncing to other repositories.
 
-        git checkout -b save_gleason_score_fix origin/master
+        git checkout -b save_gleason_score_fix
 
 * Fix the bug on on the branch and add it to git, e.g.:
 
@@ -47,22 +49,25 @@ applies to any caRuby gem.
         
   The commit message begins with a capital letter and end with a period.
 
-* Continue making changes until you are ready to push the changes to the server.
+* Continue making changes and committing them to your branch. You can interrupt work
+  on this branch by switching back and forth between branches:
+  
+        git checkout master
+        ...
+        git checkout save_gleason_score_fix
+        ...
 
-* When you are ready to push your changes to the server, run the full test script and confirm
-  that there are no regressions:
-
-        rake test
-
-* Push the branch to GitHub, e.g.:
+* Periodically push the branch to GitHub as needed to save your changes, e.g.:
 
         git push origin save_gleason_score_fix
 
-* Rebase the tracking branch:
+* When you are ready to merge your changes to the master, then rebase the tracking branch
+  and run the full test script to confirm that there are no regressions:
 
-        git rebase origin/master
+        git rebase master
+        rake test
     
-* If there are conflicts, then fix the conflicts and continue the rebase:
+* If there are rebase conflicts, then fix the conflicts and continue the rebase:
 
         git rebase --continue
 
@@ -73,4 +78,5 @@ applies to any caRuby gem.
 
 * Push the change to GitHub:
 
-        git push
+        git push origin master
+
