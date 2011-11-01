@@ -36,7 +36,7 @@ applies to any caRuby gem.
           ...
         end
 
-* Check out a tracking branch. All changes are made on a branch rather than the master.
+* Check out a tracking topic branch. All changes are made on a branch rather than the master.
   The master branch is reserved for syncing to other repositories.
 
         git checkout -b save_gleason_score_fix
