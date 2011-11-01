@@ -29,6 +29,14 @@ applies to any caRuby gem.
 
         gem push caruby-tissue-1.8.1.gem
 
+* Periodically clean up unused git topic branches, e.g.:
+
+        gem branch -d save_gleason_score_fix
+        
+  If the topic branch was saved to the server, then delete that branch as follows:
+  
+        gem push origin :save_gleason_score_fix
+
 Version numbers
 ---------------
 Versions are numbered according the standard major/minor/patch triplet scheme, adapted as follows:
