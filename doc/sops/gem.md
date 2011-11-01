@@ -14,16 +14,20 @@ applies to any caRuby gem.
   version numbers in `caruby-tissue.gemspec`
 
 * Add a version tag with a +v+ prefix, e.g.:
-    git tag v1.8.1
+
+        git tag v1.8.1
 
 * Commit and push the changes with the tag:
-    git push --tags
+
+        git push --tags
 
 * Make the gem:
-    rake gem
+
+        rake gem
 
 * Push the gem
-    gem push caruby-tissue-1.8.1.gem
+
+        gem push caruby-tissue-1.8.1.gem
 
 Version numbers
 ---------------
@@ -38,6 +42,6 @@ Versions are numbered according the standard major/minor/patch triplet scheme, a
 Each version component starts at 1 rather than 0.
 
 Unstable early adopter releases not intended for general public use are distributed separately as a git
-Release Candidate (RC) tag, e.g. +v2RC1+. Likewise, custom branches are tracked as a git fork tag,
-e.g. psbin_v1 for the Prostate Spore BIN fork.
+Release Candidate (RC) tag, e.g. `v2RC1`. Likewise, custom branches are tracked as a git fork tag,
+e.g. `psbin_v1` for the Prostate Spore BIN fork.
 
