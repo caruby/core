@@ -73,7 +73,7 @@ applies to any caRuby gem.
 
 * Perform a fast-forward merge to the master branch:
 
-        git branch master
+        git checkout master
         git merge save_gleason_score_fix
 
 * Push the change to GitHub:
