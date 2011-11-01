@@ -57,7 +57,7 @@ applies to any caRuby gem.
 
 * Rebase the tracking branch:
 
-        git rebase origin
+        git rebase origin/master
     
 * If there are conflicts, then fix the conflicts and continue the rebase:
 
