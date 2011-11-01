@@ -50,14 +50,15 @@ applies to any caRuby gem.
   The commit message begins with a capital letter and end with a period.
 
 * Continue making changes and committing them to your branch. You can interrupt work
-  on this branch by switching back and forth between branches:
+  on this branch by switching back and forth between branches e.g.:
   
         git checkout master
         ...
         git checkout save_gleason_score_fix
         ...
 
-* Periodically push the branch to GitHub as needed to save your changes, e.g.:
+* For a long-lived branch, periodically push the branch to GitHub as needed to save your
+  changes, e.g.:
 
         git push origin save_gleason_score_fix
 
@@ -71,6 +72,10 @@ applies to any caRuby gem.
 
         git rebase --continue
 
+* Push the completed branch to the server, e.g.:
+
+        git push origin save_gleason_score_fix
+ 
 * Perform a fast-forward merge to the master branch:
 
         git checkout master
