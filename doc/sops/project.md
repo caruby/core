@@ -7,7 +7,7 @@ Git
 Each caRuby project is named `caruby-` followed by a lower-case, dash-separated qualifier,
 e.g. `caruby-tissue-web-service`.
 
-The project repository is created in the GitHub caRuby organization at [github.com/caruby].
+The project repository is created in the GitHub caRuby organization [site](github.com/caruby).
 
 Files
 -----
