@@ -62,10 +62,11 @@ applies to any caRuby gem.
 
         git push origin save_gleason_score_fix
 
-* When you are ready to merge your changes to the master, then rebase the tracking branch
-  and run the full test script to confirm that there are no regressions:
+* When you are ready to merge your changes to the master, then get the most recent
+  version of the server master, rebase the tracking branch and run the full test script
+  to confirm that there are no regressions:
 
-        git rebase master
+        git pull --rebase origin master
         rake test
     
 * If there are rebase conflicts, then fix the conflicts and continue the rebase:
@@ -81,7 +82,7 @@ applies to any caRuby gem.
         git checkout master
         git merge save_gleason_score_fix
 
-* Push the change to GitHub:
+* Push the changes to GitHub:
 
         git push origin master
 
