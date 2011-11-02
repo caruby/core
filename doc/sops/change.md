@@ -88,5 +88,5 @@ applies to any caRuby gem.
 
 * Push the changes to GitHub:
 
-        git push origin master
+        git push
 
