@@ -1,12 +1,6 @@
-$:.unshift 'lib'
-$:.unshift 'examples/clinical_trials/lib'
+require File.dirname(__FILE__) + '/../../helper'
 
 require 'test/unit'
-
-# open the logger
-require 'caruby/util/log'
-CaRuby::Log.instance.open('test/results/log/clinical_trials.log', :shift_age => 10, :shift_size => 1048576, :debug => true)
-
 require 'clinical_trials'
 
 # CaRuby::Resource test cases.
