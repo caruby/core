@@ -4,7 +4,7 @@ require 'test/unit'
 require 'clinical_trials'
 
 # CaRuby::Resource test cases.
-class DomainTest < Test::Unit::TestCase
+class ResourceTest < Test::Unit::TestCase
   def setup
     super
     @crd = ClinicalTrials::User.new(:login => 'study.coordinator@test.org')

@@ -1,6 +1,5 @@
-$:.unshift 'lib'
+require File.dirname(__FILE__) + '/../../helper'
 
-require 'caruby'
 require "test/unit"
 
 class InversibleTest < Test::Unit::TestCase

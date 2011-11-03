@@ -1,4 +1,4 @@
-require File.dirname(__FILE__) + '/lib/caruby/version'
+require File.expand_path('version', File.dirname(__FILE__) + '/lib/caruby')
 require 'date'
 
 Gem::Specification.new do |s|
