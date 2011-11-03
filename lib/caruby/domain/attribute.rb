@@ -95,22 +95,6 @@ module CaRuby
           logger.debug { "Reset #{@declarer.qp}.#{self} inverse from #{@inv_md.type}.#{@inv_md} to #{klass}#{@inv_md}." }
         end
       end
-  
-      # Creates a new declarer attribute which restricts this attribute {#type} to the given type.
-      #
-      # @param declarer (see #restrict)
-      # @param [Class] type the restricted subclass of this attribute's return type
-      # @return (see #restrict)
-      def restrict_type(declarer, type)
-        if self.type and not type < self.type then
-          raise ArgumentError.new("Cannot restrict #{self.declarer.qp}.#{self} to incompatible attribute type #{type.qp}")
-        end
-        rst = restrict(declarer)
-        rst.type = type
-        # specialize the inverse to the restricted type attribute, if necessary
-        rst.restrict_inverse_type
-        rst
-      end
       
       # Creates a new declarer attribute which qualifies this attribute for the given declarer.
       #
@@ -128,6 +112,7 @@ module CaRuby
       # is set to this Attribute's subject attribute.
       #
       # @param [Symbol, nil] attribute the inverse attribute
+      # @raise [MetadataError] if the the inverse of the inverse is already set to a different attribute
       def inverse=(attribute)
         return if inverse == attribute
         # if no attribute, then the clear the existing inverse, if any
@@ -142,21 +127,14 @@ module CaRuby
         # the inverse of the inverse
         inv_inv_md = @inv_md.inverse_metadata
         # If the inverse of the inverse is already set to a different attribute, then raise an exception.
-        # Otherwise, it there is an inverse, then set the inverse of the inverse to this attribute.
-        return if inv_inv_md == self
-        if inv_inv_md and not inv_inv_md.restriction?(self) then
-           raise MetadataError.new("Cannot set #{type.qp}.#{@inv_md} inverse attribute to #{@declarer.qp}.#{self} since it conflicts with existing inverse #{inv_inv_md.declarer.qp}.#{inv_inv_md}")
+        if inv_inv_md and not (inv_inv_md == self or inv_inv_md.restriction?(self))
+          raise MetadataError.new("Cannot set #{type.qp}.#{attribute} inverse attribute to #{@declarer.qp}.#{self} since it conflicts with existing inverse #{inv_inv_md.declarer.qp}.#{inv_inv_md}")
         end
-        # set the inverse of the inverse
+        # Set the inverse of the inverse to this attribute.
         @inv_md.inverse = @symbol
         # If this attribute is disjoint, then so is the inverse.
         @inv_md.qualify(:disjoint) if disjoint?
-        
-        # propagate to restrictions
-  #      if @restrictions then
-  #        @restrictions.each { |attr_md| attr_md.restrict_inverse_type(@inv_md) }
-  #      end
-        logger.debug { "Set #{@declarer.qp}.#{self} inverse to #{type.qp}.#{attribute}." }
+        logger.debug { "Assigned #{@declarer.qp}.#{self} attribute inverse to #{type.qp}.#{attribute}." }
      end
   
       # @return [Attribute, nil] the metadata for the {#inverse} attribute, if any
@@ -439,7 +417,51 @@ module CaRuby
       def bidirectional_java_association?
         inverse and java_property? and inverse_metadata.java_property?
       end
-  
+      
+      # Creates a new declarer attribute which restricts this attribute.
+      # This method should only be called by a {Resource} class, since the class is responsible
+      # for resetting the attribute symbol => meta-data association to point to the new restricted
+      # attribute.
+      #
+      # If this attribute has an inverse, then the restriction inverse is set to the attribute
+      # declared by the restriction declarer'. For example, if:
+      # * +AbstractProtocol.coordinator+ has inverse +Administrator.protocol+ 
+      # * +AbstractProtocol+ has subclass +StudyProtocol+
+      # * +StudyProtocol.coordinator+ returns a +StudyCoordinator+
+      # * +AbstractProtocol.coordinator+ is restricted to +StudyProtocol+
+      # then calling this method on the +StudyProtocol.coordinator+ restriction
+      # sets the +StudyProtocol.coordinator+ inverse to +StudyCoordinator.coordinator+.
+      #
+      # @param [Class] declarer the subclass which declares the new restricted attribute
+      # @param [Class, nil] type the restricted return type, or nil if the return type will not change
+      # @return [Attribute] the new restricted attribute
+      # @raise [ArgumentError] if the restricted declarer is not a subclass of this attribute's declarer
+      # @raise [ArgumentError] if there is a restricted return type and it is not a subclass of this
+      #   attribute's return type
+      # @raise [MetadataError] if this attribute has an inverse that is not independently declared by
+      #   the restricted declarer subclass 
+      def restrict(declarer, type=nil)
+        type ||= self.type
+        unless declarer < @declarer then
+          raise ArgumentError.new("Cannot restrict #{@declarer.qp}.#{self} to incompatible declarer type #{declarer.qp}")
+        end
+        unless type <= self.type then
+          raise ArgumentError.new("Cannot restrict #{@declarer.qp}.#{self} to an incompatible attribute type #{declarer.qp}")
+        end
+        # Copy this attribute and its instance variables minus the restrictions and make a deep copy of the flags.
+        rst = deep_copy
+        # specialize the copy declarer
+        rst.declarer = declarer
+        # Capture the restriction to propagate modifications to this metadata, esp. adding an inverse.
+        @restrictions ||= []
+        @restrictions << rst
+        # Set the restriction type
+        rst.type = type
+        # Specialize the inverse to the restricted type attribute, if necessary.
+        rst.inverse = inverse
+        rst
+      end
+       
       def to_sym
         @symbol
       end
@@ -458,65 +480,30 @@ module CaRuby
       def dup_content
         # keep the copied flags but don't share them
         @flags = @flags.dup
-        # restrictions are neither shared nor copied
-        @restrictions = nil
-      end
-      
-      # Restricts this attribute's inverse to an attribute declared by this
-      # attribute's type. For example, if:
-      # * +AbstractProtocol.coordinator+ has inverse +Administrator.protocol+ 
-      # * +AbstractProtocol+ has subclass +StudyProtocol+
-      # * +StudyProtocol.coordinator+ returns a +StudyCoordinator+
-      # * +AbstractProtocol.coordinator+ is restricted to +StudyProtocol+
-      # then calling this method on the +StudyProtocol.coordinator+ restriction
-      # sets the +StudyProtocol.coordinator+ inverse to +StudyCoordinator.coordinator+.
-      #
-      # @param [Attribute, nil] inv_md the inverse attribute to restrict
-      #  (default is the current inverse)
-      def restrict_inverse_type(inv_md=nil)
-        # default inverse is the current inverse
-        inv_md ||= @inv_md || return
-        # the current inverse
-        attr = inv_md.to_sym
-        # If the restricted type delegates to the current inverse metadata,
-        # then no change is needed.
-        return if @type.attribute_metadata(attr) == inv_md
-        # clear the current inverse
-        @inv_md = nil
-        # set the inverse to the restricted attribute
-        self.inverse = attr
+        # restrictions and inverse are neither shared nor copied
+        @inv_md = @restrictions = nil
       end
       
       # @param [Attribute] other the other attribute to check
       # @return [Boolean] whether the other attribute restricts this attribute
       def restriction?(other)
-        @restrictions.include?(other)
+        @restrictions and @restrictions.include?(other)
       end    
+      
       private
       
       # Creates a copy of this metadata which does not share mutable content.
+      #
+      # The copy instance variables are as follows:
+      # * the copy inverse and restrictions are empty
+      # * the copy flags is a deep copy of this attribute's flags
+      # * other instance variable references are shared between the copy and this attribute
+      #
+      # @return [Attribute] the copied attribute
       def deep_copy
         other = dup
         other.dup_content
         other
-      end
-      
-      # Creates a new declarer attribute which restricts this attribute type or flags.
-      #
-      # @param [Class] klass the declarer class for which the restriction holds 
-      # @return [Attribute] the metadata for the new declarer attribute
-      def restrict(klass)
-        unless klass < @declarer then
-          raise ArgumentError.new("Cannot restrict #{@declarer.qp}.#{self} to incompatible declarer type #{klass.qp}")
-        end
-        rst = deep_copy
-        # specialize the copy declarer and type
-        rst.declarer = klass
-        # Capture the restriction to propagate modifications to this metadata, esp.
-        # adding an inverse.
-        @restrictions ||= []
-        @restrictions << rst
-        rst
       end
       
       def clear_inverse
@@ -556,7 +543,8 @@ module CaRuby
         if inv_attr.nil? then
           raise MetadataError.new("#{@declarer.qp} owner attribute #{self} does not have a #{type.qp} dependent inverse")
         end
-        self.inverse = type.dependent_attribute(@declarer)
+        logger.debug { "#{declarer.qp}.#{self} inverse is the #{type.qp} dependent attribute #{inv_attr}." }
+        self.inverse = inv_attr
         if inverse_metadata.logical? then @flags << :logical end
       end
       

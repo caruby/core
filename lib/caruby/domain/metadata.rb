@@ -19,6 +19,9 @@ module CaRuby
       # @return [Module] the {Domain} module context
       attr_accessor :domain_module
       
+      # Introspects the given class and introduces an optional {attribute=>value} constructor parameter.
+      #
+      # @param [Class] the domain class to extend
       def self.extended(klass)
         super
         klass.class_eval do
@@ -32,6 +35,7 @@ module CaRuby
               obj
             end
           end
+          logger.debug { "#{klass} is extended with an optional {attribute=>value} constructor parameter." }
         end
       end
   

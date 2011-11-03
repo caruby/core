@@ -68,14 +68,13 @@ module CaRuby
     # Raises ConfigurationError if file doesn't exist or couldn't be parsed.
     def load_properties(file)
       raise ConfigurationError.new("Properties file not found: #{File.expand_path(file)}") unless File.exists?(file)
-      logger.debug { "Loading properties file #{file}..." }
       properties = {}
       begin
         YAML::load_file(file).each { |key, value| properties[key.to_sym] = value }
       rescue
         raise ConfigurationError.new("Could not read properties file #{file}: " + $!)
       end
-     # Uncomment the following line to print detail properties.
+      # Uncomment the following line to print detail properties.
       #logger.debug { "#{file} properties:\n#{properties.pp_s}" }
       # parse comma-delimited string values of array properties into arrays
       @array_properties.each do |key|

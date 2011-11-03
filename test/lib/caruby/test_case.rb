@@ -1,11 +1,6 @@
-$:.unshift  '../caruby/lib'
-
-# open the logger
-LOG_FILE = 'test/results/log/catissue.log' unless defined?(LOG_FILE)
-require 'caruby/util/log' and
-  CaRuby::Log.instance.open(LOG_FILE, :shift_age => 10, :shift_size => 1048576, :debug => true)
-
-require 'caruby'
+require 'rubygems'
+require 'bundler'
+Bundler.require(:test, :development)
 
 module CaRuby
   module TestCase

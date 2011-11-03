@@ -7,22 +7,6 @@ module CaRuby
   
       attr_reader :owners, :owner_attributes
   
-      # Returns the most specific attribute which references the dependent type, or nil if none.
-      # If the given class can be returned by more than dependent attribute, then the attribute
-      # is chosen whose return type most closely matches the given class.
-      #
-      # @param [Class] klass the dependent type
-      # @return [Symbol, nil] the dependent reference attribute, or nil if none
-      def dependent_attribute(klass)
-        dependent_attributes.inject(nil) do |best, attr|
-          type = domain_type(attr)
-          # If the attribute can return the klass then the return type is a candidate.
-          # In that case, the klass replaces the best candidate if it is more specific than
-          # the best candidate so far.
-          klass <= type ? (best && best < type ? best : type) : best
-        end
-      end
-  
       # Adds the given attribute as a dependent.
       #
       # Supported flags include the following:
@@ -42,6 +26,7 @@ module CaRuby
       # @param [<Symbol>] flags the attribute qualifier flags
       def add_dependent_attribute(attribute, *flags)
         attr_md = attribute_metadata(attribute)
+        logger.debug { "Marking #{qp}.#{attribute} as a dependent attribute of type #{attr_md.type.qp}..." }
         flags << :dependent unless flags.include?(:dependent)
         attr_md.qualify(*flags)
         inverse = attr_md.inverse
@@ -49,6 +34,7 @@ module CaRuby
         # example: Parent.add_dependent_attribute(:children) with inverse :parent calls the following:
         #   Child.add_owner(Parent, :children, :parent)
         inv_type.add_owner(self, attribute, inverse)
+        logger.debug { "Marked #{qp}.#{attribute} as a dependent attribute with inverse #{inv_type.qp}#{inverse}." }
       end
       
       # @return [Boolean] whether this class depends on an owner
@@ -69,9 +55,7 @@ module CaRuby
       # @param [Class] klass the dependent type
       # @return [Symbol, nil] the attribute which references the dependent type, or nil if none
       def dependent_attribute(klass)
-        type = dependent_attributes.detect_with_metadata { |attr_md| attr_md.type == klass }
-        return type if type
-        dependent_attribute(klass.superclass) if klass.superclass < Resource
+        most_specific_domain_attribute_metadata(klass, dependent_attributes)
       end
   
       # @return [<Symbol>] this class's owner attributes
@@ -131,7 +115,7 @@ module CaRuby
         if inverse.nil? then
           raise ValidationError.new("Owner #{klass.qp} missing dependent attribute for dependent #{qp}")
         end
-        logger.debug { "Adding #{qp} owner #{klass.qp}#{' attribute ' + attribute.to_s if attribute}#{' inverse ' + inverse.to_s if inverse}..." }
+        logger.debug { "Adding #{qp} owner #{klass.qp}#{' attribute ' + attribute.to_s if attribute} with inverse #{inverse}..." }
         if @owner_attr_hash then
           raise MetadataError.new("Can't add #{qp} owner #{klass.qp} after dependencies have been accessed")
         end
@@ -144,7 +128,10 @@ module CaRuby
         # references this class via a dependency attribute but there is no inverse owner attribute.
         local_owner_attribute_metadata_hash[klass] = attr_md
         # If the dependency is unidirectional, then our job is done.
-        return if attribute.nil?
+        if attribute.nil? then
+          logger.debug { "#{qp} owner #{klass.qp} has unidirectional inverse #{inverse}." }
+          return
+        end
   
         # set the inverse if necessary
         unless attr_md.inverse then
@@ -152,9 +139,9 @@ module CaRuby
         end
         # set the owner flag if necessary
         unless attr_md.owner? then attr_md.qualify(:owner) end
+
         # Redefine the writer method to warn when changing the owner
         rdr, wtr = attr_md.accessors
-        logger.debug { "Injecting owner change warning into #{qp}.#{attribute} writer method #{wtr}..." }
         redefine_method(wtr) do |old_wtr|
           lambda do |ref|
             prev = send(rdr)
@@ -168,6 +155,8 @@ module CaRuby
             send(old_wtr, ref)
           end
         end
+        logger.debug { "Injected owner change warning into #{qp}.#{attribute} writer method #{wtr}." }
+        logger.debug { "#{qp} owner #{klass.qp} attribute is #{attribute} with inverse #{inverse}." }
       end
       
       # Adds the given attribute as an owner. This method is called when a new attribute is added that
@@ -220,7 +209,13 @@ module CaRuby
       # @param [Symbol] inverse the owner -> dependent attribute
       # @return [Symbol, nil] this class's owner attribute
       def detect_owner_attribute(klass, inverse)
-        klass.attribute_metadata(inverse).inverse or detect_inverse_attribute(klass)
+        attr = klass.attribute_metadata(inverse).inverse || detect_inverse_attribute(klass)
+        if attr then
+          logger.debug { "#{qp} reference to owner #{klass.qp} with inverse #{inverse} is #{attr}." }
+        else
+          logger.debug { "#{qp} reference to owner #{klass.qp} with inverse #{inverse} was not detected." }
+        end
+        attr
       end
     end
   end

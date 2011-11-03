@@ -44,6 +44,12 @@ module CaRuby
         return if attr_md.inverse == inverse
         # the default inverse
         inverse ||= attr_md.type.detect_inverse_attribute(self)
+        # If the attribute is not declared by this class, then make a new attribute
+        # metadata specialized for this class.
+        unless attr_md.declarer == self then
+          attr_md = restrict_attribute_inverse(attr_md, inverse)
+        end
+        logger.debug { "Setting #{qp}.#{attribute} inverse to #{inverse}..." }
         # the inverse attribute meta-data
         inv_md = attr_md.type.attribute_metadata(inverse)
         # If the attribute is the many side of a 1:M relation, then delegate to the one side.
@@ -54,21 +60,17 @@ module CaRuby
         unless self <= inv_md.type then
           raise TypeError.new("Cannot set #{qp}.#{attribute} inverse to #{attr_md.type.qp}.#{attribute} with incompatible type #{inv_md.type.qp}")
         end
-        # If the attribute is not declared by this class, then make a new attribute
-        # metadata specialized for this class.
-        unless attr_md.declarer == self then
-          attr_md = restrict_attribute_inverse(attr_md, inverse)
-        end
         # Set the inverse in the attribute metadata.
         attr_md.inverse = inverse
         # If attribute is the one side of a 1:M or non-reflexive 1:1 relation, then add the inverse updater.
         unless attr_md.collection? then
-          # Make the 
+          # Inject adding to the inverse collection into the attribute writer method. 
           add_inverse_updater(attribute, inverse)
           unless attr_md.type == inv_md.type or inv_md.collection? then
             attr_md.type.delegate_writer_to_inverse(inverse, attribute)
           end
         end
+        logger.debug { "Set #{qp}.#{attribute} inverse to #{inverse}." }
       end
       
       # Detects an unambiguous attribute which refers to the given referencing class.
@@ -105,12 +107,12 @@ module CaRuby
       def delegate_writer_to_inverse(attribute, inverse)
         attr_md = attribute_metadata(attribute)
         # nothing to do if no inverse
-        inv_attr_md = attr_md.inverse_metadata || return
-        logger.debug { "Delegating #{qp}.#{attribute} update to the inverse #{attr_md.type.qp}.#{inv_attr_md}..." }
+        inv_md = attr_md.inverse_metadata || return
+        logger.debug { "Delegating #{qp}.#{attribute} update to the inverse #{attr_md.type.qp}.#{inv_md}..." }
         # redefine the write to set the dependent inverse
         redefine_method(attr_md.writer) do |old_writer|
           # delegate to the CaRuby::Resource set_inverse method
-          lambda { |dep| set_inverse(dep, old_writer, inv_attr_md.writer) }
+          lambda { |dep| set_inverse(dep, old_writer, inv_md.writer) }
         end
       end
   
@@ -124,10 +126,10 @@ module CaRuby
       # @param [Symbol] the attribute inverse
       # @return [Attribute] the copied attribute metadata
       def restrict_attribute_inverse(attr_md, inverse)
-        rst_attr_md = attr_md.dup
-        rst_attr_md.declarer = self
-        add_attribute_metadata(rst_attr_md)
-        logger.debug { "Copied #{attr_md.declarer}.#{attr_md} to #{qp} with inverse #{inverse}." }
+        logger.debug { "Restricting #{attr_md.declarer.qp}.#{attr_md} to #{qp} with inverse #{inverse}..." }
+        rst_attr_md = attr_md.restrict(self)
+        rst_attr_md.inverse = inverse
+        logger.debug { "Restricted #{attr_md.declarer.qp}.#{attr_md} to #{qp} with inverse #{inverse}." }
         rst_attr_md
       end
       
@@ -151,21 +153,21 @@ module CaRuby
         attr_md = attribute_metadata(attribute)
         # the reader and writer methods
         rdr, wtr = attr_md.accessors
-        logger.debug { "Injecting inverse #{inverse} updater into #{qp}.#{attribute} writer method #{wtr}..." }
         # the inverse atttribute metadata
-        inv_attr_md = attr_md.inverse_metadata
+        inv_md = attr_md.inverse_metadata
         # the inverse attribute reader and writer
-        inv_rdr, inv_wtr = inv_accessors = inv_attr_md.accessors
+        inv_rdr, inv_wtr = inv_accessors = inv_md.accessors
         # Redefine the writer method to update the inverse by delegating to the inverse
         redefine_method(wtr) do |old_wtr|
           # the attribute reader and (superseded) writer
           accessors = [rdr, old_wtr]
-          if inv_attr_md.collection? then
+          if inv_md.collection? then
             lambda { |other| add_to_inverse_collection(other, accessors, inv_rdr) }
           else
             lambda { |other| set_inversible_noncollection_attribute(other, accessors, inv_wtr) }
           end
         end
+        logger.debug { "Injected inverse #{inverse} updater into #{qp}.#{attribute} writer method #{wtr}." }
       end
     end
   end

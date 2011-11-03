@@ -649,7 +649,7 @@ module Hashable
   end
   
   # @yield [key1, key2] the key sort block
-  # @return a Hashable whose #each and {#each_pair} enumerations are sorted by key
+  # @return [Hashable] a hash whose #each and {#each_pair} enumerations are sorted by key
   def sort(&sorter)
     SortedHash.new(self, &sorter)
   end
@@ -692,7 +692,7 @@ module Hashable
   end
 
   # @param key search target
-  # @return whether this Hashable has the given key
+  # @return [Boolean] whether this Hashable has the given key
   def has_key?(key)
     enum_keys.include?(key)
   end
@@ -705,25 +705,25 @@ module Hashable
   end
 
   # @yield [key] the key selector
-  # @return the keys which satisfy the block given to this method
+  # @return [Enumerable] the keys which satisfy the block given to this method
   def select_keys(&block)
     enum_keys.select(&block)
   end
   
   # @yield [key] the key rejector
-  # @return the keys which do not satisfy the block given to this method
+  # @return [Enumerable] the keys which do not satisfy the block given to this method
   def reject_keys(&block)
     enum_keys.reject(&block)
   end
   
   # @yield [value] the value selector
-  # @return the values which satisfy the block given to this method
+  # @return [Enumerable] the values which satisfy the block given to this method
   def select_values(&block)
     enum_values.select(&block)
   end
   
   # @yield [value] the value rejector
-  # @return the values which do not satisfy the block given to this method
+  # @return [Enumerable] the values which do not satisfy the block given to this method
   def reject_values(&block)
     enum_values.reject(&block)
   end
@@ -734,7 +734,7 @@ module Hashable
   end
 
   # @param value search target
-  # @return whether this Hashable has the given value
+  # @return [Boolean] whether this Hashable has the given value
   def has_value?(value)
     enum_values.include?(value)
   end

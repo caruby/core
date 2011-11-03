@@ -2,6 +2,11 @@ require 'caruby/domain'
 
 # Example CaRuby::Domain containing some simple domain classes.
 module ClinicalTrials
+  
+  # @param [Module] mod the resource mix-in module to extend with metadata capability
+  def self.extend_module(mod)
+    CaRuby::Domain.extend_module(self, :mixin => mod, :package => PKG, :directory => SRC_DIR)
+  end
 
   private
 
@@ -16,7 +21,6 @@ module ClinicalTrials
   # The domain class definitions.
   SRC_DIR = File.dirname(__FILE__) + '/domain'
 
-  
   # @param [Module] mod the resource mix-in module to extend with metadata capability
   def self.extend_module(mod)
     # Enable the resource metadata aspect.

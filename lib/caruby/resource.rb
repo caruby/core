@@ -6,17 +6,23 @@ require 'caruby/util/validation'
 require 'caruby/util/collection'
 require 'caruby/domain'
 require 'caruby/domain/merge'
-require 'caruby/json/serializer'
 require 'caruby/domain/reference_visitor'
 require 'caruby/database/persistable'
 require 'caruby/domain/inversible'
 require 'caruby/domain/metadata'
+require 'caruby/json/serializer'
 require 'caruby/migration/migratable'
 
 module CaRuby
-  # The Domain module is included by Java domain classes.
-  # This module defines essential common domain methods that enable the jRuby-Java API bridge.
-  # Classes which include Domain must implement the +metadata+ Domain::Metadata accessor method.
+  # This Resource module enhances {Domain} objects with the following features:
+  # * defaults
+  # * validation
+  # * dependency
+  # * inverse integrity
+  # * persistance
+  # * copy/merge
+  # * migration
+  # * serialization
   module Resource
     include Mergeable, Migratable, Persistable, Inversible, JSON::Serializer
     

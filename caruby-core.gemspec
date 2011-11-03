@@ -2,20 +2,19 @@ require File.expand_path('version', File.dirname(__FILE__) + '/lib/caruby')
 require 'date'
 
 Gem::Specification.new do |s|
-  s.name          = "caruby-core"
-  s.summary       = "Ruby facade for caBIG applications." 
-  s.description   = <<-eof
-    caRuby is a JRuby facade for interaction with caBIG applications.
-  eof
+  s.name          = 'caruby-core'
+  s.summary       = 'Ruby facade for caBIG applications.'
+  s.description   = s.summary
   s.version       = CaRuby::VERSION
   s.date          = Date.today
-  s.author        = "OHSU"
-  s.email         = "caruby.org@gmail.com"
-  s.homepage      = "http://caruby.rubyforge.org"
+  s.author        = 'OHSU'
+  s.email         = 'caruby.org@gmail.com'
+  s.homepage      = 'http://caruby.rubyforge.org''
   s.platform      = Gem::Platform::RUBY
   s.files         = Dir.glob("{conf,lib,test/{bin,lib}}/**/*") + ['History.md', 'LEGAL', 'LICENSE', 'README.md']
   s.require_path  = 'lib'
   s.test_files    = Dir['test/lib/**/*test.rb']
+  s.add_dependency 'rack'
   s.add_dependency 'dbi'
   s.add_dependency 'dbd-jdbc'
   s.add_dependency 'fastercsv'

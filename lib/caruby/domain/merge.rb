@@ -175,7 +175,7 @@ module CaRuby
       newval
     end
 
-    # Java Java TreeSet comparison uses the TreeSet comparator rather than an
+    # @quirk Java Java TreeSet comparison uses the TreeSet comparator rather than an
     # element-wise comparator. Work around this rare aberration by converting the TreeSet
     # to a Ruby Set.
     def mergeable__equal?(v1, v2)

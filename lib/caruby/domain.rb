@@ -1,6 +1,5 @@
 require 'fileutils'
 require 'caruby/util/collection'
-require 'caruby/util/log'
 require 'caruby/domain/importer'
 
 module CaRuby
@@ -23,20 +22,22 @@ module CaRuby
       [:database_password, "--database_password PSWD", "the database login password"]
     ]
 
-  # Domain extends a Module with Java class {Metadata} support.
+  # This Domain module extends an application domain module with Java class {Metadata}
+  # support. The metadata introspection enables the jRuby-Java API bridge.
   #
-  # A Java class is imported into Ruby either by including the given Resource module
-  # or by referenceing the class name for the first time. For example, the
-  # +ClinicalTrials+ wrapper for Java package +org.nci.ctms+ classes and
-  # Ruby class definitions in the +domain+ subdirectory is enabled as follows:
+  # A Java class is imported as a Domain class in two ways:
+  # * the +resource_import+ declaration
+  # * referencing the class name for the first time in the domain module context
+  #
+  # For example, if the +ClinicalTrials+ module wraps the +clinicaltrials.domain+
+  # Java application package by extending +Domain+, then the first reference by
+  # name to +ClinicalTrials::Subject+ imports the Java application class
+  # +clinicaltrials.domain.Subject+ into +ClinicalTrials+ and introspects the
+  # +Subject+ Java property meta-data.
+  #
+  # @example
   #   module ClinicalTrials
-  #     PKG = 'org.nci.ctms'
-  #     SRC_DIR = File.join(File.dirname(__FILE__), 'domain')
-  #     CaRuby::Domain.extend_module(self, :package => PKG, :directory => SRC_DIR)
-  #
-  # The first reference by name to +ClinicalTrials::Subject+ imports the Java class
-  # +org.nci.ctms.Subject+ into +ClinicalTrials+. The +Subject+ Java property meta-data
-  # is introspected and the {Resource} module is included.
+  #     CaRuby::Domain.extend_module(self, :mixin => Resource, :package => 'clinicaltrials.domain')
   module Domain
     # Extends the given module with importable Java class {Metadata} support.
     #
@@ -115,7 +116,6 @@ module CaRuby
       # load the Java application jar path
       path = props[:classpath] || props[:path]
       if path then
-        logger.info("Defining application classpath #{path}...")
         Java.add_path(path)
       end
       
@@ -124,7 +124,7 @@ module CaRuby
     
     def load_properties_file(file)
       props = {}
-      logger.info("Loading application properties from #{file}...")
+      #logger.info("Loading application properties from #{file}...")
       File.open(file).map do |line|
         # match the tolerant property definition
         match = PROP_DEF_REGEX.match(line.chomp.strip) || next
@@ -148,7 +148,6 @@ module CaRuby
         value = environment_property(opt) || next
         # override the file property with the envar value
         props[opt] = value
-        logger.info("Set application property #{opt} from environment variable #{ev}.")
       end
     end 
     
@@ -182,12 +181,7 @@ module CaRuby
     def default_properties_file
       home = ENV['HOME'] || ENV['USERPROFILE'] || '~'
       file = File.expand_path("#{home}/.#{name[/\w+$/].downcase}")
-      if File.exists?(file) then
-        file
-      else
-        logger.warn("The default #{name} application property file was not found: #{file}.")
-        nil
-      end
+      file if File.exists?(file)
     end
   end
 end

@@ -419,6 +419,28 @@ module CaRuby
         end
       end
       
+      # Returns the most specific {Attribute} which references the given target type, or nil if none.
+      # If the given class can be returned by more than on of the attributes, then the attribute
+      # is chosen whose return type most closely matches the given class.
+      #
+      # @param [Class] klass the target type
+      # @param [Filter, nil] attributes the attributes to check (default all domain attributes)
+      # @return [Attribute, nil] the most specific reference attribute, or nil if none
+      def most_specific_domain_attribute_metadata(klass, attributes=nil)
+        attributes ||= domain_attributes
+        candidates = attributes.enum_metadata
+        best = candidates.inject(nil) do |better, attr_md|
+          # If the attribute can return the klass then the return type is a candidate.
+          # In that case, the klass replaces the best candidate if it is more specific than
+          # the best candidate so far.
+          klass <= attr_md.type ? (better && better.type <= attr_md.type ? better : attr_md) : better
+        end
+        if best then
+          logger.debug { "Most specific #{qp} -> #{klass.qp} reference from among #{candidates.qp} is #{best.declarer.qp}.#{best}." }
+        end
+        best
+      end
+      
       # Returns an Enumerable on this Resource class's attributes which iterates on each attribute whose
       # corresponding Attribute satisfies the given filter block.
       #
@@ -504,7 +526,7 @@ module CaRuby
           logger.debug { "Set #{qp}.#{attribute} type to #{klass.qp}." }
           attr_md.type = klass
         elsif attr_md.type.nil? or klass < attr_md.type then
-          new_attr_md = attr_md.restrict_type(self, klass)
+          new_attr_md = attr_md.restrict(self, klass)
           logger.debug { "Restricted #{attr_md.declarer.qp}.#{attribute}(#{attr_md.type.qp}) to #{qp} with return type #{klass.qp}." }
           add_attribute_metadata(new_attr_md)
         elsif klass != attr_md.type then

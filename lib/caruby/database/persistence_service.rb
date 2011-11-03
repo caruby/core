@@ -3,15 +3,6 @@ require 'caruby/database'
 require 'caruby/util/stopwatch'
 
 module CaRuby
-  # HQLCriteria is required for the query_hql method.
-  java_import Java::gov.nih.nci.common.util.HQLCriteria
-  
-  # The encapsulated caBIG service class.
-  java_import Java::gov.nih.nci.system.applicationservice.ApplicationServiceProvider
-  
-  # This import is not strictly necessary, but works around Ticket #5.
-  java_import Java::gov.nih.nci.system.comm.client.ApplicationServiceClientImpl
-  
   # A PersistenceService wraps a caCORE application service.
   class PersistenceService
     # The service name.
@@ -27,6 +18,7 @@ module CaRuby
     # @option opts [String] :host the service host (default +localhost+)
     # @option opts [String] :version the caTissue version identifier
     def initialize(name, opts={})
+      CaRuby::PersistenceService.import_java_classes
       @name = name
       ver_opt = opts[:version]
       @version = ver_opt.to_s.to_version if ver_opt
@@ -200,5 +192,22 @@ module CaRuby
     def dump(obj)
       Resource === obj ? obj.dump : obj.to_s
     end
+    
+    private
+    
+    # Imports this class's Java classes on demand.
+    def self.import_java_classes
+      return if const_defined?(:HQLCriteria)
+      
+      # HQLCriteria is required for the query_hql method.
+      java_import Java::gov.nih.nci.common.util.HQLCriteria
+
+      # The encapsulated caBIG service class.
+      java_import Java::gov.nih.nci.system.applicationservice.ApplicationServiceProvider
+
+      # This import is not strictly necessary, but works around Ticket #5.
+      java_import Java::gov.nih.nci.system.comm.client.ApplicationServiceClientImpl
+    end
+
   end
 end

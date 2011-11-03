@@ -235,17 +235,18 @@ module CaRuby
         obj
       end
 
-      # Creates obj by submitting a template to the persistence service. Ensures that the domain
-      # objects referenced by the created obj exist and are correctly stored.
+      # Creates the given domain object by submitting a template to the persistence service.
+      # This method ensures that the domain objects referenced by the created object exist
+      # and are correctly stored.
       #
       # @quirk caCORE submitting the object directly for create runs into various caTissue bizlogic
       #   traps, e.g. Participant CPR is not cascaded but Participant bizlogic checks that each CPR
       #   referenced by Participant is ready to be created. It is treacherous to make assumptions
       #   about what caTissue bizlogic will or will not check. Therefore, the safer strategy is to
-      #   build a template for submission that includes only the object cascaded and direct
-      #   non-cascaded independent references. The independent references are created if necessary.
-      #   The template thus includes only as much content as can safely pass through the caTissue
-      #   bizlogic minefield.
+      #   build a template for submission that includes only the cascaded and direct non-cascaded
+      #   independent references. The independent references are created if necessary. The template
+      #   thus includes only as much content as can safely pass through the caTissue bizlogic
+      #   minefield.
       #
       # @quirk caCORE caCORE create does not update the submitted object to reflect the created
       #   content. The create result is a separate object, which in turn does not always reflect

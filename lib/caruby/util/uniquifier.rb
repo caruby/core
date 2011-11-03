@@ -6,7 +6,7 @@ class Uniquifier
   # amount.
   def self.qualifier
     # the first date that this method could be called
-    @first ||= Date.new(2000, 01, 01)
+    @first ||= Date.new(2010, 01, 01)
     # days as integer + milliseconds as fraction since the first date
     diff = DateTime.now - @first
     # shift a tenth of a milli up into the integer portion

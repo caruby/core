@@ -3,18 +3,27 @@ require 'singleton'
 require 'ftools'
 require 'caruby/util/collection'
 
-# @return [CaRuby::Logger] the global logger
+# @return (see CaRuby.logger)
 def logger
-  CaRuby::Log.instance.logger
+  CaRuby.logger
 end
 
 module CaRuby
+  # @return (see Log#logger)
+  def self.logger
+    Log.instance.logger
+  end
+  
   # Extends the standard Logger to format multi-line messages on separate lines.
-  class MultilineLogger < Logger
+  class MultilineLogger < ::Logger
     # @see Logger#initialize
     def initialize(*args)
       super
     end
+    
+    # Rackify the logger with a write method, in conformance with
+    # the [Rack spec](http://rack.rubyforge.org/doc/SPEC.html).
+    alias :write :<<
   
     private
   
@@ -38,31 +47,35 @@ module CaRuby
     # Opens the log.
     #
     # @param [String, IO, nil] file_or_dev the log file or device (default STDOUT)
-    # @param [Hash, nil] the Logger::LogDevice options
-    # @return [Logger] the logger
-    def open(file_or_dev=nil, options=nil)
+    # @param [Hash, nil] opts the logger options
+    # @option opts [Integer] :shift_age the number of log files retained in the rotation
+    # @option opts [Integer] :shift_size the maximum size of each log file
+    # @option opts [Boolean] :debug whether to include debug messages in the log file
+    # @return [CaRuby::MultilineLogger] the global logger
+    def open(file_or_dev=nil, opts=nil)
       dev = file_or_dev || default_log_file
-      return @logger if same_file?(dev, @dev)
+      return @logger if same_file?(dev, @dev)    
       # close the previous log file, if necessary
       @logger.close if @logger
       if String === dev then File.makedirs(File.dirname(dev)) end
       # default is 4-file rotation @ 16MB each
-      shift_age = Options.get(:shift_age, options, 4)
-      shift_size = Options.get(:shift_size, options, 16 * 1048576)
+      shift_age = Options.get(:shift_age, opts, 4)
+      shift_size = Options.get(:shift_size, opts, 16 * 1048576)
       @logger = MultilineLogger.new(dev, shift_age, shift_size)
-      @logger.level = Options.get(:debug, options, ENV['DEBUG'] == 'true') ? Logger::DEBUG : Logger::INFO
+      @logger.level = Options.get(:debug, opts, ENV['DEBUG'] == 'true') ? Logger::DEBUG : Logger::INFO
       @logger.info('============================================')
       @logger.info('Logging started.')
       @dev = dev
       @logger
     end
   
+    # Closes and releases the {#logger}.
     def close
       @logger.close
       @logger = nil
     end
   
-    # Returns the logger.
+    # @return (see #open)
     def logger
       @logger ||= open
     end
