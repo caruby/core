@@ -9,7 +9,7 @@ Gem::Specification.new do |s|
   s.date          = Date.today
   s.author        = 'OHSU'
   s.email         = 'caruby.org@gmail.com'
-  s.homepage      = 'http://caruby.rubyforge.org''
+  s.homepage      = 'http://caruby.rubyforge.org'
   s.platform      = Gem::Platform::RUBY
   s.files         = Dir.glob("{conf,lib,test/{bin,lib}}/**/*") + ['History.md', 'LEGAL', 'LICENSE', 'README.md']
   s.require_path  = 'lib'
