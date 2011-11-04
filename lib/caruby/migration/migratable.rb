@@ -1,5 +1,3 @@
-require 'caruby/migration/resource_module'
-
 module CaRuby
   # A Migratable mix-in adds migration support for Resource domain objects.
   # For each migration Resource created by a CaRuby::Migrator, the migration process
