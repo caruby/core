@@ -1,98 +1,49 @@
 require File.dirname(__FILE__) + '/../../helper'
 
 require "test/unit"
+require 'clinical_trials'
+
+# Make a 1:1 bidirectional Study-Consent inverse.
+
+module ClinicalTrials
+  shims Study, Consent
+
+  class Study
+    attr_accessor :consent
+    add_attribute(:consent, ClinicalTrials::Consent)
+  end
+  
+  class Consent
+    attr_accessor :study
+    add_attribute(:study, ClinicalTrials::Study)
+    set_attribute_inverse(:study, :consent)
+  end
+end
 
 class InversibleTest < Test::Unit::TestCase
-  module Domain
-    extend CaRuby::Domain
-  end
-  
-  module Resource
-    include CaRuby::Resource
-    attr_accessor :identifier
-  end
-  
-  class Person; end
-  
-  class Account
-    include Resource
-    Domain.add_class(self)
-    
-    attr_accessor :person
-    add_attribute(:person, Person)
-  end
-  
-  class Person
-    include Resource
-    Domain.add_class(self)
-    
-    attr_accessor :spouse
-    add_attribute(:spouse, Person)
-    
-    set_attribute_inverse(:spouse, :spouse)
-    
-    attr_accessor :account
-    add_attribute(:account, Account)
-    
-    set_attribute_inverse(:account, :person)
-  end
-  
-  class Child; end
-  
-  class Parent
-    include Resource
-    Domain.add_class(self)
-    
-    attr_accessor :children
-    add_attribute(:children, Child, :collection)
-  end
-  
-  class Child
-    include Resource
-    Domain.add_class(self)
-    
-    attr_accessor :parent
-    add_attribute(:parent, Parent)
-    
-    set_attribute_inverse(:parent, :children)
-  end
-
   def test_1_1
-    p1 = Person.new
-    a1 = Account.new
-    p1.account = a1
-    assert_same(p1, a1.person, "1:1 inverse not set")
-    a2 = Account.new
-    p1.account = a2
-    assert_same(p1, a2.person, "1:1 inverse not set")
-    assert_nil(a1.person, "1:1 previous inverse not cleared")
-    p1.account = nil
-    assert_nil(a2.person, "1:1 previous inverse not cleared")
-  end
-  
-  def test_1_1_same
-    p1 = Person.new
-    p2 = Person.new
-    p1.spouse = p2
-    assert_same(p1, p2.spouse, "1:1 inverse not set")
-    p3 = Person.new
-    p1.spouse = p3
-    assert_same(p3, p1.spouse, "1:1 inverse not set")
-    assert_nil(p2.spouse, "1:1 previous inverse not cleared")
-    p1.spouse = nil
-    assert_nil(p3.spouse, "1:1 previous inverse not cleared")
+    s1 = ClinicalTrials::Study.new
+    c = ClinicalTrials::Consent.new
+    c.study = s1
+    assert_same(c, s1.consent, "1:1 inverse not set")
+    s2 = ClinicalTrials::Study.new
+    c.study = s2
+    assert_same(c, s2.consent, "1:1 inverse not updated")
+    assert_nil(s1.consent, "1:1 previous inverse not cleared")
+    c.study = nil
+    assert_nil(s2.consent, "1:1 previous inverse not cleared")
   end
 
   def test_1_m
-    p1 = Parent.new
-    c = Child.new
-    c.parent = p1
-    assert_same(c, p1.children.first, "1:M inverse not set")
-    p2 = Parent.new
-    c.parent = p2
-    assert_same(c, p2.children.first, "1:M inverse not set")
-    assert(p1.children.empty?, "1:M previous inverse not cleared")
-    c.parent = nil
-    assert(p2.children.empty?, "1:M previous inverse not cleared")
+    s1 = ClinicalTrials::Study.new
+    ev = ClinicalTrials::StudyEvent.new
+    ev.study = s1
+    assert_same(ev, s1.events.first, "1:M inverse not set")
+    s2 = ClinicalTrials::Study.new
+    ev.study = s2
+    assert_same(ev, s2.events.first, "1:M inverse not updated")
+    assert(s1.events.empty?, "1:M previous inverse not cleared")
+    ev.study = nil
+    assert(s2.events.empty?, "1:M previous inverse not cleared")
   end
 end
