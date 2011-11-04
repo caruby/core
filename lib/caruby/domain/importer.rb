@@ -71,10 +71,13 @@ module CaRuby
         klass
       end
       
-      # Declares the +introspected+ instance variable and loads the source directory, if it is defined.
-      def initialize_introspected
-        @introspected = Set.new
-        load_dir(@directory) if @directory
+      # Declares that the given {Resource} classes will be dynamically modified.
+      # This method auto-loads the classes, if necessary.
+      #
+      # @param [<Class>] classes the classes to modify
+      def shims(*classes)
+        # Nothing to do, since all this method does is ensure that the arguments are
+        # auto-loaded when they are referenced.
       end
 
       # Configures this importer with the given options. This method is intended for use by the
@@ -98,6 +101,12 @@ module CaRuby
       end
       
       private
+      
+      # Declares the +introspected+ instance variable and loads the source directory, if it is defined.
+      def initialize_introspected
+        @introspected = Set.new
+        load_dir(@directory) if @directory
+      end
            
       # Enables the given class meta-data.
       #
