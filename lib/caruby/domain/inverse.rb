@@ -1,6 +1,3 @@
-require 'caruby/import/java'
-require 'caruby/domain/java_attribute'
-
 module CaRuby
   module Domain
     # Meta-data mix-in to infer and set inverse attributes.
