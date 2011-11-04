@@ -3,25 +3,6 @@ require 'caruby/util/collection'
 require 'caruby/domain/importer'
 
 module CaRuby
-  class JavaImportError < StandardError; end;
-
-  # The application and database connection access command line options.
-  ACCESS_OPTS = [
-      [:user, "--user USER", "the application login user"],
-      [:password, "--password PSWD", "the application login password"],
-      [:host, "--host HOST", "the application host name"],
-      [:port, "--port PORT", "the application port number"],
-      [:classpath, "--classpath PATH", "the application client classpath"],
-      [:database_host, "--database_host HOST", "the database host name"],
-      [:database_type, "--database_type TYPE", "the database type (mysql or oracle)"],
-      [:database_driver, "--database_driver DRIVER", "the database driver string"],
-      [:database_driver_class, "--database_driver_class CLASS", "the database driver class name"],
-      [:database_port, "--database_port PORT", Integer, "the database port number"],
-      [:database, "--database NAME", "the database name"],
-      [:database_user, "--database_user USER", "the database login user"],
-      [:database_password, "--database_password PSWD", "the database login password"]
-    ]
-
   # This Domain module extends an application domain module with Java class {Metadata}
   # support. The metadata introspection enables the jRuby-Java API bridge.
   #
@@ -84,8 +65,6 @@ module CaRuby
     # Each path directory and all jar files within the directory are added to the caRuby execution
     # Java classpath.
     #
-    # Each property has an environment variable counterpart given by 
-    #
     # @return [{Symbol => Object}] the caBIG application access properties
     def access_properties
       @rsc_props ||= load_access_properties
@@ -109,9 +88,6 @@ module CaRuby
       file = default_properties_file
       # the access properties
       props = file && File.exists?(file) ? load_properties_file(file) : {}
-      # Look for environment overrides preceded by the uppercase module name,
-      # e.g. CATISSUE_USER for the CaTissue module.
-      load_environment_properties(props)
       
       # load the Java application jar path
       path = props[:classpath] || props[:path]
@@ -138,31 +114,6 @@ module CaRuby
         props[name] = value
       end
       props
-    end
-    
-    def load_environment_properties(props)
-      ACCESS_OPTS.each do |spec|
-        # the access option symbol is the first specification item
-        opt = spec[0]
-        # the envvar value
-        value = environment_property(opt) || next
-        # override the file property with the envar value
-        props[opt] = value
-      end
-    end 
-    
-    # @param [Symbol] opt the property symbol, e.g. :user
-    # @return [String, nil] the value of the corresponding environment variable, e.g. +CATISSUE_USER+
-    def environment_property(opt)
-      @env_prefix ||= name.gsub('::', '_').upcase
-      ev = "#{@env_prefix}_#{opt.to_s.upcase}"
-      value = ENV[ev]
-      # If no classpath envvar, then try the deprecated path envvar.
-      if value.nil? and opt == :classpath then
-        environment_property(:path)
-      else
-        value
-      end
     end
 
     # The property/value matcher, e.g.:
