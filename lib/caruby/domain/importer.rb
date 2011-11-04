@@ -6,19 +6,12 @@ module CaRuby
     # Importer extends a module with Java class import support.
     #
     # A Java class is imported into JRuby on demand by referencing the class name.
-    # Import on demand is induced by a reference to the class, e.g., given the
-    # following domain resource module definition:
-    #   module ClinicalTrials
-    #     module Resource
-    #      ...
-    #     end
-    #
-    #     CaRuby::Domain.extend_module(self, Resource, 'clinicaltrials.domain')
-    # then the first reference by name to +ClinicalTrials::Subject+
-    # imports the Java class +org.nci.ctms.Subject+ into the JRuby class wrapper
+    # Import on demand is induced by a reference to the class.
+    # The +clincal_trials+ example illustrates a domain package extended
+    # with metadata capability. The first reference by name to +ClinicalTrials::Subject+
+    # imports the Java class +clincal_trials.domain.Subject+ into the JRuby class wrapper
     # +ClinicalTrials::Subject+. The +ClinicalTrials::Resource+ module is included
-    # in +ClinicalTrials::Subject+ and the Java property meta-data is introspected
-    # into {Attributes}.
+    # in +ClinicalTrials::Subject+ and the Java property meta-data is introspected.
     module Importer
       # Extends the given module with Java class meta-data import support.
       #
