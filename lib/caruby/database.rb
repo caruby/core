@@ -41,6 +41,23 @@ module CaRuby
   # around caBIG idiosyncracies to the extent possible.
   class Database
     include Reader, Writer, Persistifier
+
+    # The application and database connection access command line options.
+    ACCESS_OPTS = [
+        [:user, "--user USER", "the application login user"],
+        [:password, "--password PSWD", "the application login password"],
+        [:host, "--host HOST", "the application host name"],
+        [:port, "--port PORT", "the application port number"],
+        [:classpath, "--classpath PATH", "the application client classpath"],
+        [:database_host, "--database_host HOST", "the database host name"],
+        [:database_type, "--database_type TYPE", "the database type (mysql or oracle)"],
+        [:database_driver, "--database_driver DRIVER", "the database driver string"],
+        [:database_driver_class, "--database_driver_class CLASS", "the database driver class name"],
+        [:database_port, "--database_port PORT", Integer, "the database port number"],
+        [:database, "--database NAME", "the database name"],
+        [:database_user, "--database_user USER", "the database login user"],
+        [:database_password, "--database_password PSWD", "the database login password"]
+      ]
     
     attr_reader :operations
     
