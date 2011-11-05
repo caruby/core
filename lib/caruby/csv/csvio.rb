@@ -1,6 +1,3 @@
-require 'rubygems'
-gem 'fastercsv'
-
 require 'fileutils'
 require 'faster_csv'
 require 'caruby/util/options'
