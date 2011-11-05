@@ -1,8 +1,6 @@
-$:.unshift 'lib'
-$:.unshift '../caruby/lib'
+require File.dirname(__FILE__) + '/../../helper'
 
-require "test/unit"
-require 'caruby'
+require 'test/unit'
 
 class JavaTest < Test::Unit::TestCase
   def test_ruby_to_java_date_conversion

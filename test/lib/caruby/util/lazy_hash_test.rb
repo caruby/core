@@ -1,7 +1,5 @@
-$:.unshift 'lib'
-
+require File.dirname(__FILE__) + '/../../helper'
 require "test/unit"
-
 require 'caruby/util/domain_extent'
 
 class LazyHastTest < Test::Unit::TestCase

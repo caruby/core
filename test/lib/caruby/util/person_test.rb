@@ -1,6 +1,4 @@
-$:.unshift 'lib'
-$:.unshift '../caruby/lib'
-
+require File.dirname(__FILE__) + '/../../helper'
 require "test/unit"
 require 'caruby/util/person'
 

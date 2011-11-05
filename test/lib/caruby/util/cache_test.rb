@@ -1,7 +1,6 @@
-$:.unshift 'lib'
-
+require File.dirname(__FILE__) + '/../../helper'
+require 'test/unit'
 require 'caruby/util/cache'
-require "test/unit"
 
 class CacheTest < Test::Unit::TestCase
 

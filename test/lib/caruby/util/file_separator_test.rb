@@ -1,13 +1,12 @@
-$:.unshift 'lib'
-
-require "test/unit"
+require File.dirname(__FILE__) + '/../../helper'
+require 'test/unit'
 require 'caruby/util/file_separator'
 
 class FileSeparatorTest < Test::Unit::TestCase
-  FIXTURES_DIR = 'test/fixtures/caruby/util'
-  LF_FILE = File.join(FIXTURES_DIR, 'lf_line_sep.txt')
-  CR_FILE = File.join(FIXTURES_DIR, 'cr_line_sep.txt')
-  CRLF_FILE = File.join(FIXTURES_DIR, 'crlf_line_sep.txt')
+  FIXTURES = File.dirname(__FILE__) + '/../../../fixtures/caruby/util'
+  LF_FILE = File.join(FIXTURES, 'lf_line_sep.txt')
+  CR_FILE = File.join(FIXTURES, 'cr_line_sep.txt')
+  CRLF_FILE = File.join(FIXTURES, 'crlf_line_sep.txt')
 
   def test_lf_line_separator
     verify_read(LF_FILE, "LF")

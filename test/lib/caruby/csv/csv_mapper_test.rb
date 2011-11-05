@@ -1,25 +1,19 @@
-$:.unshift 'lib'
-$:.unshift 'examples/clinical_trials/lib'
+require File.dirname(__FILE__) + '/../../helper'
 
 require 'set'
 require "test/unit"
 require 'caruby/csv/csv_mapper'
-
-require 'caruby/util/log' and
-CaRuby::Log.instance.open('test/results/log/csv.log', :shift_age => 10, :shift_size => 1048576, :debug => true)
-
 require 'clinical_trials'
 
 class CsvMapperTest < Test::Unit::TestCase
-  FIXTURES = File.join('test', 'fixtures', 'caruby', 'csv')
-
-  CONFIG_DIR = File.join(FIXTURES, 'config')
-
-  DATA_DIR = File.join(FIXTURES, 'data')
+  TEST_DIR = File.dirname(__FILE__) + '/../../..'
+  FIXTURES = TEST_DIR + '/fixtures/caruby/csv'
+  CONFIGS = File.join(FIXTURES, 'config')
+  DATA = File.join(FIXTURES, 'data')
 
   def test_read_mapper
-    config = File.join(CONFIG_DIR, 'study_fields.yaml')
-    csv = File.join(DATA_DIR, 'study.csv')
+    config = File.join(CONFIGS, 'study_fields.yaml')
+    csv = File.join(DATA, 'study.csv')
     mapper = CaRuby::CsvMapper.new(config, ClinicalTrials::StudyEvent, csv)
     assert_equal([ClinicalTrials::StudyEvent], mapper.classes, "Classes incorrect")
     map = {[:calendar_event_point]=>:event_point, [:identifier]=>:id, [:study, :activity_status]=>:status, [:study, :name]=>:study}
@@ -32,8 +26,8 @@ class CsvMapperTest < Test::Unit::TestCase
   end
 
   def test_write_mapper
-    config = File.join(CONFIG_DIR, 'study_fields.yaml')
-    csv = File.join(DATA_DIR, 'dummy.csv')
+    config = File.join(CONFIGS, 'study_fields.yaml')
+    csv = File.join(DATA, 'dummy.csv')
     headers = ['Id', 'Study', 'Status', 'Event Point']
     mapper = CaRuby::CsvMapper.new(config, ClinicalTrials::StudyEvent, csv, :mode => 'w', :headers => headers)
   end

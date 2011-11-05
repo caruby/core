@@ -1,10 +1,8 @@
-$:.unshift 'lib'
-
-require 'caruby/util/stopwatch'
+require File.dirname(__FILE__) + '/../../helper'
 require "test/unit"
+require 'caruby/util/stopwatch'
 
 class StopwatchTest < Test::Unit::TestCase
-  
   def setup
     @timer = Stopwatch.new
   end

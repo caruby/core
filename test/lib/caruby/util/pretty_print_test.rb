@@ -1,7 +1,5 @@
-$:.unshift 'lib'
-
+require File.dirname(__FILE__) + '/../../helper'
 require "test/unit"
-
 require 'set'
 require 'date'
 require 'caruby/util/pretty_print'
@@ -33,7 +31,7 @@ class PrettyPrintTest < Test::Unit::TestCase
   end
 
   def test_hash
-    assert_equal('{:a => a, :b => b}', {:a => 'a', :b => 'b'}.pp_s(:single_line), 'Hash pretty print incorrect')
+    assert_equal('{:a=>a, :b=>b}', {:a => 'a', :b => 'b'}.pp_s(:single_line), 'Hash pretty print incorrect')
   end
 
   def test_qp
@@ -48,7 +46,7 @@ class PrettyPrintTest < Test::Unit::TestCase
     x.qp
     
     
-    assert_equal('{:a => a, :b => b}', {:a => 'a', :b => 'b'}.qp, 'Hash quick print incorrect')
+    assert_equal('{:a=>a, :b=>b}', {:a => 'a', :b => 'b'}.qp, 'Hash quick print incorrect')
   end
 
   def test_set

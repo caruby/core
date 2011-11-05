@@ -1,5 +1,7 @@
-require 'test/lib/caruby/migration/test_case'
-require 'examples/clinical_trials/lib/clinical_trials'
+require File.dirname(__FILE__) + '/../../../helper'
+require "test/unit"
+require File.dirname(__FILE__) + '/../../../caruby/migration/test_case'
+require 'clinical_trials'
 
 module ClinicalTrials
   # Tests the ClinicalTrials example migration.
@@ -30,15 +32,17 @@ module ClinicalTrials
     end
     
     private
+
+    EXAMPLE = File.dirname(__FILE__) + '/../../../../../examples/clinical_trials'
     
     # The migration input data directory.
-    FIXTURES = 'examples/clinical_trials/data'
+    FIXTURES = EXAMPLE + '/data'
   
     # The migration input shim directory.
-    SHIMS = 'examples/clinical_trials/lib/clinical_trials/migration'
+    SHIMS = EXAMPLE + '/lib/clinical_trials/migration'
     
     # The migration configuration directory.
-    CONFIGS = 'examples/clinical_trials/conf/migration'
+    CONFIGS = EXAMPLE + '/conf/migration'
     
     # The subject input file.
     SUBJECT_MAPPING = File.join(CONFIGS, "subject_fields.yaml")

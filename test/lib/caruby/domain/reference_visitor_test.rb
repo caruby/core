@@ -1,11 +1,6 @@
-$:.unshift 'lib'
-$:.unshift 'examples/clinical_trials/lib'
+require File.dirname(__FILE__) + '/../../helper'
 
 require 'test/unit'
-
-require 'caruby/util/log' and
-CaRuby::Log.instance.open('test/results/log/clinical_trials.log', :shift_age => 10, :shift_size => 1048576, :debug => true)
-
 require 'clinical_trials'
 require 'caruby/domain/reference_visitor'
 
@@ -15,14 +10,14 @@ class ReferenceVisitorTest < Test::Unit::TestCase
     super
     coordinator = ClinicalTrials::User.new(:login => 'study.coordinator@test.org')
     address = ClinicalTrials::Address.new(:street => '555 Elm St', :city => 'Burlington', :state => 'VT', :zip_code => '55555')
-    @pnt = ClinicalTrials::Participant.new(:name => 'Test Participant', :address => address)
-    @study = ClinicalTrials::Study.new(:name => 'Test Study', :coordinator => coordinator, :enrollment => [@pnt])
+    @sbj = ClinicalTrials::Subject.new(:name => 'Test Subject', :address => address)
+    @study = ClinicalTrials::Study.new(:name => 'Test Study', :coordinator => coordinator, :enrollment => [@sbj])
     @event = ClinicalTrials::StudyEvent.new(:study => @study, :calendar_event_point => 1.0)
   end
 
   def test_path_references
     visitor = CaRuby::ReferencePathVisitorFactory.create(ClinicalTrials::Study, [:enrollment, :address])
-    assert_equal([@study, @pnt, @pnt.address], visitor.to_enum(@study).to_a, "Path references incorrect")
+    assert_equal([@study, @sbj, @sbj.address], visitor.to_enum(@study).to_a, "Path references incorrect")
   end
 
   def test_cycles
@@ -39,7 +34,7 @@ class ReferenceVisitorTest < Test::Unit::TestCase
 
   def test_to_enum
     visitor = CaRuby::ReferencePathVisitorFactory.create(ClinicalTrials::Study, [:enrollment, :address])
-    assert_equal([@study, @pnt, @pnt.address], visitor.to_enum(@study).to_a, "Enumeration incorrect")
+    assert_equal([@study, @sbj, @sbj.address], visitor.to_enum(@study).to_a, "Enumeration incorrect")
   end
 
   def test_id_match
