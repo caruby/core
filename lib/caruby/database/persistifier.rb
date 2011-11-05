@@ -6,7 +6,8 @@ module CaRuby
     # @return [LazyLoader] this database's lazy loader
     attr_reader :lazy_loader
     
-    # Database Persistable mediator.
+    # Database {Persistable} mediator.
+    # A module which includes {Persistifier} must implement the {Reader#fetch_association} method.
     module Persistifier
       # Adds query capability to this Database.
       def initialize
@@ -14,6 +15,11 @@ module CaRuby
         @ftchd_vstr = ReferenceVisitor.new { |ref| ref.class.fetched_domain_attributes }
         # the demand loader
         @lazy_loader = LazyLoader.new { |obj, attr| lazy_load(obj, attr) }
+      end
+    
+      # Clears the cache.
+      def clear
+        @cache.clear if @cache
       end
       
       private
@@ -54,7 +60,7 @@ module CaRuby
       # @return [Resource] the corresponding cached object, if cached,
       #   otherwise the fetched object
       def reconcile_cached(fetched)
-        cached = @cache[fetched]
+        cached = @cache[fetched] if @cache
         if cached then
           logger.debug { "Replaced fetched #{fetched} with cached #{cached}." }
         end
@@ -144,7 +150,7 @@ module CaRuby
         # add lazy loader to the unfetched attributes
         add_lazy_loader(obj)
         # add to the cache
-        @cache.add(obj)
+        encache(obj)
         obj
       end
       
@@ -179,6 +185,26 @@ module CaRuby
         logger.debug { "Snapshot taken of #{obj.qp}." }
         # merge the other object content if available
         obj.merge_into_snapshot(other) if other
+      end
+
+      # @param [Resource] obj the object to cache
+      def encache(obj)
+        @cache ||= create_cache
+        @cache.add(obj)
+      end    
+    
+      # @return [Cache] a new object cache.
+      def create_cache
+        # @quirk JRuby identifier is not a stable object when fetched from the database, i.e.:
+        #     obj.identifier.equal?(obj.identifier) #=> false
+        #   This is probably an artifact of jRuby Numeric - Java Long conversion interaction
+        #   combined with hash access use of the eql? method. Work-around is to make a Ruby Integer.
+        Cache.new do |obj|
+          if obj.identifier.nil? then
+            raise ArgumentError.new("Can't cache object without identifier: #{obj}")
+          end
+          obj.identifier.to_s.to_i
+        end
       end
     end
   end
