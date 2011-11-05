@@ -98,7 +98,6 @@ module CaRuby
       # import the Java classes on demand
       CaRuby::Database.import_java_classes
       # the fetched object cache
-      @cache = create_cache
       @defaults = {}
       if opts.nil? then raise ArgumentError.new("Missing required database access properties") end
       @user = Options.get(:user, opts)
@@ -128,11 +127,6 @@ module CaRuby
       end
       # call the block and close when done
       yield(self) ensure close
-    end
-    
-    # Clears the cache.
-    def clear
-      @cache.clear
     end
 
     # Releases database resources. This method should be called when database interaction
@@ -249,18 +243,6 @@ module CaRuby
     
     def each_persistence_service(&block)
       ObjectSpace.each_object(PersistenceService, &block)
-    end
-    
-    # @return [Cache] a new object cache.
-    def create_cache
-      # @quirk JRuby identifier is not a stable object when fetched from the database, i.e.:
-      #     obj.identifier.equal?(obj.identifier) #=> false
-      #   This is probably an artifact of jRuby Numeric - Java Long conversion interaction
-      #   combined with hash access use of the eql? method. Work-around is to make a Ruby Integer.
-      Cache.new do |obj|
-        raise ArgumentError.new("Can't cache object without identifier: #{obj}") unless obj.identifier
-        obj.identifier.to_s.to_i
-      end
     end
     
     # Initializes the default application service.
