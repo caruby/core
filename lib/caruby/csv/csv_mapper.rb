@@ -51,11 +51,11 @@ module CaRuby
       @cls_paths_hash.delete_if do |klass, paths|
         klass.abstract? or klasses.any? { |other| other < klass }
       end
-      # collect the non-string input fields for the custom CSVLoader converter
+      # Collect the non-string input fields for the custom CSV converter.
       @string_headers = Set.new
       @hdr_map.each do |path, cls_hdr_hash|
         last = path.last
-        @string_headers.merge!(cls_hdr_hash.values) if Attribute === last and last.type == String
+        @string_headers.merge!(cls_hdr_hash.values) if Domain::Attribute === last and last.type == String
       end
     end
 
