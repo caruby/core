@@ -24,6 +24,11 @@ task :install => :gem do
   sh "#{SUDO} jgem install #{GEM}-#{GEM_VERSION}.gem"
 end
 
+desc "Runs all tests"
+task :test do
+  sh "for f in `find . -name '*_test.rb'`; do ruby $f; done"
+end
+
 desc "Archives the source"
 task :tar do
   if WINDOWS then
