@@ -55,7 +55,7 @@ module CaRuby
       # @param [Class] klass the dependent type
       # @return [Symbol, nil] the attribute which references the dependent type, or nil if none
       def dependent_attribute(klass)
-        most_specific_domain_attribute_metadata(klass, dependent_attributes)
+        most_specific_domain_attribute(klass, dependent_attributes)
       end
   
       # @return [<Symbol>] this class's owner attributes

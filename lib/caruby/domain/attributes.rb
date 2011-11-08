@@ -419,14 +419,14 @@ module CaRuby
         end
       end
       
-      # Returns the most specific {Attribute} which references the given target type, or nil if none.
+      # Returns the most specific attribute which references the given target type, or nil if none.
       # If the given class can be returned by more than on of the attributes, then the attribute
       # is chosen whose return type most closely matches the given class.
       #
       # @param [Class] klass the target type
       # @param [Filter, nil] attributes the attributes to check (default all domain attributes)
-      # @return [Attribute, nil] the most specific reference attribute, or nil if none
-      def most_specific_domain_attribute_metadata(klass, attributes=nil)
+      # @return [Symbol, nil] the most specific reference attribute, or nil if none
+      def most_specific_domain_attribute(klass, attributes=nil)
         attributes ||= domain_attributes
         candidates = attributes.enum_metadata
         best = candidates.inject(nil) do |better, attr_md|
@@ -437,8 +437,8 @@ module CaRuby
         end
         if best then
           logger.debug { "Most specific #{qp} -> #{klass.qp} reference from among #{candidates.qp} is #{best.declarer.qp}.#{best}." }
+          best.to_sym
         end
-        best
       end
       
       # Returns an Enumerable on this Resource class's attributes which iterates on each attribute whose
@@ -446,6 +446,7 @@ module CaRuby
       #
       # @yield [attr_md] the attribute selector
       # @yieldparam [Attribute] attr_md the candidate attribute
+      # @return [Filter] an {Attribute} enumerator
       def attribute_filter(&filter)
         # initialize the attributes on demand
         unless introspected? then introspect end
