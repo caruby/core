@@ -80,7 +80,7 @@ module CaRuby
       # Load the Java application jar path.
       path = props[:classpath] || props[:path]
       if path then
-        Java.add_path(path)
+        Java.expand_to_class_path(path)
       end
       @properties = props
     end

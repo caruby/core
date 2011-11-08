@@ -15,9 +15,9 @@ require 'caruby/helpers/collection'
 module Java
   @cp_mod = CaRuby::ClassPathModifier.new
   
-  # @see ClassPathModifier#add_path
-  def self.add_path(path)
-    @cp_mod.add_path(path)
+  # @see ClassPathModifier#expand_to_class_path
+  def self.expand_to_class_path(path)
+    @cp_mod.expand_to_class_path(path)
   end  
 
   module JavaUtil

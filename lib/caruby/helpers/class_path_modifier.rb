@@ -5,7 +5,7 @@ module CaRuby
     # to the execution classpath.
     #
     # @param [String] path the colon or semi-colon separated directories
-    def add_path(path)
+    def expand_to_class_path(path)
       # the path separator
       sep = path[WINDOWS_PATH_SEP] ? WINDOWS_PATH_SEP : UNIX_PATH_SEP
       # the path directories
@@ -14,7 +14,7 @@ module CaRuby
       add_jars(*dirs)
       # Add the directories to the the classpath.
       dirs.each { |dir| add_to_classpath(dir) }
-    end  
+    end
 
     private
   
