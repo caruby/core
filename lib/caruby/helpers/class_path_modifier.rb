@@ -11,9 +11,6 @@ module CaRuby
       # the path directories
       dirs = path.split(sep).map { |dir| File.expand_path(dir) }
       expanded = expand_jars(dirs)
-      
-      puts expanded.qp
-      
       expanded.each { |dir| add_to_classpath(dir) }
     end
 
