@@ -24,7 +24,7 @@ module CaRuby
       attr_reader :accessors
   
       # @return [Class] the declaring class
-      attr_accessor :declarer
+      attr_reader :declarer
       
       # @return [Class] the return type
       attr_reader :type
@@ -117,7 +117,6 @@ module CaRuby
         return if inverse == attribute
         # if no attribute, then the clear the existing inverse, if any
         return clear_inverse if attribute.nil?
-        
         # the inverse attribute meta-data
         begin
           @inv_md = type.attribute_metadata(attribute)
@@ -493,12 +492,13 @@ module CaRuby
         @restrictions and @restrictions.include?(other)
       end 
       
-      def set_restricted_declarer(type)
-        if @declarer then
+      # @param [Class] klass the declaring class of this restriction attribute
+      def set_restricted_declarer(klass)
+        if @declarer and not klass < @declarer then
           raise MetadataError.new("Cannot reset #{declarer.qp}.#{self} declarer to #{type.qp}")
         end
-        @declarer = declarer
-        declarer.add_restriction(self)
+        @declarer = klass
+        @declarer.add_restriction(self)
       end
       
       private
