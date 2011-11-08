@@ -25,6 +25,6 @@ class String
   # @example
   #   'Test Name'.uniquify #=> Test_Name_330938800614
   def uniquify
-    gsub(' ', '_') + "_#{Uniquifier.qualifier}"
+    gsub(' ', '_') + "_#{CaRuby::Uniquifier.qualifier}"
   end
 end
