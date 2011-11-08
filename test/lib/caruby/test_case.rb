@@ -110,11 +110,11 @@ module CaRuby
       return if dependent.class.owner_attribute.nil?
       ownr = dependent.owner
       assert_not_nil(ownr, "Owner missing for dependent: #{dependent}")
-      attribute = ownr.class.dependent_attribute(dependent.class)
-      assert_not_nil(attribute, "Dependent attribute missing for #{dependent} owner #{ownr}")
+      attr = ownr.class.dependent_attribute(dependent.class)
+      assert_not_nil(attr, "Dependent attribute missing for #{dependent} owner #{ownr}")
       # a dependent collection reference must be refetched
-      if ownr.class.collection_attribute?(attribute) then
-        verify_saved_dependent_collection_member(dependent, ownr, attribute)
+      if ownr.class.collection_attribute?(attr) then
+        verify_saved_dependent_collection_member(dependent, ownr, attr)
       else
         assert_not_nil(dependent.identifier, "Stored dependent #{dependent} identifier is not set")
       end
