@@ -42,7 +42,7 @@ module CaRuby
       #
       # @param [Attribute] attribute the restricted attribute
       def add_restriction(attribute)
-        add_attribute_metadata(attr_md)
+        add_attribute_metadata(attribute)
         logger.debug { "Added restriction #{attribute} to #{qp}." }
       end
   
@@ -527,41 +527,48 @@ module CaRuby
       # Sets the given attribute type to klass. If attribute is defined in a superclass,
       # then klass must be a subclass of the superclass attribute type.
       #
-      # Raises ArgumentError if klass is incompatible with the current attribute type.
+      # @param [Symbol] attribute the attribute to modify
+      # @param [Class] klass the attribute type
+      # @raise [ArgumentError] if the new type is incompatible with the current attribute type
       def set_attribute_type(attribute, klass)
         attr_md = attribute_metadata(attribute)
+        # degenerate no-op case
+        return if klass == attr_md.type
         # If this class is the declarer, then simply set the attribute type.
         # Otherwise, if the attribute type is unspecified or is a superclass of the given class,
         # then make a new attribute metadata for this class.
         if attr_md.declarer == self then
-          logger.debug { "Set #{qp}.#{attribute} type to #{klass.qp}." }
           attr_md.type = klass
+          logger.debug { "Set #{qp}.#{attribute} type to #{klass.qp}." }
         elsif attr_md.type.nil? or klass < attr_md.type then
-          new_attr_md = attr_md.restrict(self, :type => klass)
+          attr_md.restrict(self, :type => klass)
           logger.debug { "Restricted #{attr_md.declarer.qp}.#{attribute}(#{attr_md.type.qp}) to #{qp} with return type #{klass.qp}." }
-          add_attribute_metadata(new_attr_md)
-        elsif klass != attr_md.type then
-          raise ArgumentError.new("Cannot reset #{qp}.#{attribute} type #{attr_md.type} to incompatible #{klass.qp}")
+        else
+          raise ArgumentError.new("Cannot reset #{qp}.#{attribute} type #{attr_md.type.qp} to incompatible #{klass.qp}")
         end
       end
   
+      # @param [Hash] hash the attribute => value defaults
       def add_attribute_defaults(hash)
         hash.each { |attr, value| @local_defaults[standard_attribute(attr)] = value }
       end
   
+      # @param [<Symbol>] attributes the mandatory attributes
       def add_mandatory_attributes(*attributes)
         attributes.each { |attr| @local_mndty_attrs << standard_attribute(attr) }
       end
   
       # Marks the given attribute with flags supported by {Attribute#qualify}.
+      #
+      # @param [Symbol] attribute the attribute to qualify
+      # @param [{Symbol => Object}] the flags to apply to the restricted attribute
       def qualify_attribute(attribute, *flags)
         attr_md = attribute_metadata(attribute)
         if attr_md.declarer == self then
           attr_md.qualify(*flags)
         else
           logger.debug { "Restricting #{attr_md.declarer.qp}.#{attribute} to #{qp} with additional flags #{flags.to_series}" }
-          new_attr_md = attr_md.restrict_flags(self, *flags)
-          add_attribute_metadata(new_attr_md)
+          attr_md.restrict_flags(self, *flags)
         end
       end
   
