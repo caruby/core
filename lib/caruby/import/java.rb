@@ -7,10 +7,10 @@ require 'java'
 require 'ftools'
 require 'date'
 
-require 'caruby/util/class'
-require 'caruby/util/class_path_modifier'
-require 'caruby/util/inflector'
-require 'caruby/util/collection'
+require 'caruby/helpers/class'
+require 'caruby/helpers/class_path_modifier'
+require 'caruby/helpers/inflector'
+require 'caruby/helpers/collection'
 
 module Java
   @cp_mod = CaRuby::ClassPathModifier.new

@@ -1,10 +1,10 @@
 require 'enumerator'
 require 'generator'
-require 'caruby/util/options'
-require 'caruby/util/collection'
-require 'caruby/util/validation'
-require 'caruby/util/visitor'
-require 'caruby/util/math'
+require 'caruby/helpers/options'
+require 'caruby/helpers/collection'
+require 'caruby/helpers/validation'
+require 'caruby/helpers/visitor'
+require 'caruby/helpers/math'
 
 module CaRuby
   # A ReferenceVisitor traverses reference attributes.

@@ -1,7 +1,7 @@
 require 'set'
-require 'caruby/util/inflector'
-require 'caruby/util/collection'
-require 'caruby/util/validation'
+require 'caruby/helpers/inflector'
+require 'caruby/helpers/collection'
+require 'caruby/helpers/validation'
 require 'caruby/domain/java_attribute'
 
 module CaRuby

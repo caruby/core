@@ -1,5 +1,5 @@
 require 'caruby/csv/csvio'
-require 'caruby/util/properties'
+require 'caruby/helpers/properties'
 
 module CaRuby
   # Maps a CSV extract to a caBIG application.

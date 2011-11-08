@@ -1,5 +1,5 @@
 require 'logger'
-require 'caruby/util/log'
+require 'caruby/helpers/log'
 
 module CaRuby
   module CLI

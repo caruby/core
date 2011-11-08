@@ -1,5 +1,5 @@
 require 'fileutils'
-require 'caruby/util/collection'
+require 'caruby/helpers/collection'
 require 'caruby/domain/importer'
 
 module CaRuby

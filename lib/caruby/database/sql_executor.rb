@@ -2,8 +2,8 @@ require 'rubygems'
 gem 'dbi'
 
 require 'dbi'
-require 'caruby/util/options'
-require 'caruby/util/log'
+require 'caruby/helpers/options'
+require 'caruby/helpers/log'
 require 'caruby/domain/properties'
 
 module CaRuby

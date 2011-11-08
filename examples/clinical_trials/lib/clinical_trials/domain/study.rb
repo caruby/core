@@ -1,4 +1,4 @@
-require 'caruby/util/validation'
+require 'caruby/helpers/validation'
 
 module ClinicalTrials
   # Import the Java class into Ruby.

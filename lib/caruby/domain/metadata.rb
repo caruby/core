@@ -1,4 +1,4 @@
-require 'caruby/util/collection'
+require 'caruby/helpers/collection'
 require 'caruby/import/java'
 require 'caruby/domain/java_attribute'
 require 'caruby/domain/introspection'

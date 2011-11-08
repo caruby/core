@@ -1,6 +1,6 @@
-require 'caruby/util/properties'
-require 'caruby/util/collection'
-require 'caruby/util/options'
+require 'caruby/helpers/properties'
+require 'caruby/helpers/collection'
+require 'caruby/helpers/options'
 
 module CaRuby
   module Domain

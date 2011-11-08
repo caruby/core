@@ -1,8 +1,8 @@
-require 'caruby/util/log'
-require 'caruby/util/pretty_print'
-require 'caruby/util/inflector'
-require 'caruby/util/collection'
-require 'caruby/util/validation'
+require 'caruby/helpers/log'
+require 'caruby/helpers/pretty_print'
+require 'caruby/helpers/inflector'
+require 'caruby/helpers/collection'
+require 'caruby/helpers/validation'
 
 module CaRuby
   # The Persistable mixin adds persistance capability. Every instance which includes Persistable

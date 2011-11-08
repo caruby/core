@@ -1,6 +1,6 @@
-require 'caruby/util/version'
+require 'caruby/helpers/version'
 require 'caruby/database'
-require 'caruby/util/stopwatch'
+require 'caruby/helpers/stopwatch'
 
 module CaRuby
   # A PersistenceService wraps a caCORE application service.

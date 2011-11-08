@@ -1,5 +1,5 @@
 require 'enumerator'
-require 'caruby/util/collection'
+require 'caruby/helpers/collection'
 require 'caruby/domain/merge'
 require 'caruby/domain/attribute'
 

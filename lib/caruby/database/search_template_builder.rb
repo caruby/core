@@ -1,5 +1,5 @@
-require 'caruby/util/log'
-require 'caruby/util/pretty_print'
+require 'caruby/helpers/log'
+require 'caruby/helpers/pretty_print'
 
 module CaRuby
   # SearchTemplateBuilder builds a template suitable for a caCORE saarch database operation.

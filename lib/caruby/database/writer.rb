@@ -1,5 +1,5 @@
-require 'caruby/util/collection'
-require 'caruby/util/pretty_print'
+require 'caruby/helpers/collection'
+require 'caruby/helpers/pretty_print'
 require 'caruby/domain/reference_visitor'
 require 'caruby/database/saved_matcher'
 require 'caruby/database/store_template_builder'

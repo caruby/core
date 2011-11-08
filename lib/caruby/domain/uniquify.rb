@@ -1,6 +1,6 @@
 require 'singleton'
-require 'caruby/util/uniquifier'
-require 'caruby/util/collection'
+require 'caruby/helpers/uniquifier'
+require 'caruby/helpers/collection'
 
 module CaRuby
   module Resource

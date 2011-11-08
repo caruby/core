@@ -4,8 +4,8 @@ require 'test/unit'
 require 'ftools'
 require 'date'
 require 'caruby/csv/csvio'
-require 'caruby/util/log'
-require 'caruby/util/file_separator'
+require 'caruby/helpers/log'
+require 'caruby/helpers/file_separator'
 
 class CaRuby::CsvIOTest < Test::Unit::TestCase
   TEST_DIR = File.dirname(__FILE__) + '/../../..'

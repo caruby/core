@@ -1,5 +1,5 @@
-require 'caruby/util/options'
-require 'caruby/util/collection'
+require 'caruby/helpers/options'
+require 'caruby/helpers/collection'
 
 module CaRuby
   class Database
