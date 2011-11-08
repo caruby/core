@@ -124,8 +124,7 @@ module CaRuby
       # @return [Attribute] the copied attribute metadata
       def restrict_attribute_inverse(attr_md, inverse)
         logger.debug { "Restricting #{attr_md.declarer.qp}.#{attr_md} to #{qp} with inverse #{inverse}..." }
-        rst_attr_md = attr_md.restrict(self)
-        rst_attr_md.inverse = inverse
+        rst_attr_md = attr_md.restrict(self, :inverse => inverse)
         logger.debug { "Restricted #{attr_md.declarer.qp}.#{attr_md} to #{qp} with inverse #{inverse}." }
         rst_attr_md
       end

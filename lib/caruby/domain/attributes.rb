@@ -527,7 +527,7 @@ module CaRuby
           logger.debug { "Set #{qp}.#{attribute} type to #{klass.qp}." }
           attr_md.type = klass
         elsif attr_md.type.nil? or klass < attr_md.type then
-          new_attr_md = attr_md.restrict(self, klass)
+          new_attr_md = attr_md.restrict(self, :type => klass)
           logger.debug { "Restricted #{attr_md.declarer.qp}.#{attribute}(#{attr_md.type.qp}) to #{qp} with return type #{klass.qp}." }
           add_attribute_metadata(new_attr_md)
         elsif klass != attr_md.type then

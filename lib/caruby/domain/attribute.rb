@@ -433,20 +433,23 @@ module CaRuby
       # sets the +StudyProtocol.coordinator+ inverse to +StudyCoordinator.coordinator+.
       #
       # @param [Class] declarer the subclass which declares the new restricted attribute
-      # @param [Class, nil] type the restricted return type, or nil if the return type will not change
+      # @param [Hash, nil] opts the restriction options
+      # @option opts [Class] type the restriction return type (default this attribute's return type)
+      # @option opts [Symbol] type the restriction inverse (default this attribute's inverse) 
       # @return [Attribute] the new restricted attribute
       # @raise [ArgumentError] if the restricted declarer is not a subclass of this attribute's declarer
       # @raise [ArgumentError] if there is a restricted return type and it is not a subclass of this
       #   attribute's return type
       # @raise [MetadataError] if this attribute has an inverse that is not independently declared by
       #   the restricted declarer subclass 
-      def restrict(declarer, type=nil)
-        type ||= self.type
+      def restrict(declarer, opts={})
+        rtype = opts[:type] || @type
+        rinv = opts[:inverse] || inverse
         unless declarer < @declarer then
-          raise ArgumentError.new("Cannot restrict #{@declarer.qp}.#{self} to incompatible declarer type #{declarer.qp}")
+          raise ArgumentError.new("Cannot restrict #{@declarer.qp}.#{self} to an incompatible declarer type #{declarer.qp}")
         end
-        unless type <= self.type then
-          raise ArgumentError.new("Cannot restrict #{@declarer.qp}.#{self} to an incompatible attribute type #{declarer.qp}")
+        unless rtype <= @type then
+          raise ArgumentError.new("Cannot restrict #{@declarer.qp}.#{self}({@type.qp}) to an incompatible return type #{rtype.qp}")
         end
         # Copy this attribute and its instance variables minus the restrictions and make a deep copy of the flags.
         rst = deep_copy
@@ -456,9 +459,9 @@ module CaRuby
         @restrictions ||= []
         @restrictions << rst
         # Set the restriction type
-        rst.type = type
+        rst.type = rtype
         # Specialize the inverse to the restricted type attribute, if necessary.
-        rst.inverse = inverse
+        rst.inverse = rinv
         rst
       end
        
