@@ -96,7 +96,7 @@ module CaRuby
       # the options can be defined in a block
       opts ||= yield if block_given?
       # import the Java classes on demand
-      CaRuby::Database.import_java_classes
+      Database.import_java_classes
       # the fetched object cache
       @defaults = {}
       if opts.nil? then raise ArgumentError.new("Missing required database access properties") end

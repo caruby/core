@@ -104,7 +104,7 @@ module CaRuby
     # Validates that the required properties exist.
     def validate_properties
       @required_properties.each do |key|
-        raise CaRuby::ConfigurationError.new("A required #{@application} property was not found: #{key}") unless has_property?(key)
+        raise ConfigurationError.new("A required #{@application} property was not found: #{key}") unless has_property?(key)
       end
     end
   end
