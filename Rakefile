@@ -26,7 +26,7 @@ end
 
 desc "Runs all tests"
 task :test do
-  sh "for f in `find . -name '*_test.rb'`; do ruby $f; done"
+  sh "for f in `find . -name '*_test.rb'`; do jruby $f; done"
 end
 
 desc "Archives the source"
