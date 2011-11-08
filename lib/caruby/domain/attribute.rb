@@ -454,7 +454,7 @@ module CaRuby
         # Copy this attribute and its instance variables minus the restrictions and make a deep copy of the flags.
         rst = deep_copy
         # specialize the copy declarer
-        rst.declarer = declarer
+        rst.set_restricted_declarer(declarer)
         # Capture the restriction to propagate modifications to this metadata, esp. adding an inverse.
         @restrictions ||= []
         @restrictions << rst
@@ -491,7 +491,15 @@ module CaRuby
       # @return [Boolean] whether the other attribute restricts this attribute
       def restriction?(other)
         @restrictions and @restrictions.include?(other)
-      end    
+      end 
+      
+      def set_restricted_declarer(type)
+        if @declarer then
+          raise MetadataError.new("Cannot reset #{declarer.qp}.#{self} declarer to #{type.qp}")
+        end
+        @declarer = declarer
+        declarer.add_restriction(self)
+      end
       
       private
       

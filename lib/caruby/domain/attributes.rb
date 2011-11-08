@@ -35,6 +35,16 @@ module CaRuby
         add_attribute_metadata(attr_md)
         attr_md
       end
+      
+      # Adds the given attribute restriction to this Class.
+      # This method is intended for the exclusive use of {Attribute.restrict}.
+      # Clients restrict an attribute by calling that method.
+      #
+      # @param [Attribute] attribute the restricted attribute
+      def add_restriction(attribute)
+        add_attribute_metadata(attr_md)
+        logger.debug { "Added restriction #{attribute} to #{qp}." }
+      end
   
       # @return [(Symbol)] the +[:identifier]+ primary key attribute singleton array
       def primary_key_attributes
