@@ -20,31 +20,10 @@ module CaRuby
   #   module ClinicalTrials
   #     CaRuby::Domain.extend_module(self, :mixin => Resource, :package => 'clinicaltrials.domain')
   module Domain
-    # Extends the given module with importable Java class {Metadata} support.
-    #
-    # @param [Module] mod the module to extend
-    # @param [{Symbol => Object}] opts the extension options
-    # @option opts [Module] :metadata the optional {Metadata} extension (default {Metadata})
-    # @option opts [Module] :mixin the optional mix-in module (default {Resource})
-    # @option opts [String] :package the required Java package name
-    # @option opts [String] :directory the optional directory of source class definitions to load
-    def self.extend_module(mod, opts)
-      mod.extend(self)
-      Importer.extend_module(mod, opts)
-    end
-    
-    # Loads the {#access_properties} and adds the +path+ property items to the Java classpath.
-    #
-    # @param [Module] mod the module to extend
-    def self.extended(mod)
-      super
-      mod.ensure_classpath_defined
-    end
-    
-    # Loads the application start-up properties on demand. The properties are defined in the properties
-    # file or as environment variables.
-    # The properties file path is a period followed by the lower-case application name in the home directory,
-    # e.g. +~/.clincaltrials+ for the +ClinicalTrials+ application.
+    # The application start-up properties. The properties are defined in the properties
+    # file or as environment variables. The properties file path is a period followed by
+    # the lower-case application name in the home directory, e.g. +~/.clincaltrials+ for the
+    # +ClinicalTrials+ application.
     #
     # The property file format is a series of property definitions in the form _property_: _value_.
     # The supported properties include the following:
@@ -66,37 +45,47 @@ module CaRuby
     # Java classpath.
     #
     # @return [{Symbol => Object}] the caBIG application access properties
-    def access_properties
-      @rsc_props ||= load_access_properties
+    attr_reader :properties
+       
+    # Extends the given module with importable Java class {Metadata} support.
+    #
+    # @param [Module] mod the module to extend
+    # @param [{Symbol => Object}] opts the extension options
+    # @option opts [Module] :metadata the optional {Metadata} extension (default {Metadata})
+    # @option opts [Module] :mixin the optional mix-in module (default {Resource})
+    # @option opts [String] :package the required Java package name
+    # @option opts [String] :directory the optional directory of source class definitions to load
+    def self.extend_module(mod, opts)
+      mod.extend(self)
+      Importer.extend_module(mod, opts)
     end
     
-    # Ensures that the application client classpath is defined. The classpath is defined
-    # in the {#access_properties}. This method is called when a module extends this
-    # Domain, before any application Java domain class is imported into JRuby.
-    def ensure_classpath_defined
-      # Loading the access properties on demand sets the classpath.
-      access_properties
-    end
-
-    private
-       
-    # Loads the application start-up properties in the given file path.
+    # Loads the {#properties} and adds the +path+ property items to the Java classpath.
     #
-    # @return (see #access_properties)
-    def load_access_properties
+    # @param [Module] mod the module to extend
+    def self.extended(mod)
+      super
+      mod.load_properties
+    end
+    
+    # Loads the application {#properties}. If the {#properties} includes
+    # a +:path+ entry, then the application client classpath is defined. This method
+    # is called when a module extends this Domain, before any application Java domain
+    # class is imported into JRuby.
+    def load_properties
       # the properties file
       file = default_properties_file
       # the access properties
       props = file && File.exists?(file) ? load_properties_file(file) : {}
-      
-      # load the Java application jar path
+      # Load the Java application jar path.
       path = props[:classpath] || props[:path]
       if path then
         Java.add_path(path)
       end
-      
-      props
+      @properties = props
     end
+
+    private
     
     def load_properties_file(file)
       props = {}
