@@ -4,7 +4,7 @@ require 'caruby/util/stopwatch'
 
 class StopwatchTest < Test::Unit::TestCase
   def setup
-    @timer = Stopwatch.new
+    @timer = CaRuby::Stopwatch.new
   end
   
   def test_run

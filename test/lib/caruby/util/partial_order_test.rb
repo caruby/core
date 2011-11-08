@@ -3,7 +3,7 @@ require "test/unit"
 require 'caruby/util/partial_order'
 
 class Queued
-  include PartialOrder
+  include CaRuby::PartialOrder
 
   attr_reader :queue
 
