@@ -6,22 +6,6 @@ module CaRuby
   module Domain
     # CaRuby::Domain::Properties specializes the generic CaRuby::Properties class for domain properties.
     class Properties < CaRuby::Properties
-
-      # The application login userid environment variable.
-      USER_ENV_VAR_SUFFIX = 'USER'
-
-      # The application login password environment variable.
-      PASSWORD_ENV_VAR_SUFFIX = 'PASSWORD'
-
-      # The application service user property name.
-      USER_PROP = :user
-
-      # The application service password property name.
-      PASSWORD_PROP = :password
-
-      # The application Java jar location.
-      PATH_PROP = :path
-
       attr_reader :application
 
       # Creates a new Properties.
@@ -60,6 +44,21 @@ module CaRuby
       end
 
       private
+
+      # The application login userid environment variable.
+      USER_ENV_VAR_SUFFIX = 'USER'
+
+      # The application login password environment variable.
+      PASSWORD_ENV_VAR_SUFFIX = 'PASSWORD'
+
+      # The application service user property name.
+      USER_PROP = :user
+
+      # The application service password property name.
+      PASSWORD_PROP = :password
+
+      # The application Java jar location.
+      PATH_PROP = :path
 
       def load_environment_properties
         user = ENV[user_env_var]
