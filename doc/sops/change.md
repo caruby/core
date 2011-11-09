@@ -47,7 +47,7 @@ applies to any caRuby gem.
         Fixed bug #42 - Prostate specimen annotation Gleason score is not saved. Added the
         Gleason score properties as caRuby attributes.
         
-  The commit message begins with a capital letter and end with a period.
+  The commit message begins with a capital letter and ends with a period.
 
 * Continue making changes and committing them to your branch. You can interrupt work
   on this branch by switching back and forth between branches e.g.:
