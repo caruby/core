@@ -1,6 +1,5 @@
 require 'forwardable'
 require 'caruby/helpers/inflector'
-require 'caruby/helpers/log'
 require 'caruby/helpers/pretty_print'
 require 'caruby/helpers/validation'
 require 'caruby/helpers/collection'

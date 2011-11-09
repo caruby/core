@@ -3,7 +3,6 @@ gem 'dbi'
 
 require 'dbi'
 require 'caruby/helpers/options'
-require 'caruby/helpers/log'
 require 'caruby/domain/properties'
 
 module CaRuby

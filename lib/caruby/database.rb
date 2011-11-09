@@ -1,5 +1,4 @@
 require 'generator'
-require 'caruby/helpers/log'
 require 'caruby/helpers/collection'
 require 'caruby/helpers/validation'
 require 'caruby/helpers/options'

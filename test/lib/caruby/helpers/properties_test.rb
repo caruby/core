@@ -1,7 +1,6 @@
 require File.dirname(__FILE__) + '/../../helper'
 require "test/unit"
 require 'caruby/helpers/properties'
-require 'caruby/helpers/log'
 
 class PropertiesTest < Test::Unit::TestCase
   FIXTURES = File.dirname(__FILE__) + '/../../../fixtures/caruby/util/properties'

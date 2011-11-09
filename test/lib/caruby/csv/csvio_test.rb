@@ -4,7 +4,6 @@ require 'test/unit'
 require 'ftools'
 require 'date'
 require 'caruby/csv/csvio'
-require 'caruby/helpers/log'
 require 'caruby/helpers/file_separator'
 
 class CaRuby::CsvIOTest < Test::Unit::TestCase

@@ -1,6 +1,5 @@
 require 'yaml'
 require 'set'
-require 'caruby/helpers/log'
 require 'caruby/helpers/pretty_print'
 require 'caruby/helpers/collection'
 require 'caruby/helpers/merge'

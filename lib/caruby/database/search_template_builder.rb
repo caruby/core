@@ -1,4 +1,3 @@
-require 'caruby/helpers/log'
 require 'caruby/helpers/pretty_print'
 
 module CaRuby
