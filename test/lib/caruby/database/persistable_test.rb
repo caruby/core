@@ -67,7 +67,7 @@ class PersistableTest < Test::Unit::TestCase
   # 
   # def load(obj, attribute)
   #   value = @references[obj][attribute]
-  #   raise ArgumentError.new("Value not found for #{attribute}: #{obj}") if value.nil?
+  #   CaRuby.fail(ArgumentError, "Value not found for #{attribute}: #{obj}") if value.nil?
   #   duplicate_with_id(value)
   # end
   # 

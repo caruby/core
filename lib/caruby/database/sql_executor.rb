@@ -34,7 +34,7 @@ module CaRuby
     # @raise [CaRuby::ConfigurationError] if an option is invalid
     def initialize(opts)
       if opts.empty? then
-        raise CaRuby::ConfigurationError.new("The caRuby database connection properties were not found.") 
+        CaRuby.fail(CaRuby::ConfigurationError, "The caRuby database connection properties were not found.") 
       end
       app_host = Options.get(:host, opts, 'localhost')
       db_host = Options.get(:database_host, opts, app_host)
@@ -77,7 +77,7 @@ module CaRuby
       case db_type.downcase
         when 'mysql' then 'Jdbc:mysql'
         when 'oracle' then 'Oracle'
-        else raise CaRuby::ConfigurationError.new("Default database connection driver string could not be determined for database type #{db_type}")
+        else CaRuby.fail(CaRuby::ConfigurationError, "Default database connection driver string could not be determined for database type #{db_type}")
       end
     end
     
@@ -85,7 +85,7 @@ module CaRuby
       case db_type.downcase
         when 'mysql' then MYSQL_DRIVER_CLASS_NAME
         when 'oracle' then ORACLE_DRIVER_CLASS_NAME
-        else raise CaRuby::ConfigurationError.new("Default database connection driver class could not be determined for database type #{db_type}")
+        else CaRuby.fail(CaRuby::ConfigurationError, "Default database connection driver class could not be determined for database type #{db_type}")
       end
     end
 
@@ -93,12 +93,12 @@ module CaRuby
       case db_type.downcase
         when 'mysql' then 3306
         when 'oracle' then 1521
-        else raise CaRuby::ConfigurationError.new("Default database connection port could not be determined for database type #{db_type}")
+        else CaRuby.fail(CaRuby::ConfigurationError, "Default database connection port could not be determined for database type #{db_type}")
       end
     end
 
     def raise_missing_option_exception(option)
-      raise CaRuby::ConfigurationError.new("Database connection property not found: #{option}")
+      CaRuby.fail(CaRuby::ConfigurationError, "Database connection property not found: #{option}")
     end
   end
 end

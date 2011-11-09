@@ -16,7 +16,7 @@ class Options
   # If default is nil and a block is given to this method, then the default is determined
   # by calling the block with no arguments. The block can also be used to raise a missing
   # option exception, e.g.:
-  #   Options.get(:userid, options) { raise RuntimeError.new("Missing required option: userid") }
+  #   Options.get(:userid, options) { CaRuby.fail(RuntimeError, "Missing required option: userid") }
   #
   # @example
   #   Options.get(:create, {:create => true}) #=> true
@@ -39,7 +39,7 @@ class Options
       when Symbol then
         option == options ? true : default(default, &block)
       else
-        raise ArgumentError.new("Options argument type is not supported; expected Hash or Symbol, found: #{options.class}")
+        CaRuby.fail(ArgumentError, "Options argument type is not supported; expected Hash or Symbol, found: #{options.class}")
     end
   end
 
@@ -59,14 +59,14 @@ class Options
   # @return [Hash] the option hash
   def self.to_hash(*args)
     unless Enumerable === args then
-      raise ArgumentError.new("Expected Enumerable, found #{args.class.qp}")
+      CaRuby.fail(ArgumentError, "Expected Enumerable, found #{args.class.qp}")
     end
     oargs = {}
     opt = args.first
     return oargs if opt.nil?
     return opt if oargs.empty? and Hash === opt
     unless Symbol === opt then
-      raise ArgumentError.new("Expected Symbol as first argument, found #{args.first.class.qp}")
+      CaRuby.fail(ArgumentError, "Expected Symbol as first argument, found #{args.first.class.qp}")
     end
     args.inject(nil) do |list, item|
       Symbol === item ? oargs[item] = Array.new : list << item
@@ -85,7 +85,7 @@ class Options
   # @raise [ValidationError] if the given options are not in the given allowable choices
   def self.validate(options, choices)
     to_hash(options).each_key do |opt|
-      raise ValidationError.new("Option is not supported: #{opt}") unless choices.include?(opt)
+      CaRuby.fail(ValidationError, "Option is not supported: #{opt}") unless choices.include?(opt)
     end
   end
 

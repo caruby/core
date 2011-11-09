@@ -189,7 +189,7 @@ module CaRuby
     # @yieldparam children the nodes slated by this Visitor to visit next
     # @raise [ArgumentError] if a block is not given to this method
     def filter
-      raise ArgumentError.new("Filter block not given to visitor filter method") unless block_given?
+      CaRuby.fail(ArgumentError, "Filter block not given to visitor filter method") unless block_given?
       Visitor.new(@options) { |node| yield(node, node_children(node)) }
     end
   
@@ -314,7 +314,7 @@ module CaRuby
       def visit(*nodes)
         if nodes.size == 1 then
           nodes = nodes.first
-          raise ArgumentError.new("Sync visitor requires a pair of entry nodes") unless nodes.size == 2
+          CaRuby.fail(ArgumentError, "Sync visitor requires a pair of entry nodes") unless nodes.size == 2
         end
         super(nodes)
       end
@@ -326,7 +326,7 @@ module CaRuby
       def to_enum(*nodes)
         if nodes.size == 1 then
           nodes = nodes.first
-          raise ArgumentError.new("Sync visitor requires a pair of entry nodes") unless nodes.size == 2
+          CaRuby.fail(ArgumentError, "Sync visitor requires a pair of entry nodes") unless nodes.size == 2
         end
         super(nodes)
       end

@@ -11,7 +11,7 @@ module CaRuby
       # Raises TypeError if value is neither nil nor a String.
       def uniquify_value(value)
         unless String === value or value.nil? then
-          raise TypeError.new("Cannot uniquify #{qp} non-String value #{value}")
+          CaRuby.fail(TypeError, "Cannot uniquify #{qp} non-String value #{value}")
         end
         ResourceUniquifier.instance.uniquify(self, value)
       end

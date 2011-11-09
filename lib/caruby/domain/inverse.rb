@@ -55,7 +55,7 @@ module CaRuby
         end
         # This class must be the same as or a subclass of the inverse attribute type.
         unless self <= inv_md.type then
-          raise TypeError.new("Cannot set #{qp}.#{attribute} inverse to #{attr_md.type.qp}.#{attribute} with incompatible type #{inv_md.type.qp}")
+          CaRuby.fail(TypeError, "Cannot set #{qp}.#{attribute} inverse to #{attr_md.type.qp}.#{attribute} with incompatible type #{inv_md.type.qp}")
         end
         # Set the inverse in the attribute metadata.
         attr_md.inverse = inverse

@@ -32,7 +32,7 @@ module CaRuby
     # @return [Database] the data access mediator for this Persistable, if any
     # @raise [DatabaseError] if the subclass does not override this method
     def database
-      raise ValidationError.new("#{self} database is missing")
+      CaRuby.fail(ValidationError, "#{self} database is missing")
     end
     
     # @return [PersistenceService] the database application service for this Persistable
@@ -136,7 +136,7 @@ module CaRuby
     # @raise [ValidationError] if this domain object does not have a snapshot
     def merge_into_snapshot(other)
       unless snapshot_taken? then
-        raise ValidationError.new("Cannot merge #{other.qp} content into #{qp} snapshot, since #{qp} does not have a snapshot.")
+        CaRuby.fail(ValidationError, "Cannot merge #{other.qp} content into #{qp} snapshot, since #{qp} does not have a snapshot.")
       end
       # the non-domain attribute => [target value, other value] difference hash
       delta = diff(other)
@@ -186,7 +186,7 @@ module CaRuby
     # @param loader [LazyLoader] the lazy loader to add
     def add_lazy_loader(loader, attributes=nil)
       # guard against invalid call
-      if identifier.nil? then raise ValidationError.new("Cannot add lazy loader to an unfetched domain object: #{self}") end
+      if identifier.nil? then CaRuby.fail(ValidationError, "Cannot add lazy loader to an unfetched domain object: #{self}") end
       # the attributes to lazy-load
       attributes ||= loadable_attributes
       return if attributes.empty?
@@ -322,7 +322,7 @@ module CaRuby
         unless oval == val then
           # if this error occurs, then there is a serious match-merge flaw
           if val and attr == :identifier then
-            raise DatabaseError.new("Can't copy #{other} to #{self} with different identifier")
+            CaRuby.fail(DatabaseError, "Can't copy #{other} to #{self} with different identifier")
           end
           # overwrite the current attribute value
           set_attribute(attr, oval)

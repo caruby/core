@@ -79,7 +79,7 @@ module CaRuby
       when Enumerable then
         ''.parse_csv(:headers => hdr_opt, :header_converters => :symbol, :return_headers => true)
       else
-        raise ArgumentError.new("CSV headers option value not supported: #{hdr_opt}")
+        CaRuby.fail(ArgumentError, "CSV headers option value not supported: #{hdr_opt}")
       end
       # the header row headers
       @headers = hdr_row.headers

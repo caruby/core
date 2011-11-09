@@ -98,7 +98,7 @@ module CaRuby
       Database.import_java_classes
       # the fetched object cache
       @defaults = {}
-      if opts.nil? then raise ArgumentError.new("Missing required database access properties") end
+      if opts.nil? then CaRuby.fail(ArgumentError, "Missing required database access properties") end
       @user = Options.get(:user, opts)
       @password = Options.get(:password, opts)
       host = Options.get(:host, opts)
@@ -159,7 +159,7 @@ module CaRuby
     # @param [Persistable, Class] obj the domain object or {Resource} class
     # @return [PersistanceService] the service for the domain object
     def persistence_service(klass)
-       unless Class === klass then raise ArgumentError.new("#{self} persistence_service argument is not a Class: {#klass.qp}") end
+       unless Class === klass then CaRuby.fail(ArgumentError, "#{self} persistence_service argument is not a Class: {#klass.qp}") end
        start_session if @session.nil?
        @def_persist_svc
     end
@@ -246,8 +246,8 @@ module CaRuby
     
     # Initializes the default application service.
     def start_session
-      if @user.nil? then raise DatabaseError.new('Application user option missing') end
-      if @password.nil? then raise DatabaseError.new('Application password option missing') end
+      if @user.nil? then CaRuby.fail(DatabaseError, 'Application user option missing') end
+      if @password.nil? then CaRuby.fail(DatabaseError, 'Application password option missing') end
       @session = ClientSession.instance
       connect(@user, @password)
     end
@@ -267,7 +267,8 @@ module CaRuby
       begin
         @session.start_session(user, password)
       rescue Exception => e
-        logger.error("Login of #{user} unsuccessful - #{e.message}") and raise
+        logger.error("Login of #{user} unsuccessful - #{e.message}")
+        raise
       end
       logger.info("Connected to application server.")
     end

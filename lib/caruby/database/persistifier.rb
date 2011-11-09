@@ -124,7 +124,7 @@ module CaRuby
       # @raise [ArgumentError] if obj is a collection and other is not nil
       def persistify(obj, other=nil)
         if obj.collection? then
-          if other then raise ArgumentError.new("Database reader persistify other argument not supported") end
+          if other then CaRuby.fail(ArgumentError, "Database reader persistify other argument not supported") end
           obj.each { |ref| persistify(ref) }
           return obj
         end
@@ -201,7 +201,7 @@ module CaRuby
         #   combined with hash access use of the eql? method. Work-around is to make a Ruby Integer.
         Cache.new do |obj|
           if obj.identifier.nil? then
-            raise ArgumentError.new("Can't cache object without identifier: #{obj}")
+            CaRuby.fail(ArgumentError, "Can't cache object without identifier: #{obj}")
           end
           obj.identifier.to_s.to_i
         end

@@ -113,11 +113,11 @@ module CaRuby
       # @raise [ValidationError] if the inverse is nil
       def add_owner(klass, inverse, attribute=nil)
         if inverse.nil? then
-          raise ValidationError.new("Owner #{klass.qp} missing dependent attribute for dependent #{qp}")
+          CaRuby.fail(ValidationError, "Owner #{klass.qp} missing dependent attribute for dependent #{qp}")
         end
         logger.debug { "Adding #{qp} owner #{klass.qp}#{' attribute ' + attribute.to_s if attribute} with inverse #{inverse}..." }
         if @owner_attr_hash then
-          raise MetadataError.new("Can't add #{qp} owner #{klass.qp} after dependencies have been accessed")
+          CaRuby.fail(MetadataError, "Can't add #{qp} owner #{klass.qp} after dependencies have been accessed")
         end
         
         # detect the owner attribute, if necessary
@@ -170,7 +170,7 @@ module CaRuby
         if hash.include?(otype) then
           oattr = hash[otype]
           unless oattr.nil? then
-            raise MetadataError.new("Cannot set #{qp} owner attribute to #{attribute} since it is already set to #{oattr}")
+            CaRuby.fail(MetadataError, "Cannot set #{qp} owner attribute to #{attribute} since it is already set to #{oattr}")
           end
           hash[otype] = attr_md
         else

@@ -60,7 +60,7 @@ module Enumerable
   # @raise [ArgumentError] if the generator block is not given
   # @see #hashify
   def to_compact_hash
-    raise ArgumentError.new("Compact hash builder is missing the value generator block") unless block_given?
+    CaRuby.fail(ArgumentError, "Compact hash builder is missing the value generator block") unless block_given?
     to_compact_hash_with_index { |item, index| yield item }
   end
 
@@ -848,7 +848,7 @@ module Hashable
     attr_reader :components
 
     def initialize(*hashes)
-      if hashes.include?(nil) then raise ArgumentError.new("MultiHash is missing a component hash.") end
+      if hashes.include?(nil) then CaRuby.fail(ArgumentError, "MultiHash is missing a component hash.") end
       @components = hashes
     end
 
@@ -909,7 +909,7 @@ class KeyTransformerHash
   #
   # Raises ArgumentError if there is no extractor block
   def initialize(base={}, &transformer) # :yields: key
-    raise ArgumentError.new("Missing required Accessor block") unless block_given?
+    CaRuby.fail(ArgumentError, "Missing required Accessor block") unless block_given?
     @base = base
     @xfm = transformer
   end
@@ -942,7 +942,7 @@ class Hash
   # The EMPTY_HASH constant is an immutable empty hash, used primarily as a default argument.
   class << EMPTY_HASH = Hash.new
     def []=(key, value)
-      raise NotImplementedError.new("Modification of the constant empty hash is not supported")
+      CaRuby.fail(NotImplementedError, "Modification of the constant empty hash is not supported")
     end
   end
 end
@@ -1016,7 +1016,7 @@ class Array
   # The EMPTY_ARRAY constant is an immutable empty array, used primarily as a default argument.
   class << EMPTY_ARRAY = Array.new
     def <<(value)
-      raise NotImplementedError.new("Modification of the constant empty array is not supported")
+      CaRuby.fail(NotImplementedError, "Modification of the constant empty array is not supported")
     end
   end
 
@@ -1063,7 +1063,7 @@ class Array
   def to_assoc_hash
     hash = {}
     each do |item|
-      raise ArgumentError.new("Array member must be an array: #{item.pp_s(:single_line)}") unless Array === item
+      CaRuby.fail(ArgumentError, "Array member must be an array: #{item.pp_s(:single_line)}") unless Array === item
       key = item.first
       if item.size < 2 then
         value = nil
@@ -1099,7 +1099,7 @@ class Array
     rescue NoMethodError
       raise
     rescue
-      raise ArgumentError.new("Can't convert #{other.class.name} to array")
+      CaRuby.fail(ArgumentError, "Can't convert #{other.class.name} to array")
     end
   end
 

@@ -120,14 +120,14 @@ module CaRuby
         # the inverse attribute meta-data
         begin
           @inv_md = type.attribute_metadata(attribute)
-        rescue NameError
-          raise MetadataError.new("#{@declarer.qp}.#{self} inverse attribute #{type.qp}.#{attribute} not found - #{$!}")
+        rescue NameError => e
+          CaRuby.fail(MetadataError, "#{@declarer.qp}.#{self} inverse attribute #{type.qp}.#{attribute} not found", e)
         end
         # the inverse of the inverse
         inv_inv_md = @inv_md.inverse_metadata
         # If the inverse of the inverse is already set to a different attribute, then raise an exception.
         if inv_inv_md and not (inv_inv_md == self or inv_inv_md.restriction?(self))
-          raise MetadataError.new("Cannot set #{type.qp}.#{attribute} inverse attribute to #{@declarer.qp}.#{self} since it conflicts with existing inverse #{inv_inv_md.declarer.qp}.#{inv_inv_md}")
+          CaRuby.fail(MetadataError, "Cannot set #{type.qp}.#{attribute} inverse attribute to #{@declarer.qp}.#{self} since it conflicts with existing inverse #{inv_inv_md.declarer.qp}.#{inv_inv_md}")
         end
         # Set the inverse of the inverse to this attribute.
         @inv_md.inverse = @symbol
@@ -445,10 +445,10 @@ module CaRuby
         rtype = opts[:type] || @type
         rinv = opts[:inverse] || inverse
         unless declarer < @declarer then
-          raise ArgumentError.new("Cannot restrict #{@declarer.qp}.#{self} to an incompatible declarer type #{declarer.qp}")
+          CaRuby.fail(ArgumentError, "Cannot restrict #{@declarer.qp}.#{self} to an incompatible declarer type #{declarer.qp}")
         end
         unless rtype <= @type then
-          raise ArgumentError.new("Cannot restrict #{@declarer.qp}.#{self}({@type.qp}) to an incompatible return type #{rtype.qp}")
+          CaRuby.fail(ArgumentError, "Cannot restrict #{@declarer.qp}.#{self}({@type.qp}) to an incompatible return type #{rtype.qp}")
         end
         # Copy this attribute and its instance variables minus the restrictions and make a deep copy of the flags.
         rst = deep_copy
@@ -495,7 +495,7 @@ module CaRuby
       # @param [Class] klass the declaring class of this restriction attribute
       def set_restricted_declarer(klass)
         if @declarer and not klass < @declarer then
-          raise MetadataError.new("Cannot reset #{declarer.qp}.#{self} declarer to #{type.qp}")
+          CaRuby.fail(MetadataError, "Cannot reset #{declarer.qp}.#{self} declarer to #{type.qp}")
         end
         @declarer = klass
         @declarer.add_restriction(self)
@@ -533,7 +533,7 @@ module CaRuby
       # @raise [ArgumentError] if flag is not supported
       def set_flag(flag)
         return if @flags.include?(flag)
-        raise ArgumentError.new("Attribute flag not supported: #{flag}") unless SUPPORTED_FLAGS.include?(flag)
+        CaRuby.fail(ArgumentError, "Attribute flag not supported: #{flag}") unless SUPPORTED_FLAGS.include?(flag)
         @flags << flag
         case flag
           when :owner then owner_flag_set
@@ -548,11 +548,11 @@ module CaRuby
       # @raise [MetadataError] if this attribute is dependent or an inverse could not be inferred
       def owner_flag_set
         if dependent? then
-          raise MetadataError.new("#{declarer.qp}.#{self} cannot be set as a #{type.qp} owner since it is already defined as a #{type.qp} dependent")
+          CaRuby.fail(MetadataError, "#{declarer.qp}.#{self} cannot be set as a #{type.qp} owner since it is already defined as a #{type.qp} dependent")
         end
         inv_attr = type.dependent_attribute(@declarer)
         if inv_attr.nil? then
-          raise MetadataError.new("#{@declarer.qp} owner attribute #{self} does not have a #{type.qp} dependent inverse")
+          CaRuby.fail(MetadataError, "#{@declarer.qp} owner attribute #{self} does not have a #{type.qp} dependent inverse")
         end
         logger.debug { "#{declarer.qp}.#{self} inverse is the #{type.qp} dependent attribute #{inv_attr}." }
         self.inverse = inv_attr
@@ -564,7 +564,7 @@ module CaRuby
       # @raise [MetadataError] if this is an owner attribute
       def dependent_flag_set
         if owner? then
-          raise MetadataError.new("#{declarer.qp}.#{self} cannot be set as a  #{type.qp} dependent since it is already defined as a #{type.qp} owner")
+          CaRuby.fail(MetadataError, "#{declarer.qp}.#{self} cannot be set as a  #{type.qp} dependent since it is already defined as a #{type.qp} owner")
         end
       end
   

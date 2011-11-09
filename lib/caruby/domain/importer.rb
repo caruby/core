@@ -94,7 +94,7 @@ module CaRuby
       # @option opts [String] :directory the optional directory of source class definitions to load
       def configure_importer(opts)
         @pkg = opts[:package]
-        if @pkg.nil? then raise ArgumentError.new("Required domain package option not found") end
+        if @pkg.nil? then CaRuby.fail(ArgumentError, "Required domain package option not found") end
         @metadata = opts[:metadata]
         @mixin = opts[:mixin] || Resource
         @directory = opts[:directory]
@@ -138,7 +138,7 @@ module CaRuby
         # Add referenced domain class metadata as necessary.
         klass.each_attribute_metadata do |attr_md|
           ref = attr_md.type
-          if ref.nil? then raise MetadataError.new("#{self} #{attr_md} domain type is unknown.") end
+          if ref.nil? then CaRuby.fail(MetadataError, "#{self} #{attr_md} domain type is unknown.") end
           unless @introspected.include?(ref) or ref.parent_module != mod then
             logger.debug { "Adding #{qp} #{attr_md} reference #{ref.qp} metadata..." }
             add_metadata(ref)

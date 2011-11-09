@@ -24,7 +24,7 @@ module ClinicalTrials
     # @raise [ValidationError] if there are no events
     def validate_local
       super
-      raise ValidationError.new("Study #{name} is missing study events") if events.nil_or_empty?
+      CaRuby.fail(ValidationError, "Study #{name} is missing study events") if events.nil_or_empty?
     end
   end
 end

@@ -23,7 +23,7 @@ module CaRuby
       # @return the attribute value loaded from the database
       # @raise [RuntimeError] if this loader is disabled
       def load(subject, attribute)
-        if disabled? then raise RuntimeError.new("#{subject.qp} lazy load called on disabled loader") end
+        if disabled? then CaRuby.fail(RuntimeError, "#{subject.qp} lazy load called on disabled loader") end
         logger.debug { "Lazy-loading #{subject.qp} #{attribute}..." }
         # the current value
         oldval = subject.send(attribute)

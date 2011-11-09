@@ -80,7 +80,7 @@ module CaRuby
       begin
         config = YAML::load_file(file)
       rescue
-        raise ConfigurationError.new("Could not read field mapping configuration file #{file}: " + $!)
+        CaRuby.fail(ConfigurationError, "Could not read field mapping configuration file #{file}: " + $!)
       end
     end
 
@@ -101,7 +101,7 @@ module CaRuby
         next if attr_list.blank?
         # the header accessor method for the field
         header = @csvio.accessor(field)
-        raise ConfigurationError.new("Field defined in field mapping configuration not found: #{field}") if header.nil?
+        CaRuby.fail(ConfigurationError, "Field defined in field mapping configuration not found: #{field}") if header.nil?
         attr_list.split(/,\s*/).each do |path_s|
           klass, path = create_attribute_path(path_s)
           hdr_map[path][klass] = header
@@ -125,7 +125,7 @@ module CaRuby
       klass = names.first =~ /^[A-Z]/ ? @target.domain_module.const_get(names.shift) : @target
       # there must be at least one attribute
       if names.empty? then
-        raise ConfigurationError.new("Attribute entry in CSV field mapping is not in <class>.<attribute> format: #{value}")
+        CaRuby.fail(ConfigurationError, "Attribute entry in CSV field mapping is not in <class>.<attribute> format: #{value}")
       end
       # build the Attribute path by traversing the names path
       # if the name corresponds to a parent attribute, then add the attribute metadata.
@@ -143,7 +143,7 @@ module CaRuby
           break
         else
           # method not defined
-          raise ConfigurationError.new("CSV field mapping attribute not found: #{parent.qp}.#{name}")
+          CaRuby.fail(ConfigurationError, "CSV field mapping attribute not found: #{parent.qp}.#{name}")
         end
       end
       # add remaining non-attribute symbols

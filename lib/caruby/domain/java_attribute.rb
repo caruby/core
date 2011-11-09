@@ -37,20 +37,20 @@ module CaRuby
         @property_descriptor = pd
         # deficient Java introspector does not recognize 'is' prefix for a Boolean property
         rm = declarer.property_read_method(pd)
-        raise ArgumentError.new("Property does not have a read method: #{declarer.qp}.#{pd.name}") unless rm
+        CaRuby.fail(ArgumentError, "Property does not have a read method: #{declarer.qp}.#{pd.name}") unless rm
         reader = rm.name.to_sym
         unless declarer.method_defined?(reader) then
           reader = "is#{reader.to_s.capitalize_first}".to_sym
           unless declarer.method_defined?(reader) then
-            raise ArgumentError.new("Reader method not found for #{declarer} property #{pd.name}")
+            CaRuby.fail(ArgumentError, "Reader method not found for #{declarer} property #{pd.name}")
           end
         end
         unless pd.write_method then
-          raise ArgumentError.new("Property does not have a write method: #{declarer.qp}.#{pd.name}")
+          CaRuby.fail(ArgumentError, "Property does not have a write method: #{declarer.qp}.#{pd.name}")
         end
         writer = pd.write_method.name.to_sym
         unless declarer.method_defined?(writer) then
-          raise ArgumentError.new("Writer method not found for #{declarer} property #{pd.name}")
+          CaRuby.fail(ArgumentError, "Writer method not found for #{declarer} property #{pd.name}")
         end
         @property_accessors = [reader, writer]
         qualify(:collection) if collection_java_class?

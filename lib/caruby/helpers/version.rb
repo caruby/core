@@ -26,7 +26,7 @@ class Version < Array
   #   Version.new(1, 1, beta) > beta #=> true
   def <=>(other)
     return 0 if equal?(other)
-    raise ArgumentError.new("Comparand is not a #{self.class}: #{other}") unless self.class === other
+    CaRuby.fail(ArgumentError, "Comparand is not a #{self.class}: #{other}") unless self.class === other
     return -1 if other.predecessor == self
     return 1 unless predecessor.nil? or predecessor < other
     each_with_index do |component, index|

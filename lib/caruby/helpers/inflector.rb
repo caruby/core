@@ -7,7 +7,7 @@ class String
   #   "rose".quantify(3) #=> "roses"
   #   "rose".quantify(1 #=> "rose"
   def quantify(quantity)
-    raise ArgumentError.new("Missing quantity argument") if quantity.nil?
+    CaRuby.fail(ArgumentError, "Missing quantity argument") if quantity.nil?
     "#{quantity} #{quantity == 1 ? self : pluralize}"
   end
   

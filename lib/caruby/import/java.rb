@@ -87,7 +87,7 @@ module Java
       # merge return a new collection.
       def merge(other)
         return self if other.nil?
-        raise ArgumentError.new("Merge argument must be enumerable: #{other}") unless Enumerable === other
+        CaRuby.fail(ArgumentError, "Merge argument must be enumerable: #{other}") unless Enumerable === other
         other.each { |item| self << item }
         self
       end

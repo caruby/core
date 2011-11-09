@@ -125,7 +125,7 @@ module CaRuby
       if attr_md.collection? then
         # TODO - refactor into method
         if oldval.nil? then
-          raise ValidationError.new("Merge into #{qp} #{attr_md} with nil collection value is not supported")
+          CaRuby.fail(ValidationError, "Merge into #{qp} #{attr_md} with nil collection value is not supported")
         end
         # the references to add
         adds = []

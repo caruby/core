@@ -5,7 +5,7 @@ class AttributePath < Array
   # Creates an AttributePath from the path Array, String or Symbol. A path string is a period-delimited sequence
   # of attributes, e.g. +person.name+.
   def initialize(path)
-    raise ArgumentError.new("Path empty") if path.nil_or_empty?
+    CaRuby.fail(ArgumentError, "Path empty") if path.nil_or_empty?
     # standardize the argument as a symbol array
     attributes = case path
     when Symbol then
@@ -15,7 +15,7 @@ class AttributePath < Array
     when Array then
       path.map { |name| name.to_sym }
     else
-      raise ArgumentError.new("Argument type unsupported - expected Symbol, String or Array; found #{path.class}")
+      CaRuby.fail(ArgumentError, "Argument type unsupported - expected Symbol, String or Array; found #{path.class}")
     end
     # make the array
     super(attributes)

@@ -119,10 +119,10 @@ module CaRuby
       # or if there is a middle name but no first name
       def validate
         if last.nil? and first.nil? then
-          raise ValidationError.new("Name is missing both the first and last fields")
+          CaRuby.fail(ValidationError, "Name is missing both the first and last fields")
         end
         if !middle.nil? and first.nil? then
-          raise ValidationError.new("Name with middle field #{middle} is missing the first field")
+          CaRuby.fail(ValidationError, "Name with middle field #{middle} is missing the first field")
         end
       end
 

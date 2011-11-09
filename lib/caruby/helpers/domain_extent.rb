@@ -37,8 +37,8 @@ class DomainExtent < LazyHash
   # If there is nois no entry for key and the factory is set for the class,
   # then a new object is created on demand.
   def get(klass, key)
-    raise RuntimeError.new("Invalid target class: #{klass}") unless klass.is_a?(Class)
-    raise RuntimeError.new("Missing target key value") if key.nil?
+    CaRuby.fail(RuntimeError, "Invalid target class: #{klass}") unless klass.is_a?(Class)
+    CaRuby.fail(RuntimeError, "Missing target key value") if key.nil?
     # the class extent hash is created on demand if necessary.
     # the instance is created on demand if there is a factory for the class.
     self[klass][key]

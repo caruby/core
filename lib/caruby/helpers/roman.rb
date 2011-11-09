@@ -6,7 +6,7 @@ class String
       when /^(I{0,3})$/ then $1.size
       when /^(I{0,3})(V|X)$/ then ROMAN_UNITS[$2] - $1.size
       when /^(V)(I{0,3})$/ then ROMAN_UNITS[$1] + $2.size
-      else raise ArgumentError.new("#{self} is not a roman numeral in the range I-X")
+      else CaRuby.fail(ArgumentError, "#{self} is not a roman numeral in the range I-X")
     end
   end
   
@@ -18,7 +18,7 @@ end
 class Integer
   # @return [String] the roman numeral equivalent of this integer
   def to_roman
-    if self < 1 or self > 10 then raise ArgumentError.new("#{self} cannot be converted to a roman numeral in the range I-X")
+    if self < 1 or self > 10 then CaRuby.fail(ArgumentError, "#{self} cannot be converted to a roman numeral in the range I-X")
     elsif self < 4 then 'I' * self
     elsif self < 6 then ('I' * (5 - self)) + 'V'
     elsif self < 9 then 'V' + ('I' * (self - 5))

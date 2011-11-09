@@ -28,7 +28,7 @@ module CaRuby
     # @yield [ref] selects which attributes to visit next
     # @yieldparam [Resource] ref the currently visited domain object
     def initialize(options=nil, &selector)
-      raise ArgumentError.new("Reference visitor missing domain reference selector") unless block_given?
+      CaRuby.fail(ArgumentError, "Reference visitor missing domain reference selector") unless block_given?
       @selector = selector
       # delegate to Visitor with the visit selector block
       super { |parent| references_to_visit(parent) }
@@ -137,7 +137,7 @@ module CaRuby
     # @yield (see ReferenceVisitor#initialize)
     # @yieldparam [Resource] source the matched source object
     def initialize(opts=nil)
-      raise ArgumentError.new("Reference visitor missing domain reference selector") unless block_given?
+      CaRuby.fail(ArgumentError, "Reference visitor missing domain reference selector") unless block_given?
       opts = Options.to_hash(opts)
       @matcher = opts.delete(:matcher) || Resource.method(:match_all)
       @matchable = opts.delete(:matchable)
@@ -210,7 +210,7 @@ module CaRuby
     # @raise [ValidationError] if there is no match
     def match_for_visited(source)
       target = @matches[source]
-      if target.nil? then raise ValidationError.new("Match visitor target not found for #{source}") end
+      if target.nil? then CaRuby.fail(ValidationError, "Match visitor target not found for #{source}") end
       target
     end
 

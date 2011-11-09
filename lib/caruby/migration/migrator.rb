@@ -68,7 +68,7 @@ module CaRuby
     # @yield [target] operation performed on the migration target
     # @yieldparam [Resource] target the migrated target domain object
     def migrate(&block)
-      raise MigrationError.new("The caRuby Migrator migrate block is missing") unless block_given?
+      CaRuby.fail(MigrationError, "The caRuby Migrator migrate block is missing") unless block_given?
       migrate_rows(&block)
     end
 
@@ -81,7 +81,7 @@ module CaRuby
     # Class {#migrate} with a {#save} block.
     def execute_save
       if @database.nil? then
-        raise MigrationError.new("Migrator cannot save records since the database option was not specified.")
+        CaRuby.fail(MigrationError, "Migrator cannot save records since the database option was not specified.")
       end
       @database.open do |db|
         migrate do |target|
@@ -108,16 +108,16 @@ module CaRuby
 
     def parse_options(opts)
       @fld_map_files = opts[:mapping]
-      raise MigrationError.new("Migrator missing required field mapping file parameter") if @fld_map_files.nil?
+      CaRuby.fail(MigrationError, "Migrator missing required field mapping file parameter") if @fld_map_files.nil?
       @def_files = opts[:defaults]
       @filter_files = opts[:filters]
       @shims = opts[:shims] ||= []
       @offset = opts[:offset] ||= 0
       @input = Options.get(:input, opts)
-      raise MigrationError.new("Migrator missing required source file parameter") if @input.nil?
+      CaRuby.fail(MigrationError, "Migrator missing required source file parameter") if @input.nil?
       @database = opts[:database]
       @target_class = opts[:target]
-      raise MigrationError.new("Migrator missing required target class parameter") if @target_class.nil?
+      CaRuby.fail(MigrationError, "Migrator missing required target class parameter") if @target_class.nil?
       @bad_rec_file = opts[:bad]
       @create = opts[:create]
       logger.info("Migration options: #{printable_options(opts).pp_s}.")
@@ -134,7 +134,7 @@ module CaRuby
 
     def build
       # the current source class => instance map
-      raise MigrationError.new("No file to migrate") if @input.nil?
+      CaRuby.fail(MigrationError, "No file to migrate") if @input.nil?
 
       # make a CSV loader which only converts input fields corresponding to non-String attributes
       @loader = CsvIO.new(@input, &method(:convert))
@@ -160,7 +160,7 @@ module CaRuby
       @creatable_classes = @cls_paths_hash.keys.sort! { |klass, other| other.depends_on?(klass) ? -1 : (klass.depends_on?(other) ? 1 : 0) }
       @creatable_classes.each do |klass|
         if klass.abstract? then
-          raise MigrationError.new("Migrator cannot create the abstract class #{klass}; specify a subclass instead in the mapping file.")
+          CaRuby.fail(MigrationError, "Migrator cannot create the abstract class #{klass}; specify a subclass instead in the mapping file.")
         end
       end
       
@@ -388,7 +388,7 @@ module CaRuby
         reopt = if opt then
           case opt
             when 'i' then Regexp::IGNORECASE
-            else raise MigrationError.new("Migration value filter regular expression #{k} qualifier not supported: expected 'i', found '#{opt}'")
+            else CaRuby.fail(MigrationError, "Migration value filter regular expression #{k} qualifier not supported: expected 'i', found '#{opt}'")
           end
         end
         # the Regexp object
@@ -461,8 +461,7 @@ module CaRuby
             yield target
           end
         rescue Exception => e
-          trace = e.backtrace.join("\n")
-          logger.error("Migration error on record #{rec_no} - #{e.message}:\n#{trace}")
+          logger.error("Migration error on record #{rec_no} - #{e.message}:\n#{e.backtrace.pp_s}")
           raise unless @bad_file
         end
         if target then
@@ -480,7 +479,7 @@ module CaRuby
             logger.warn("Migration not performed on record #{rec_no}.")
             @loader.reject(row)
           else
-            raise MigrationError.new("Migration not performed on record #{rec_no}")
+            CaRuby.fail(MigrationError, "Migration not performed on record #{rec_no}")
           end
         end
         # Bump the record count.
@@ -657,7 +656,7 @@ module CaRuby
     # @return the new object
     def create_reference(obj, attr_md, row, created)
       if attr_md.type.abstract? then
-        raise MigrationError.new("Cannot create #{obj.qp} #{attr_md} with abstract type #{attr_md.type}")
+        CaRuby.fail(MigrationError, "Cannot create #{obj.qp} #{attr_md} with abstract type #{attr_md.type}")
       end
       ref = attr_md.type.new
       ref.migrate(row, Array::EMPTY_ARRAY)
@@ -683,8 +682,8 @@ module CaRuby
       # set the attribute
       begin
         obj.send(attr_md.writer, value)
-      rescue Exception
-        raise MigrationError.new("Could not set #{obj.qp} #{attr_md} to #{value.qp} - #{$!}")
+      rescue Exception => e
+        CaRuby.fail(MigrationError, "Could not set #{obj.qp} #{attr_md} to #{value.qp}", e)
       end
       logger.debug { "Migrated #{obj.qp} #{attr_md} to #{value}." }
     end
@@ -769,7 +768,7 @@ module CaRuby
       begin
         config = YAML::load_file(file)
       rescue
-        raise MigrationError.new("Could not read field map file #{file}: " + $!)
+        CaRuby.fail(MigrationError, "Could not read field map file #{file}: " + $!)
       end
 
       # collect the class => path => header entries
@@ -777,7 +776,7 @@ module CaRuby
         next if attr_list.blank?
         # the header accessor method for the field
         header = @loader.accessor(field)
-        raise MigrationError.new("Field defined in migration configuration #{file} not found in input file #{@input} headers: #{field}") if header.nil?
+        CaRuby.fail(MigrationError, "Field defined in migration configuration #{file} not found in input file #{@input} headers: #{field}") if header.nil?
         # associate each attribute path in the property value with the header
         attr_list.split(/,\s*/).each do |path_s|
           klass, path = create_attribute_path(path_s)
@@ -805,7 +804,7 @@ module CaRuby
       begin
         config = YAML::load_file(file)
       rescue
-        raise MigrationError.new("Could not read defaults file #{file}: " + $!)
+        CaRuby.fail(MigrationError, "Could not read defaults file #{file}: " + $!)
       end
       # collect the class => path => value entries
       config.each do |path_s, value|
@@ -833,14 +832,14 @@ module CaRuby
       begin
         config = YAML::load_file(file)
       rescue
-        raise MigrationError.new("Could not read filter file #{file}: " + $!)
+        CaRuby.fail(MigrationError, "Could not read filter file #{file}: " + $!)
       end
       # collect the class => attribute => filter entries
       config.each do |path_s, flt|
         next if flt.nil_or_empty?
         klass, path = create_attribute_path(path_s)
         unless path.size == 1 then
-          raise MigrationError.new("Migration filter configuration path not supported: #{path_s}")
+          CaRuby.fail(MigrationError, "Migration filter configuration path not supported: #{path_s}")
         end
         attr = klass.standard_attribute(path.first.to_sym)
         flt_hash = hash[klass] ||= {}
@@ -858,7 +857,7 @@ module CaRuby
       klass = names.first =~ /^[A-Z]/ ? class_for_name(names.shift) : @target_class
       # there must be at least one attribute
       if names.empty? then
-        raise MigrationError.new("Attribute entry in migration configuration is not in <class>.<attribute> format: #{value}")
+        CaRuby.fail(MigrationError, "Attribute entry in migration configuration is not in <class>.<attribute> format: #{value}")
       end
       # build the Attribute path
       path = []
@@ -866,11 +865,11 @@ module CaRuby
         attr = name.to_sym
         attr_md = begin
           parent.attribute_metadata(attr)
-        rescue NameError
-          raise MigrationError.new("Migration field mapping attribute #{parent.qp}.#{attr} not found: #{$!}")
+        rescue NameError => e
+          CaRuby.fail(MigrationError, "Migration field mapping attribute #{parent.qp}.#{attr} not found", e)
         end
         if attr_md.collection? then
-          raise MigrationError.new("Migration field mapping attribute #{parent.qp}.#{attr} is a collection, which is not supported")
+          CaRuby.fail(MigrationError, "Migration field mapping attribute #{parent.qp}.#{attr} is a collection, which is not supported")
         end
         path << attr_md
         attr_md.type

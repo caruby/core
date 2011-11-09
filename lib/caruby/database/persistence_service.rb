@@ -65,7 +65,7 @@ module CaRuby
       begin
         dispatch { |svc| svc.update_object(obj) }
       rescue Exception => e
-        logger.error("Error updating #{obj} -  #{e.message}\n#{dump(obj)}")
+        logger.error("Error updating #{obj} - #{e.message}\n#{dump(obj)}")
         raise
       end
    end
@@ -76,7 +76,7 @@ module CaRuby
       begin
         dispatch { |svc| svc.remove_object(obj) }
       rescue Exception => e
-        logger.error("Error deleting #{obj}  - #{e.message}\n#{dump(obj)}")
+        logger.error("Error deleting #{obj} - #{e.message}\n#{dump(obj)}")
         raise
       end
     end
@@ -136,7 +136,7 @@ module CaRuby
       logger.debug { "Building HQLCriteria..." }
       criteria = HQLCriteria.new(hql)
       target = hql[/from\s+(\S+)/i, 1]
-      raise DatabaseError.new("HQL does not contain a FROM clause: #{hql}") unless target
+      CaRuby.fail(DatabaseError, "HQL does not contain a FROM clause: #{hql}") unless target
       logger.debug { "Submitting search on target class #{target} with the following HQL:\n  #{hql}" }
       begin
         dispatch { |svc| svc.query(criteria, target) }
@@ -155,7 +155,7 @@ module CaRuby
       class_name_path = []
       path.inject(template.class) do |type, attr|
         ref_type = type.domain_type(attr)
-        raise DatabaseError.new("Attribute in search attribute path #{path.join('.')} is not a #{type} domain reference attribute: #{attr}") if ref_type.nil?
+        CaRuby.fail(DatabaseError, "Attribute in search attribute path #{path.join('.')} is not a #{type} domain reference attribute: #{attr}") if ref_type.nil?
         class_name_path << ref_type.java_class.name
         ref_type
       end

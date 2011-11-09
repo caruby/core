@@ -15,7 +15,7 @@ module CaRuby
     def initialize(database)
       @database = database
       unless block_given? then
-        raise ArgumentError.new("StoreTemplateBuilder is missing the required template copy attribute selector block")
+        CaRuby.fail(ArgumentError, "StoreTemplateBuilder is missing the required template copy attribute selector block")
       end
       
       # the mergeable attributes filter the given block with exclusions

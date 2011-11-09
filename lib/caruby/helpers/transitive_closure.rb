@@ -29,7 +29,7 @@ class Object
   #   a.transitive_closure { |node| node.children }.to_a.join(", ") #=> a, b, c, d
   #   a.transitive_closure(:children).to_a.join(", ") #=> a, b, c, d
   def transitive_closure(method=nil)
-    raise ArgumentError.new("Missing both a method argument and a block") if method.nil? and not block_given?
+    CaRuby.fail(ArgumentError, "Missing both a method argument and a block") if method.nil? and not block_given?
     # If there is a method argument, then the transitive closure is based on that method.
     # Otherwise, visit the closure in reverse depth-first order.
     if method then

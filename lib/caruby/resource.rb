@@ -134,7 +134,7 @@ module CaRuby
       if attributes.empty? then
         attributes = self.class.nondomain_attributes
       elsif Enumerable === attributes.first then
-        raise ArgumentError.new("#{qp} copy attributes argument is not a Symbol: #{attributes.first}") unless attributes.size == 1
+        CaRuby.fail(ArgumentError, "#{qp} copy attributes argument is not a Symbol: #{attributes.first}") unless attributes.size == 1
         attributes = attributes.first
       end
       self.class.new.merge_attributes(self, attributes)
@@ -206,7 +206,7 @@ module CaRuby
     # @raise [NoMethodError] if this Resource's class does not have exactly one owner attribute
     def owner=(owner)
       attr = self.class.owner_attribute
-      if attr.nil? then raise NoMethodError.new("#{self.class.qp} does not have a unique owner attribute") end
+      if attr.nil? then CaRuby.fail(NoMethodError, "#{self.class.qp} does not have a unique owner attribute") end
       set_attribute(attr, owner)
     end
 
@@ -583,14 +583,14 @@ module CaRuby
       invalid = missing_mandatory_attributes
       unless invalid.empty? then
         logger.error("Validation of #{qp} unsuccessful - missing #{invalid.join(', ')}:\n#{dump}")
-        raise ValidationError.new("Required attribute value missing for #{self}: #{invalid.join(', ')}")
+        CaRuby.fail(ValidationError, "Required attribute value missing for #{self}: #{invalid.join(', ')}")
       end
       if self.class.bidirectional_dependent? and not owner then
-        raise ValidationError.new("Dependent #{self} does not reference an owner")
+        CaRuby.fail(ValidationError, "Dependent #{self} does not reference an owner")
       end
       vh = value_hash(self.class.owner_attributes)
       if vh.size > 1 then
-        raise ValidationError.new("Dependent #{self} references multiple owners #{vh.pp_s}")
+        CaRuby.fail(ValidationError, "Dependent #{self} references multiple owners #{vh.pp_s}")
       end
     end
     
@@ -676,7 +676,7 @@ module CaRuby
     def standardize_attribute_value(attribute, value)
       attr_md = self.class.attribute_metadata(attribute)
       if attr_md.nil? then
-        raise ArgumentError.new("#{attribute} is neither a #{self.class.qp} standard attribute nor an alias for a standard attribute")
+        CaRuby.fail(ArgumentError, "#{attribute} is neither a #{self.class.qp} standard attribute nor an alias for a standard attribute")
       end
       # standardize the value if necessary
       std_val = attr_md.type && attr_md.type < Resource ? standardize_domain_value(value) : value

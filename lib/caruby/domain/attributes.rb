@@ -19,7 +19,7 @@ module CaRuby
       # @return [Boolean] whether there is a corresponding attribute
       def attribute_defined?(symbol)
         unless Symbol === symbol then
-          raise ArgumentError.new("Attribute argument #{symbol.qp} of type #{symbol.class.qp} is not a symbol")
+          CaRuby.fail(ArgumentError, "Attribute argument #{symbol.qp} of type #{symbol.class.qp} is not a symbol")
         end
         @attr_md_hash.has_key?(symbol)
       end
@@ -90,9 +90,9 @@ module CaRuby
       # @raise [NameError] if the attribute is not found
       def standard_attribute(name_or_alias)
         if name_or_alias.nil? then
-          raise ArgumentError.new("#{qp} standard attribute call is missing the attribute name/alias parameter")
+          CaRuby.fail(ArgumentError, "#{qp} standard attribute call is missing the attribute name/alias parameter")
         end
-        @alias_std_attr_map[name_or_alias.to_sym] or raise NameError.new("#{self} attribute not found: #{name_or_alias}")
+        @alias_std_attr_map[name_or_alias.to_sym] or CaRuby.fail(NameError, "#{self} attribute not found: #{name_or_alias}")
       end
   
       ## Metadata ATTRIBUTE FILTERS ##
@@ -367,8 +367,8 @@ module CaRuby
         # @yieldparam [Attribute] the metadata for the standard attribute
         # @raise [ArgumentError] if a parameter is missing 
         def initialize(klass, hash, &filter)
-          raise ArgumentError.new("#{klass.qp} attribute filter missing hash argument") if hash.nil?
-          raise ArgumentError.new("#{klass.qp} attribute filter missing filter block") unless block_given?
+          CaRuby.fail(ArgumentError, "#{klass.qp} attribute filter missing hash argument") if hash.nil?
+          CaRuby.fail(ArgumentError, "#{klass.qp} attribute filter missing filter block") unless block_given?
           @hash = hash
           @filter = filter
         end
@@ -544,7 +544,7 @@ module CaRuby
           attr_md.restrict(self, :type => klass)
           logger.debug { "Restricted #{attr_md.declarer.qp}.#{attribute}(#{attr_md.type.qp}) to #{qp} with return type #{klass.qp}." }
         else
-          raise ArgumentError.new("Cannot reset #{qp}.#{attribute} type #{attr_md.type.qp} to incompatible #{klass.qp}")
+          CaRuby.fail(ArgumentError, "Cannot reset #{qp}.#{attribute} type #{attr_md.type.qp} to incompatible #{klass.qp}")
         end
       end
   
@@ -605,7 +605,7 @@ module CaRuby
       # Records that the given aliaz aliases a standard attribute.
       def add_alias(aliaz, attribute)
         std_attr = standard_attribute(attribute)
-        raise ArgumentError.new("#{self} attribute not found: #{attribute}") if std_attr.nil?
+        CaRuby.fail(ArgumentError, "#{self} attribute not found: #{attribute}") if std_attr.nil?
         @local_std_attr_hash[aliaz.to_sym] = std_attr
       end
   
@@ -618,7 +618,7 @@ module CaRuby
       def append_ancestor_enum(enum)
         return enum unless superclass.parent_module == parent_module
         anc_enum = yield superclass
-        if anc_enum.nil? then raise MetadataError.new("#{qp} superclass #{superclass.qp} does not have required metadata") end
+        if anc_enum.nil? then CaRuby.fail(MetadataError, "#{qp} superclass #{superclass.qp} does not have required metadata") end
         enum.union(anc_enum)
       end
   
@@ -661,7 +661,7 @@ module CaRuby
       #
       # @raise [NameError] always
       def attribute_missing(attribute)
-        raise NameError.new("#{name.demodulize} attribute not found: #{attribute}")
+        CaRuby.fail(NameError, "#{name.demodulize} attribute not found: #{attribute}")
       end
     end
   end

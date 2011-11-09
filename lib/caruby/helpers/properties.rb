@@ -66,12 +66,12 @@ module CaRuby
     #
     # Raises ConfigurationError if file doesn't exist or couldn't be parsed.
     def load_properties(file)
-      raise ConfigurationError.new("Properties file not found: #{File.expand_path(file)}") unless File.exists?(file)
+      CaRuby.fail(ConfigurationError, "Properties file not found: #{File.expand_path(file)}") unless File.exists?(file)
       properties = {}
       begin
         YAML::load_file(file).each { |key, value| properties[key.to_sym] = value }
       rescue
-        raise ConfigurationError.new("Could not read properties file #{file}: " + $!)
+        CaRuby.fail(ConfigurationError, "Could not read properties file #{file}: " + $!)
       end
       # Uncomment the following line to print detail properties.
       #logger.debug { "#{file} properties:\n#{properties.pp_s}" }
@@ -103,7 +103,7 @@ module CaRuby
     # Validates that the required properties exist.
     def validate_properties
       @required_properties.each do |key|
-        raise ConfigurationError.new("A required #{@application} property was not found: #{key}") unless has_property?(key)
+        CaRuby.fail(ConfigurationError, "A required #{@application} property was not found: #{key}") unless has_property?(key)
       end
     end
   end
