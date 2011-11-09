@@ -575,10 +575,10 @@ module CaRuby
     end
     
     # Validates that this domain contains a non-nil value for each mandatory property.
-    #
-    # Subclasses can override this method for additional validation, but should call super first.
+    # Subclasses override this method for additional validation, but should call super first.
     #
     # @raise [ValidationError] if a mandatory attribute value is missing
+    # @raise [ValidationError] if there is more than owner
     def validate_local
       logger.debug { "Validating #{qp} required attributes #{self.mandatory_attributes.to_a.to_series}..." }
       invalid = missing_mandatory_attributes
@@ -588,6 +588,10 @@ module CaRuby
       end
       if self.class.bidirectional_dependent? and not owner then
         raise ValidationError.new("Dependent #{self} does not reference an owner")
+      end
+      vh = value_hash(self.class.owner_attributes)
+      if vh.size > 1 then
+        raise ValidationError.new("Dependent #{self} references multiple owners #{vh.pp_s}")
       end
     end
     
