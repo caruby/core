@@ -1,6 +1,6 @@
 caRuby gem creation procedure
 =============================
-This SOP describes how a caRuby git commiter publishes a new gem.
+This SOP describes how a caRuby git committer publishes a new gem.
 The examples refer to a new `caruby-tissue` gem, but the procedure
 applies to any caRuby gem.
 

@@ -1,8 +1,7 @@
-caRuby commiter change procedure
-================================
-This SOP describes how a caRuby git commiter applies source code changes.
-The examples refer to fixing a bug in the `caruby-tissue` gem, but the procedure
-applies to any caRuby gem.
+caRuby change procedure
+===============================
+This SOP describes how a caRuby git committer applies source code changes to a caRuby gem.
+The examples refer to the `caruby-tissue` gem, but the procedure applies to any caRuby gem.
 
 * Clone the caRuby git repository, if necessary, e.g.:
 
@@ -12,41 +11,20 @@ applies to any caRuby gem.
 * Update the master tracking branch:
 
         git branch master
-        git pull
+        git pull origin master
     
-* Isolate the problem to a test case, e.g.:
-   
-        test/lib/catissue/domain/specimen_test.rb
-        def test_save_gleason_score
-          ...
-        end
-  
-    The test case should be as focused as possible to reproduce the problem.
-
-* Create a new bug report which describes the problem and references the test case in
-  [Lighthouse](caruby.lighthouseapp.com), e.g.:
-  
-    Prostate specimen annotation Gleason score is not saved when an owner specimen is
-    created. Reproduced in specimen_test.rb test_save_gleason_score.
-
-* Document the bug in the test case, e.g.:
-
-        # Verifies the fix to Bug #42 - Prostate specimen annotation Gleason score is not saved.
-        def test_save_gleason_score
-          ...
-        end
-
 * Check out a tracking topic branch. All changes are made on a branch rather than the master.
-  The master branch is reserved for syncing to other repositories.
+  The master branch is reserved for syncing to other repositories. The topic branch name is
+  lower-case with dash separators. A bug fix is prefixed by +fix-+. A new feature is a
+  descriptive name without a special prefix.
 
-        git checkout -b save_gleason_score_fix
+        git checkout -b fix-gleason-score  # bug fix
+        git checkout -b web-service        # feature
 
-* Fix the bug on on the branch and add it to git, e.g.:
+* Make the change on on the branch and add it to git, e.g.:
 
         git commit -a -- lib/domain/specimen.rb test/lib/catissue/domain/specimen_test.rb
-        Fixed bug #42 - Prostate specimen annotation Gleason score is not saved. Added the
-        Gleason score properties as caRuby attributes.
-        
+       
   The commit message begins with a capital letter and ends with a period.
 
 * Continue making changes and committing them to your branch. You can interrupt work
@@ -54,20 +32,22 @@ applies to any caRuby gem.
   
         git checkout master
         ...
-        git checkout save_gleason_score_fix
+        git checkout fix-gleason-score
         ...
 
 * For a long-lived branch, periodically push the branch to GitHub as needed to save your
   changes, e.g.:
 
-        git push origin save_gleason_score_fix
+        git push origin fix-gleason-score
 
 * When you are ready to merge your changes to the master, then get the most recent
   version of the server master and rebase the tracking branch:
 
         git pull --rebase origin master
 
-* If there are rebase conflicts, then fix the conflicts and continue the rebase:
+* There will not be a merge conflict unless you applied changes to the master branch
+  without pushing the changes to the server If there are conflicts, then resolve each
+  conflict and continue the rebase:
 
         git rebase --continue
 
@@ -79,12 +59,12 @@ applies to any caRuby gem.
 
 * Push the completed branch to the server, e.g.:
 
-        git push origin save_gleason_score_fix
+        git push origin fix-gleason-score
  
 * Perform a fast-forward merge to the master branch:
 
         git checkout master
-        git merge save_gleason_score_fix
+        git merge fix-gleason-score
 
 * Push the changes to GitHub:
 
