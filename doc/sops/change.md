@@ -75,7 +75,7 @@ applies to any caRuby gem.
 
         rake test
   
-  Fix regressions on the branch as described above and rerun until the full test suite succeeds.
+    Fix regressions on the branch as described above and rerun until the full test suite succeeds.
 
 * Push the completed branch to the server, e.g.:
 
