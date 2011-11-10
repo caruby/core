@@ -1033,9 +1033,20 @@ class Array
   end
 
   # Returns an array containing all but the first item in this Array. This method is syntactic sugar for
-  # +self[1..-1]+ or +last(length-1)+
+  # +self[1..-1]+ or +last(length-1)+.
+  #
+  # @return [Array] an array the tail of this array
   def rest
     self[1..-1]
+  end
+  
+  # Deletes items from this array which do not satisfy the given block.
+  #
+  # @yield [item] the retention test
+  # @yieldparam item an item in this array
+  # @return [Array] this array
+  def keep_if
+    delete_if { |item| not yield(item) }
   end
 
   # Prints the content of this array as a series, e.g.:
