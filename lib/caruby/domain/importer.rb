@@ -157,7 +157,7 @@ module CaRuby
         loaded = syms.map { |sym| klass = const_get(sym) }
         # Print the introspected class content.
         @introspected.each { |klass| logger.info(klass.pp_s) }
-        logger.debug { "Loaded the class definitions in #{@directory}." }
+        logger.debug { "Loaded the class definitions in #{dir}." }
       end
   
       # Auto-loads the Ruby source files in the given directory.
