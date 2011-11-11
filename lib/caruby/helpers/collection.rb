@@ -186,12 +186,11 @@ module Enumerable
     Flattener.new(self).to_a
   end
 
-  # Returns an Enumerable which iterates over items in this Enumerable and the other Enumerable in sequence, e.g.:
-  #   [1, 2, 3] + [3, 4] #=> [1, 2, 3, 3, 4]
-  #
+  # Returns an Enumerable which iterates over items in this Enumerable and the other Enumerable in sequence.
   # Unlike the Array plus (+) operator, {#union} reflects changes to the underlying enumerators.
   #
   # @example
+  #   [1, 2, 3] + [3, 4] #=> [1, 2, 3, 3, 4]
   #   a = [1, 2]
   #   b = [4, 5]
   #   ab = a.union(b)
