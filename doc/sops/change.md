@@ -13,13 +13,19 @@ The examples refer to the `caruby-tissue` gem, but the procedure applies to any 
         git branch master
         git pull origin master
     
-* Check out a tracking topic branch. All changes are made on a branch rather than the master.
+* Check out a topic branch. All changes are made on a branch rather than the master.
   The master branch is reserved for syncing to other repositories. The topic branch name is
   lower-case with dash separators. A bug fix is prefixed by +fix-+. A new feature is a
-  descriptive name without a special prefix.
+  descriptive name without a special prefix. Examples:
 
-        git checkout -b fix-gleason-score  # bug fix
-        git checkout -b web-service        # feature
+        git checkout -b fix-gleason-score         # bug fix
+        git checkout -b web-service               # feature
+
+    If the bug is a hotfix to a release, i.e. if the bug might be rolled into a
+    patch release, then checkout from the most recent release tag rather than the
+    master, e.g.:
+
+        git checkout -b fix-gleason-score v1.5.4
 
 * Make the change on on the branch and add it to git, e.g.:
 
@@ -35,19 +41,33 @@ The examples refer to the `caruby-tissue` gem, but the procedure applies to any 
         git checkout fix-gleason-score
         ...
 
-* For a long-lived branch, periodically push the branch to GitHub as needed to save your
-  changes, e.g.:
+* For a long-lived or co-developed feature branch, periodically push the branch to GitHub
+  as needed to save your changes, e.g.:
 
-        git push origin fix-gleason-score
+  git push origin web-service
 
-* When you are ready to merge your changes to the master, then get the most recent
-  version of the server master:
+* If this is a hotfix, then make and test a gem according to the caRuby gem SOP.
+  Merge hotfixes into a new release branch, e.g.:
+
+        git checkout -b release-1.5.6 v1.5.5
+        git merge fix-gleason-score
+        ... # merge other hotfixes
+        rake test
+        ... # fix regressions and retest as necessary
+        git tag v1.5.6
+        git push --tags origin release-1.5.6
+        gem push caruby-tissue-1.5.6.gem
+
+* When a topic or release branch is ready to be merged into the master, then get the most
+  recent version of the server master:
 
         git pull origin master
 
-* There will not be a merge conflict unless you applied changes to the master branch
-  without pushing the changes to the server. If there are conflicts, then resolve each
-  conflict and continue the rebase:
+* Rebase the master onto the topic or release branch:
+
+        git rebase master
+
+* If there are conflicts, then resolve each conflict and continue the rebase:
 
         git rebase --continue
 
@@ -55,21 +75,16 @@ The examples refer to the `caruby-tissue` gem, but the procedure applies to any 
 
         rake test
   
-    Fix regressions on the branch as described above and rerun until the full test suite succeeds.
-
-* Push the completed branch to the server, e.g.:
-
-        git push origin fix-gleason-score
+    Fix regressions on the branch and rerun until the full test suite succeeds.
  
-* Merge to the master branch:
+* Merge to the master branch, e.g.:
 
         git checkout master
-        git merge --no-ff fix-gleason-score
+        git merge --no-ff web-service
 
     The +--no-ff+ option writes a merge message to the log, even if the merge is a fast-forward merge.
-    This log entry is helpful for isolating problems that might subsequently arise from the change. 
+    This log entry helps isolate problems that might subsequently arise from the change. 
   
 * Push the changes to GitHub:
 
-        git push
-
+        git push origin master
