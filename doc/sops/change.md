@@ -41,9 +41,9 @@ The examples refer to the `caruby-tissue` gem, but the procedure applies to any 
         git push origin fix-gleason-score
 
 * When you are ready to merge your changes to the master, then get the most recent
-  version of the server master and rebase the tracking branch:
+  version of the server master:
 
-        git pull --rebase origin master
+        git pull origin master
 
 * There will not be a merge conflict unless you applied changes to the master branch
   without pushing the changes to the server. If there are conflicts, then resolve each
