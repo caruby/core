@@ -46,7 +46,7 @@ The examples refer to the `caruby-tissue` gem, but the procedure applies to any 
         git pull --rebase origin master
 
 * There will not be a merge conflict unless you applied changes to the master branch
-  without pushing the changes to the server If there are conflicts, then resolve each
+  without pushing the changes to the server. If there are conflicts, then resolve each
   conflict and continue the rebase:
 
         git rebase --continue
@@ -61,11 +61,15 @@ The examples refer to the `caruby-tissue` gem, but the procedure applies to any 
 
         git push origin fix-gleason-score
  
-* Perform a fast-forward merge to the master branch:
+* Merge to the master branch:
 
         git checkout master
-        git merge fix-gleason-score
+        git merge --no-ff fix-gleason-score
 
+    The +--no-ff+ option writes a merge message to the log, even if the merge is a fast-forward merge.
+    This log entry is helpful for isolating problems that might be subsequently discovered arise from
+    the change. 
+  
 * Push the changes to GitHub:
 
         git push
