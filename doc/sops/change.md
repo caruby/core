@@ -67,8 +67,7 @@ The examples refer to the `caruby-tissue` gem, but the procedure applies to any 
         git merge --no-ff fix-gleason-score
 
     The +--no-ff+ option writes a merge message to the log, even if the merge is a fast-forward merge.
-    This log entry is helpful for isolating problems that might be subsequently discovered arise from
-    the change. 
+    This log entry is helpful for isolating problems that might subsequently arise from the change. 
   
 * Push the changes to GitHub:
 
