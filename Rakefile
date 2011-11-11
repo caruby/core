@@ -26,7 +26,7 @@ end
 
 desc "Runs all tests"
 task :test do
-  sh "for f in `find . -name '*_test.rb'`; do jruby $f; done"
+  Dir[File.dirname(__FILE__) + '/**/test/**/*_test.rb'].each { |f| system('jruby', f) }
 end
 
 desc "Archives the source"
