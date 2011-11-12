@@ -101,6 +101,9 @@ module CaRuby
     # Sets the trash output file. This creates a separate CSV output file distinct from the input CSV file.
     # This is useful for writing rejected rows from the input. The output file has a header row.
     def trash=(file)
+      # Make the parent directory.
+      FileUtils.mkdir_p(File.dirname(file))
+      # Open the file.
       @trash = FasterCSV.open(file, 'w', :headers => true, :header_converters => :symbol, :write_headers => true)
     end
   
