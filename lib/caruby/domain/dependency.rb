@@ -4,8 +4,11 @@ module CaRuby
   module Domain
     # Metadata mix-in to capture Resource dependency.
     module Dependency
-  
-      attr_reader :owners, :owner_attributes
+      # @return [<Class>] the owner classes
+      attr_reader :owners
+      
+      # @return [<Symbol>] the owner reference attributes
+      attr_reader :owner_attributes
   
       # Adds the given attribute as a dependent.
       #
@@ -42,9 +45,10 @@ module CaRuby
         not owners.empty?
       end
       
-      # @return [Boolean] whether this class has an owner which cascades save operations to this dependent
-      def cascaded_dependent?
-        owner_attribute_metadata_enumerator.any? { |attr_md| attr_md.inverse_metadata.cascaded? }
+      # @return [<Symbol>] this class's owner attributes which cascade to the dependent, if any
+      def cascaded_dependent_attributes
+        oamds = owner_attribute_metadata_enumerator.filter { |attr_md| attr_md.inverse_metadata.cascaded? }
+        oamds.transform { |attr_md| attr_md.to_sym }
       end
   
       # @return [Boolean] whether this class depends the given other class
@@ -60,7 +64,7 @@ module CaRuby
   
       # @return [<Symbol>] this class's owner attributes
       def owner_attributes
-        @oattrs ||= owner_attribute_metadata_enumerator.transform { |attr_md| attr_md.to_sym }
+        @oattrs ||= @oattr_order || owner_attribute_metadata_enumerator.transform { |attr_md| attr_md.to_sym }
       end
       
       # @return [Boolean] whether this {Resource} class is dependent and reference its owners
@@ -140,19 +144,20 @@ module CaRuby
         # set the owner flag if necessary
         unless attr_md.owner? then attr_md.qualify(:owner) end
 
-        # Redefine the writer method to warn when changing the owner
+        # Redefine the writer method to warn when changing the owner.
         rdr, wtr = attr_md.accessors
         redefine_method(wtr) do |old_wtr|
           lambda do |ref|
             prev = send(rdr)
+            send(old_wtr, ref)
             if prev and prev != ref then
               if ref.nil? then
-                logger.warn("Unsetting the #{self} owner #{attribute} #{prev}.")
+                logger.warn("Unset the #{self} owner #{attribute} #{prev}.")
               elsif ref.identifier != prev.identifier then
-                logger.warn("Resetting the #{self} owner #{attribute} from #{prev} to #{ref}.")
+                logger.warn("Reset the #{self} owner #{attribute} from #{prev} to #{ref}.")
               end
             end
-            send(old_wtr, ref)
+            ref
           end
         end
         logger.debug { "Injected owner change warning into #{qp}.#{attribute} writer method #{wtr}." }
@@ -185,6 +190,11 @@ module CaRuby
       
       private
       
+      # @param [<Symbol>] attributes the order in which the effective owner attribute should be determined
+      def order_owner_attributes(*attributes)
+        @oattr_order = attributes
+      end
+      
       def local_owner_attribute_metadata_hash
         @local_oa_hash ||= {}
       end
@@ -198,7 +208,13 @@ module CaRuby
       # @return [<Attribute>] the owner attributes
       def owner_attribute_metadata_enumerator
         # Enumerate each owner Attribute, filtering out nil values.
-        @oa_enum ||= Enumerable::Enumerator.new(owner_attribute_metadata_hash, :each_value).filter
+        @oa_enum ||= create_owner_attribute_metadata_enumerator
+      end
+      
+      # @return [<Attribute>] the owner attribute enumerator
+      def create_owner_attribute_metadata_enumerator
+        # Enumerate each owner Attribute, filtering out nil values.
+        Enumerable::Enumerator.new(owner_attribute_metadata_hash, :each_value).filter
       end
       
       # Returns the attribute which references the owner. The owner attribute is the inverse
