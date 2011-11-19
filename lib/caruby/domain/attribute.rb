@@ -306,7 +306,8 @@ module CaRuby
         (dependent? and not logical?) or @flags.include?(:cascaded)
       end
       
-      # @return whether this attribute is {#cascaded?} or marked with the +:include_in_save_template+ flag
+      # @return [Boolean] whether this attribute is {#cascaded?} or marked with the
+      #   +:include_in_save_template+ flag
       def include_in_save_template?
         cascaded? or @flags.include?(:include_in_save_template)
       end
@@ -356,13 +357,13 @@ module CaRuby
       end
   
       # Returns whether this attribute's referents must exist before an instance of the
-      # declarer class can be created. An attribute is a storable prerequisite if it is
+      # declarer class can be created. An attribute is a savable prerequisite if it is
       # either:
       # * a {#cascaded?} dependent which does not #{#cascade_update_to_create?}, or
       # * a {#saved?} {#independent?} 1:M or M:N association.
       #
       # @return [Boolean] whether this attribute is a create prerequisite
-      def storable_prerequisite?
+      def savable_prerequisite?
         return true if cascaded? and @flags.include?(:no_cascade_update_to_create)
         return false unless independent? and saved?
         return true unless collection?
