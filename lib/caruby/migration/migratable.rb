@@ -129,15 +129,16 @@ module CaRuby
     # @param mth_hash (see #migrate_references)
     def migratable__migrate_owner(row, migrated, mth_hash=nil)
       # the owner attributes=> migrated reference hash
-      ovh = self.class.owner_attributes.to_compact_hash do |attr|
-        attr_md = self.class.attribute_metadata(attr)
+      ovh = self.class.owner_attributes.to_compact_hash do |mattr|
+        attr_md = self.class.attribute_metadata(mattr)
         migratable__target_value(attr_md, row, migrated, mth_hash=nil)
       end
       if ovh.size > 1 then
         logger.debug { "The migrated dependent #{qp} has ambiguous migrated owner references #{ovh.qp}." }
       elsif ovh.size == 1 then
-        attr, ref = ovh.first
-        set_attribute(attr, ref)
+        oattr, oref = ovh.first
+        set_attribute(oattr, oref)
+        logger.debug { "Set the #{qp} #{oattr} owner to the migrated #{oref.qp}." }
       end
     end
     
@@ -146,7 +147,7 @@ module CaRuby
     # @param migrated (see #migrate_references)
     # @param mth_hash (see #migrate_references)
     def migratable__set_nonowner_references(attr_filter, row, migrated, mth_hash=nil)
-      attr_filter.each_pair do |attr, attr_md|
+      attr_filter.each_pair do |mattr, attr_md|
         # skip owners
         next if attr_md.owner?
         # the target value
@@ -155,14 +156,14 @@ module CaRuby
           # the current value
           value = send(attr_md.reader) || next
           value << ref
-          logger.debug { "Added the migrated #{ref.qp} to #{qp} #{attr}." }
+          logger.debug { "Added the migrated #{ref.qp} to #{qp} #{mattr}." }
         else 
-          current = send(attr)
+          current = send(mattr)
           if current then
-            logger.debug { "Ignoring the migrated #{ref.qp} since #{qp} #{attr} is already set to #{current.qp}." }
+            logger.debug { "Ignoring the migrated #{ref.qp} since #{qp} #{mattr} is already set to #{current.qp}." }
           else
-            set_attribute(attr, ref)
-            logger.debug { "Set the #{qp} #{attr} to migrated #{ref.qp}." }
+            set_attribute(mattr, ref)
+            logger.debug { "Set the #{qp} #{mattr} to the migrated #{ref.qp}." }
           end
         end
       end
