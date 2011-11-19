@@ -3,7 +3,6 @@ gem 'dbi'
 
 require 'dbi'
 require 'caruby/helpers/options'
-require 'caruby/domain/properties'
 
 module CaRuby
   # SQLExecutor executes an SQL statement against the database.
