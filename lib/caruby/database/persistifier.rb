@@ -86,12 +86,13 @@ module CaRuby
       # @return [Resource, <Resource>] the detoxified object(s)
       def detoxify(toxic)
         return if toxic.nil?
+        logger.debug { "Detoxifying the toxic caCORE result #{toxic.qp}..." }
         if toxic.collection? then
           toxic.each { |obj| detoxify(obj) }
         else
-          logger.debug { "Detoxifying the toxic caCORE result #{toxic.qp}..." }
           @ftchd_vstr.visit(toxic) { |ref| clear_toxic_attributes(ref) }
         end
+        logger.debug { "Detoxified the toxic caCORE result #{toxic.qp}." }
         toxic
       end
       
@@ -131,7 +132,7 @@ module CaRuby
         # set the inverses before recursing to dependents
         set_inverses(obj)
         # recurse to dependents before adding a lazy loader to the owner
-        obj.each_dependent { |dep| persistify(dep) if dep.identifier }
+        obj.dependents.each { |dep| persistify(dep) if dep.identifier }
         persistify_object(obj, other)
       end
       

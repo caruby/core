@@ -3,6 +3,7 @@ require 'caruby/helpers/inflector'
 require 'caruby/helpers/pretty_print'
 require 'caruby/helpers/validation'
 require 'caruby/helpers/collection'
+require 'caruby/helpers/reference_enumerator'
 require 'caruby/domain'
 require 'caruby/domain/merge'
 require 'caruby/domain/reference_visitor'
@@ -86,18 +87,6 @@ module CaRuby
         send(attr).enumerate { |dep| dep.validate }
       end
       self
-    end
-    
-    # Adds the default values to this object, if it is not already fetched, and its dependents.
-    #
-    # This method is intended for use only by the {#add_defaults} method.
-    def add_defaults_recursive
-      # Add the local defaults.
-      # The lazy loader is enabled in order to allow subclass add_defaults_local implementations
-      # to pick up load-on-demand references used to set defaults. 
-      database.lazy_loader.enable { add_defaults_local }
-      # add dependent defaults
-      each_defaults_dependent { |dep| dep.add_defaults_recursive }
     end
     
     # @return [Boolean] whether this domain object has {#searchable_attributes}
@@ -193,11 +182,19 @@ module CaRuby
     def owner
       self.class.owner_attributes.detect_value { |attr| send(attr) }
     end
+    
+    # @return [Boolean] whether a {Attribute#cascaded_dependent?} owner attribute is set
+    def cascaded_dependent?
+      self.class.cascaded_dependent_attributes.detect { |attr| send(attr) }
+    end
 
-    # @return [Symbol, nil] the attribute for which there is an owner reference,
-    #  or nil if this domain object does not reference an owner
-    def effective_owner_attribute
-      self.class.owner_attributes.detect { |attr| send(attr) }
+    # @return [(Symbol, Resource), nil] the (attribute, value) pair for which there is an
+    # owner reference, or nil if this domain object does not reference an owner
+    def effective_owner_attribute_value
+      self.class.owner_attributes.detect_value do |attr|
+        ref = send(attr)
+        [attr, ref] if ref 
+      end
     end
     
     # Sets this dependent's owner attribute to the given domain object.
@@ -247,20 +244,24 @@ module CaRuby
     def independent?
       not dependent?
     end
-
-    # Enumerates over this domain object's dependents.
-    #
-    # @yield [dep] the block to execute on the dependent
-    # @yieldparam [Resource] dep the dependent
-    def each_dependent
-      self.class.dependent_attributes.each do |attr|
-       send(attr).enumerate { |dep| yield dep }
-      end
-    end
     
-    # @return [Enumerable] this domain object's dependents
-    def dependents
-      enum_for(:each_dependent)
+    # Returns this domain object's dependents. Dependents which have an alternate preferred
+    # owner, as described in {#effective_owner_attribute_value}, are not included in the
+    # result.
+    # 
+    # @param [<Symbol>] attributes the dependent attributes (default all dependent attributes)
+    # @return [Enumerable] this domain object's direct dependents
+    def dependents(*attributes)
+      attributes = self.class.dependent_attributes if attributes.empty?
+      # Make a reference enumerator that selects only those dependents
+      # which do not have an alternate preferred owner.
+      ReferenceEnumerator.new(self, attributes).filter do |dep|
+        # dep is a candidate dependent. dep could have a preferred owner which differs
+        # from self. If there is a different preferred owner, then don't call the
+        # iteration block.
+        oref = dep.owner
+        oref.nil? or oref == self
+      end
     end
     
     # Returns the attributes which are required for save. This base implementation returns the
@@ -531,6 +532,18 @@ module CaRuby
     def missing_mandatory_attributes
       mandatory_attributes.select { |attr| send(attr).nil_or_empty? }
     end
+    
+    # Adds the default values to this object, if it is not already fetched, and its dependents.
+    # The lazy loader is enabled when {#add_defaults_local} on this domain object in order to
+    # allow subclass implementations to pick up load-on-demand references used to set defaults.
+    #
+    # @see #each_defaultable_reference
+    def add_defaults_recursive
+      # Add the local defaults.
+      database.lazy_loader.enable { add_defaults_local }
+      # add dependent defaults
+      each_defaultable_reference { |ref| ref.add_defaults_recursive }
+    end
 
     private
 
@@ -573,30 +586,59 @@ module CaRuby
       merge_attributes(self.class.defaults)
     end
     
-    # Validates that this domain contains a non-nil value for each mandatory property.
+    # Validates that this domain object is internally consistent.
     # Subclasses override this method for additional validation, but should call super first.
     #
-    # @raise [ValidationError] if a mandatory attribute value is missing
-    # @raise [ValidationError] if there is more than owner
+    # @see #validate_mandatory_attributes
+    # @ee #validate_owner
     def validate_local
-      logger.debug { "Validating #{qp} required attributes #{self.mandatory_attributes.to_a.to_series}..." }
+      validate_mandatory_attributes
+      validate_owner
+    end
+    
+    # Validates that this domain object contains a non-nil value for each mandatory property.
+    #
+    # @raise [ValidationError] if a mandatory attribute value is missing
+    def validate_mandatory_attributes
       invalid = missing_mandatory_attributes
       unless invalid.empty? then
         logger.error("Validation of #{qp} unsuccessful - missing #{invalid.join(', ')}:\n#{dump}")
         CaRuby.fail(ValidationError, "Required attribute value missing for #{self}: #{invalid.join(', ')}")
       end
-      if self.class.bidirectional_dependent? and not owner then
-        CaRuby.fail(ValidationError, "Dependent #{self} does not reference an owner")
+      validate_owner
+    end
+    
+    # Validates that this domain object either doesn't have an owner attribute or has a unique
+    # effective owner.
+    #
+    # @raise [ValidationError] if there is an owner reference attribute that is not set
+    # @raise [ValidationError] if there is more than effective owner
+    def validate_owner
+      # If there is an unambigous owner, then we are done.
+      return unless owner.nil?
+      # If there is more than one owner attribute, then check that there is at most one
+      # unambiguous owner reference. The owner method returns nil if the owner is ambiguous.
+      if self.class.owner_attributes.size > 1 then
+        vh = value_hash(self.class.owner_attributes)
+        if vh.size > 1 then
+          CaRuby.fail(ValidationError, "Dependent #{self} references multiple owners #{vh.pp_s}:\n#{dump}")
+        end
       end
-      vh = value_hash(self.class.owner_attributes)
-      if vh.size > 1 then
-        CaRuby.fail(ValidationError, "Dependent #{self} references multiple owners #{vh.pp_s}")
+      # If there is an owner reference attribute, then there must be an owner.
+      if self.class.bidirectional_dependent? then
+        CaRuby.fail(ValidationError, "Dependent #{self} does not reference an owner")
       end
     end
     
-    # Enumerates the dependents for setting defaults. Subclasses can override if the
-    # dependents must be visited in a certain order.
-    alias :each_defaults_dependent :each_dependent
+    # Enumerates referenced domain objects for setting defaults. This base implementation
+    # includes the {#dependents}. Subclasses can override this# method to add references
+    # which should be defaulted or to set the order in which defaults are applied.
+    #
+    # @yield [dep] operate on the dependent
+    # @yieldparam [<Resource>] dep the dependent to which the defaults are applied
+    def each_defaultable_reference(&block)
+      dependents.each(&block)
+    end
 
     # @return [Boolean] whether the given key attributes is non-empty and each attribute in the key has a non-nil value
     def key_searchable?(attributes)
