@@ -268,7 +268,7 @@ module CaRuby
         @session.start_session(user, password)
       rescue Exception => e
         logger.error("Login of #{user} unsuccessful - #{e.message}")
-        raise
+        raise e
       end
       logger.info("Connected to application server.")
     end

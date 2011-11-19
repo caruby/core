@@ -1107,7 +1107,7 @@ class Array
     begin
       add_all(other.to_a)
     rescue NoMethodError
-      raise
+      raise e
     rescue
       CaRuby.fail(ArgumentError, "Can't convert #{other.class.name} to array")
     end

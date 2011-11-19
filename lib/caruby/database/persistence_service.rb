@@ -55,7 +55,7 @@ module CaRuby
         dispatch { |svc| svc.create_object(obj) }
       rescue Exception => e
         logger.error("Error creating #{obj} - #{e.message}\n#{dump(obj)}")
-        raise
+        raise e
       end
     end
 
@@ -66,7 +66,7 @@ module CaRuby
         dispatch { |svc| svc.update_object(obj) }
       rescue Exception => e
         logger.error("Error updating #{obj} - #{e.message}\n#{dump(obj)}")
-        raise
+        raise e
       end
    end
 
@@ -77,7 +77,7 @@ module CaRuby
         dispatch { |svc| svc.remove_object(obj) }
       rescue Exception => e
         logger.error("Error deleting #{obj} - #{e.message}\n#{dump(obj)}")
-        raise
+        raise e
       end
     end
 
@@ -142,7 +142,7 @@ module CaRuby
         dispatch { |svc| svc.query(criteria, target) }
       rescue Exception => e
         logger.error("Error querying on HQL - #{$!}:\n#{hql}")
-        raise
+        raise e
       end
     end
 
@@ -167,7 +167,7 @@ module CaRuby
         dispatch { |svc| svc.search(reverse_class_name_path.join(','), template) }
       rescue Exception => e
         logger.error("Error searching on template #{template}#{', path ' + path.join('.') unless path.empty?} - #{$!}\n#{dump(template)}")
-        raise
+        raise e
       end
     end
 
