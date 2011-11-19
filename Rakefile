@@ -1,7 +1,4 @@
-$:.unshift File.join(File.dirname(__FILE__), 'lib')
-
-require 'caruby/version'
-require 'rbconfig'
+require File.expand_path('version', File.dirname(__FILE__) + '/lib/caruby')
 
 # the gem name
 GEM = 'caruby-core'
