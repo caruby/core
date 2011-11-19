@@ -2,7 +2,7 @@ require 'caruby/helpers/collection'
 require 'caruby/helpers/pretty_print'
 require 'caruby/domain/reference_visitor'
 require 'caruby/database/saved_matcher'
-require 'caruby/database/store_template_builder'
+require 'caruby/database/writer_template_builder'
 
 module CaRuby
   class Database
@@ -12,8 +12,8 @@ module CaRuby
       def initialize
         super
         @ftchd_vstr = ReferenceVisitor.new { |tgt| tgt.class.fetched_domain_attributes }
-        @cr_tmpl_bldr = StoreTemplateBuilder.new(self) { |ref| creatable_domain_attributes(ref) }
-        @upd_tmpl_bldr = StoreTemplateBuilder.new(self) { |ref| updatable_domain_attributes(ref) }
+        @cr_tmpl_bldr = TemplateBuilder.new(self) { |ref| creatable_domain_attributes(ref) }
+        @upd_tmpl_bldr = TemplateBuilder.new(self) { |ref| updatable_domain_attributes(ref) }
         # the save result => argument reference matcher
         svd_mtchr = SavedMatcher.new
         # the save (result, argument) synchronization visitor
@@ -144,10 +144,19 @@ module CaRuby
 
       private
       
-      # Returns whether there is already the given object operation in progress that is not in the scope of
-      # an operation performed on a dependent obj owner, i.e. a second obj save operation of the same type
-      # is only allowed if the obj operation was delegated to an owner save which in turn saves the dependent
-      # obj.
+      # Returns whether the given operation is already in progress on the same object.
+      # The operation is only allowed if it is in the scope of a dependent owner
+      # operation of the same type.
+      #
+      # For example, if a StudyEvent is owned by a Study, then the following is allowed:
+      #   create StudyEvent
+      #   ...
+      #   create Study
+      #   ...
+      #   create StudyEvent
+      # 
+      # same type on the same dependent is only allowed if the precursor operation was delegated to an owner save which
+      # in turn saves the dependent.
       #
       # @param [Resource] obj the domain object to save
       # @param [Symbol] operation the +:create+ or +:update+ save operation
@@ -159,7 +168,7 @@ module CaRuby
       
       # Creates obj as follows:
       # * if obj has an uncreated owner, then store the owner, which in turn will create a physical dependent
-      # * otherwise, create a storable template. The template is a copy of obj containing a recursive copy
+      # * otherwise, create a savable template. The template is a copy of obj containing a recursive copy
       #   of each saved obj reference and resolved independent references
       # * submit the template to the create application service
       # * update the obj dependency transitive closure content from the create result
@@ -194,7 +203,7 @@ module CaRuby
       # A logical dependent is created by its parent unless the parent already exists.
       # If the logical parent exists, then dep must be created.
       #
-      #@param [Resource] dep the dependent domain object to create
+      # @param [Resource] dep the dependent domain object to create
       # @return [Resource] dep
       def create_dependent(owner, dep)
         if owner.identifier.nil? then
@@ -211,11 +220,14 @@ module CaRuby
 
         # If there is a saver proxy, then use the proxy.
         if dep.class.method_defined?(:saver_proxy) then
-          save_with_proxy(dep)
-          # remove obj from transients to clear previous fetch, if any
-          @transients.delete(dep)
-          logger.debug { "Fetching #{dep.qp} to reflect the proxy save..." }
-          find(dep)
+          saved = save_with_proxy(dep)
+          if saved then
+            # remove obj from transients to clear previous fetch, if any
+            @transients.delete(dep)
+            logger.debug { "Fetching #{dep.qp} to reflect the proxy save..." }
+            find(dep)
+          end
+          dep
         end
       end
      
@@ -227,6 +239,10 @@ module CaRuby
       def save_with_proxy(obj)
         proxy = obj.saver_proxy
         if proxy.nil? then CaRuby.fail(DatabaseError, "#{obj.class.qp} does not have a proxy") end
+        if recursive_save?(proxy, :create) then
+          logger.debug { "Foregoing #{obj.qp} save, since it  will be handled by creating the proxy #{proxy}." }
+          return
+        end
         logger.debug { "Saving #{obj.qp} by creating the proxy #{proxy}..." }
         create(proxy)
         logger.debug { "Created the #{obj.qp} proxy #{proxy}." }
@@ -296,33 +312,35 @@ module CaRuby
       def build_create_template(obj)
         build_save_template(obj, @cr_tmpl_bldr)
       end
-#
+
       # @quirk caCORE application create logic might ignore a non-domain attribute value,
-      # e.g. the caTissue StorageContainer auto-generated name attribute. In other cases, the application
-      # always ignores a non-domain attribute value, so the object should not be saved even if it differs
-      # from the stored result, e.g. the caTissue CollectionProtocolRegistration unsaved
-      # registration_date. The work-around is to check whether the create result
-      # differs from the create argument for the auto-generated updatable attributes, and, if so,
-      # to update the saved object.
+      # e.g. the caTissue StorageContainer auto-generated name attribute. In other cases,
+      # the application always ignores a non-domain attribute value, e.g. the caTissue
+      # CollectionProtocolRegistration registration_date. The work-around is to
+      # check whether the create result differs from the create argument for the
+      # {Attributes#autogenerated_nondomain_attributes}, and, if so, to perform an update
+      # on the save argument.
       #
-      # This method returns whether the saved obj differs from the stored source for any
+      # This method returns whether the save result differs from the save source for any
       # {Attributes#autogenerated_nondomain_attributes}.
       #
-      # @param [Resource] the created domain object
-      # @param [Resource] the stored database content source domain object
-      # @return [Boolean] whether obj differs from the source on the the non-domain attributes
+      # @param [Resource] obj the save argument
+      # @param [Resource] source the save result
+      # @return [Boolean] whether the save result differs from the save source on the
+      #   autogenerated non-domain attributes
       def update_saved?(obj, source)
         obj.class.autogenerated_nondomain_attributes.any? do |attr|
           intended = obj.send(attr)
           stored = source.send(attr)
           if intended != stored then
             logger.debug { "Saved #{obj.qp} #{attr} value #{intended} differs from result value #{stored}..." }
+            true
           end
         end
       end
       
-      # Returns the {MetadataAttributes#creatable_domain_attributes} which are not contravened by a
-      # one-to-one independent pending create.
+      # Returns the {MetadataAttributes#creatable_domain_attributes} which are not contravened
+      # by a one-to-one independent pending create.
       # 
       # @param (see #create)
       # @return [<Symbol>] the attributes to include in the create template
@@ -423,23 +441,20 @@ module CaRuby
         obj.take_snapshot
       end
       
-      # Returns the owner that can cascade update to the given object.
-      # The owner is the #{Resource#effective_owner_attribute} value
-      # for which the owner attribute {Attribute#inverse_metadata}
-      # is {Attribute#cascaded?}.
+      # Returns the owner that can cascade update to the given object. The owner is the
+      # {Resource#effective_owner_attribute} value for which the owner attribute
+      # {Attribute#inverse_metadata} is {Attribute#cascaded?}.
       # 
       # @param [Resource] obj the domain object to update
       # @return [Resource, nil] the owner which can cascade an update to the object, or nil if none
       # @raise [DatabaseError] if the domain object is a cascaded dependent but does not have an owner
       def cascaded_owner(obj)
-        return unless obj.class.cascaded_dependent?
-        # the owner attribute
-        oattr = obj.effective_owner_attribute
+        return unless obj.cascaded_dependent?
+        # the owner attribute and value
+        oattr, oref = obj.effective_owner_attribute_value
         if oattr.nil? then CaRuby.fail(DatabaseError, "Dependent #{obj} does not have an owner") end
         dep_md = obj.class.attribute_metadata(oattr).inverse_metadata
-        if dep_md and dep_md.cascaded? then
-          obj.send(oattr)
-        end
+        oref if dep_md and dep_md.cascaded?
       end
       
       def update_cascaded_dependent(owner, obj)
@@ -497,7 +512,7 @@ module CaRuby
       end
       
       # @param obj (see #save)
-      # @param [StoreTemplateBuilder] builder the builder to use
+      # @param [TemplateBuilder] builder the builder to use
       # @return [Resource] the template to use as the save argument
       def build_save_template(obj, builder)
         builder.build_template(obj)
@@ -538,12 +553,13 @@ module CaRuby
         result
       end
       
-      # Synchronizes the content of the given saved domain object and the save result source as follows:
-      # 1. The save result source is first synchronized with the database content as necessary.
-      # 2. Then the source is merged into the target.
-      # 3. If the target must be resaved based on the call to {#update_saved?}, then the source
-      #    result is resaved.
-      # 4. Each target dependent which differs from the corresponding source dependent is saved.
+      # Synchronizes the content of the given saved argument and result as follows:
+      # 1. The save result is first synchronized with the database content as necessary.
+      # 2. Then the result is merged into the argument.
+      # 3. If the argument must be resaved based on the call to {#update_saved?}, then the
+      #    argument is resaved.
+      # 4. Each argument dependent which differs from the corresponding result dependent
+      #    is saved.
       #
       # @param [Resource] target the saved domain object
       # @param [Resource] source the caCORE save result
@@ -565,7 +581,7 @@ module CaRuby
         save_changed_dependents(target)
       end
       
-      # Synchronizes the given saved target result source with the database content.
+      # Synchronizes the given save result with the database content.
       # The source is synchronized by {#sync_save_result}.
       #
       # @param (see #sync_saved)
@@ -620,7 +636,7 @@ module CaRuby
         set_inverses(source)
       end
       
-      # Refetches the given create result source if there are any {Attributes#autogenerated_nondomain_attributes}
+      # Refetches the given create result if there are any {Attributes#autogenerated_nondomain_attributes}
       # which must be fetched to reflect the database state.
       #
       # @param source (see #sync_saved)
@@ -631,7 +647,7 @@ module CaRuby
         find(source)
       end
       
-      # Fetches the {#synchronization_attributes} into the given target save result source.
+      # Fetches the {#synchronization_attributes} into the given save result.
       #
       # @param (see #sync_saved)
       def sync_save_result_references(source, target)
@@ -650,8 +666,8 @@ module CaRuby
         source.set_attribute(attribute, fetched)
       end
       
-      # Returns the saved target attributes which must be fetched to reflect the database content, consisting
-      # of the following:
+      # Returns the saved target attributes which must be fetched to reflect the database content,
+      # consisting of the following:
       # * {Persistable#saved_fetch_attributes}
       # * {Attributes#domain_attributes} which include a source reference without an identifier
       #
@@ -684,10 +700,12 @@ module CaRuby
       #
       # @param [Resource] obj the owner domain object
       def save_changed_dependents(obj)
-        obj.class.dependent_attributes.each do |attr|
-          deps = obj.send(attr)
-          logger.debug { "Saving the #{obj} #{attr} dependents #{deps.to_enum.qp(:single_line)} which have changed..." } unless deps.nil_or_empty?
-          deps.enumerate { |dep| save_dependent_if_changed(obj, attr, dep) }
+        obj.class.dependent_attributes.each do |dattr|
+          deps = obj.dependents(dattr)
+          unless deps.nil_or_empty? then
+            logger.debug { "Saving the #{obj} #{dattr} dependents #{deps.to_enum.qp(:single_line)} which have changed..." }
+          end
+          deps.enumerate { |dep| save_dependent_if_changed(obj, dattr, dep) }
         end
       end
       

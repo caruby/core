@@ -3,7 +3,7 @@ require 'caruby/helpers/cache'
 require 'caruby/helpers/pretty_print'
 require 'caruby/domain/reference_visitor'
 require 'caruby/database/fetched_matcher'
-require 'caruby/database/search_template_builder'
+require 'caruby/database/reader_template_builder'
 
 module CaRuby
   class Database
@@ -13,7 +13,7 @@ module CaRuby
       def initialize
         super
         # the query template builder
-        @srch_tmpl_bldr = SearchTemplateBuilder.new
+        @srch_tmpl_bldr = TemplateBuilder.new
         # the fetch result matcher
         @matcher = FetchedMatcher.new
         # the fetched copier
@@ -205,7 +205,7 @@ module CaRuby
       # Returns an array of objects fetched from the database which matches
       # a template and follows the given optional domain attribute, if present.
       #
-      # The search template is built by {SearchTemplateBuilder#build_template}.
+      # The search template is built by {TemplateBuilder#build_template}.
       # If a template could not be built and obj is dependent, then this method
       # queries the obj owner with a dependent filter.
       #
