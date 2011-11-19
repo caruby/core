@@ -65,7 +65,6 @@ module CaRuby
       end
       # call the writer on this object
       send(wtr, newval)
-
       # add self to the inverse collection
       if newval then
         coll = newval.send(inverse)
