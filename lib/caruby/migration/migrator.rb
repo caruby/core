@@ -428,7 +428,7 @@ module CaRuby
           require file
       rescue Exception => e
           logger.error("Migrator couldn't load shim file #{file} - #{e}.")
-          raise
+          raise e
         end
         logger.info { "Migrator loaded shim file #{file}." }
       end
@@ -762,7 +762,7 @@ module CaRuby
     
     # @param [String] file the migration fields configuration file
     # @param [{Class => {Attribute => Symbol}}] hash the class => path => header hash
-    #   loaded from the configuration file
+    #   to populate from the loaded configuration
     def load_field_map_file(file, hash)
       # load the field mapping config file
       begin
@@ -770,7 +770,12 @@ module CaRuby
       rescue
         CaRuby.fail(MigrationError, "Could not read field map file #{file}: " + $!)
       end
-
+      populate_field_map(config, hash)
+    end
+    
+    # @param [{String => String}] config the attribute => header specification
+    # @param hash (see #load_field_map_file)
+    def populate_field_map(config, hash)
       # collect the class => path => header entries
       config.each do |field, attr_list|
         next if attr_list.blank?
@@ -785,7 +790,7 @@ module CaRuby
       end
     end
     
-    # Loads the defaults config files.
+    # Loads the defaults configuration files.
     #
     # @param [<String>, String] files the file or file array to load
     # @return [<Class => <String => Object>>] the class => path => default value entries 
@@ -862,14 +867,14 @@ module CaRuby
       # build the Attribute path
       path = []
       names.inject(klass) do |parent, name|
-        attr = name.to_sym
+        pattr = name.to_sym
         attr_md = begin
-          parent.attribute_metadata(attr)
+          parent.attribute_metadata(pattr)
         rescue NameError => e
-          CaRuby.fail(MigrationError, "Migration field mapping attribute #{parent.qp}.#{attr} not found", e)
+          CaRuby.fail(MigrationError, "Migration field mapping attribute #{parent.qp}.#{pattr} not found", e)
         end
         if attr_md.collection? then
-          CaRuby.fail(MigrationError, "Migration field mapping attribute #{parent.qp}.#{attr} is a collection, which is not supported")
+          CaRuby.fail(MigrationError, "Migration field mapping attribute #{parent.qp}.#{pattr} is a collection, which is not supported")
         end
         path << attr_md
         attr_md.type
