@@ -1,6 +1,4 @@
-require File.dirname(__FILE__) + '/../../../helper'
-require "test/unit"
-require File.dirname(__FILE__) + '/../../../caruby/migration/test_case'
+require File.dirname(__FILE__) + '/../../../caruby/migration/helpers/test_case'
 require 'clinical_trials'
 
 module ClinicalTrials
@@ -12,17 +10,17 @@ module ClinicalTrials
       super(FIXTURES)
     end
     
-#    def test_subject
-#      verify_target(:subject, :target => ClinicalTrials::Subject, :mapping=> SUBJECT_MAPPING) do |sbj|
-#        assert_not_nil(sbj.ssn, "Missing SSN")
-#      end
-#    end
-#    
-#    def test_ssn_filter
-#      verify_target(:ssn_filter, :target => ClinicalTrials::Subject, :mapping=> SUBJECT_MAPPING, :shims => SSN_SHIMS) do |sbj|
-#        assert_not_nil(sbj.ssn, "Missing SSN")
-#      end
-#    end
+   def test_subject
+     verify_target(:subject, :target => ClinicalTrials::Subject, :mapping=> SUBJECT_MAPPING) do |sbj|
+       assert_not_nil(sbj.ssn, "Missing SSN")
+     end
+   end
+   
+   def test_ssn_filter
+     verify_target(:ssn_filter, :target => ClinicalTrials::Subject, :mapping=> SUBJECT_MAPPING, :shims => SSN_SHIMS) do |sbj|
+       assert_not_nil(sbj.ssn, "Missing SSN")
+     end
+   end
     
     def test_activity_filter
       verify_target(:activity_filter, :target => ClinicalTrials::Study, :mapping=> STUDY_MAPPING, :defaults => STUDY_DEFAULTS, :filters => STUDY_FILTERS) do |std|
