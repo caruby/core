@@ -1,5 +1,4 @@
-require 'caruby/domain/metadata'
-require 'caruby/resource'
+require 'caruby/domain/metadata_loader'
 
 module CaRuby
   module Domain
@@ -13,6 +12,8 @@ module CaRuby
     # +ClinicalTrials::Subject+. The +ClinicalTrials::Resource+ module is included
     # in +ClinicalTrials::Subject+ and the Java property meta-data is introspected.
     module Importer
+      include MetadataLoader
+      
       # Extends the given module with Java class meta-data import support.
       #
       # @param [Module] mod the module to extend
@@ -21,7 +22,7 @@ module CaRuby
       def self.extend_module(mod, opts)
         mod.extend(self).configure_importer(opts)
       end
-  
+      
       # Imports a Java class constant on demand. If the class does not already
       # include this module's mixin, then the mixin is included in the class.
       #
@@ -50,6 +51,7 @@ module CaRuby
           add_metadata(klass) 
           logger.info(klass.pp_s)
         end
+        
         klass
       end
     
@@ -107,45 +109,7 @@ module CaRuby
         @introspected = Set.new
         load_dir(@directory) if @directory
       end
-           
-      # Enables the given class meta-data.
-      #
-      # @param [Class] klass the class to enable
-      def add_metadata(klass)
-        # Mark the class as introspected. Do this first to preclude a recursive loop back
-        # into this method when the references are introspected below.
-        @introspected << klass
-        # The domain module.
-        mod = klass.parent_module
-        # Add the superclass meta-data if necessary.
-        sc = klass.superclass
-        unless @introspected.include?(sc) or sc.parent_module != mod then
-          add_metadata(sc)
-        end
-        # Include the mixin.
-        unless klass < @mixin then
-          mixin = @mixin
-          klass.class_eval { include mixin }
-        end
-        # Add the class metadata.
-        klass.extend(Metadata)
-        case @metadata
-        when Module then klass.extend(@metadata) 
-        when Proc then @metadata.call(klass) 
-        end
-        # Set the class domain module.
-        klass.domain_module = self
-        # Add referenced domain class metadata as necessary.
-        klass.each_attribute_metadata do |attr_md|
-          ref = attr_md.type
-          if ref.nil? then CaRuby.fail(MetadataError, "#{self} #{attr_md} domain type is unknown.") end
-          unless @introspected.include?(ref) or ref.parent_module != mod then
-            logger.debug { "Adding #{qp} #{attr_md} reference #{ref.qp} metadata..." }
-            add_metadata(ref)
-          end
-        end
-      end
-      
+
       # Loads the Ruby source files in the given directory.
       #
       # @param [String] dir the source directory
