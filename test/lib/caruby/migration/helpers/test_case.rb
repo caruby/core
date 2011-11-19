@@ -1,16 +1,14 @@
-LOG_FILE = 'test/results/log/migration.log'
-
-require File.join(File.dirname(__FILE__), '..', 'test_case')
+require File.dirname(__FILE__) + '/../../../helpers/test_case'
 require 'caruby/domain/uniquify'
 require 'caruby/migration/migrator'
 
 module CaRuby
   module MigrationTestCase
     include CaRuby::TestCase
-
+    
     #@param [String] fixtures the fixtures directory
-    def setup(fixtures, database=nil)
-      super(database)
+    def setup(fixtures)
+      super()
       @fixtures = fixtures
       # Clear the uniquifier for this migration.
       CaRuby::ResourceUniquifier.instance.clear
