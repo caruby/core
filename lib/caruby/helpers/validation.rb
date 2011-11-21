@@ -1,5 +1,7 @@
-# Raised when an object fails a validation test.
-class ValidationError < RuntimeError; end
+module CaRuby
+  # Raised when an object fails a validation test.
+  class ValidationError < RuntimeError; end
+end
 
 class Object
   # Returns whether this object is nil, false, empty, or a whitespace string.
