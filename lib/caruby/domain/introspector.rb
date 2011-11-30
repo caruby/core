@@ -5,7 +5,7 @@ require 'caruby/domain/java_attribute'
 module CaRuby
   module Domain
     # Meta-data mix-in to infer attribute meta-data from Java properties.
-    module Introspection
+    module Introspector
       
       protected
       

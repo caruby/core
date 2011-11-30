@@ -14,7 +14,7 @@ module CaRuby
     
     # Adds introspected metadata to a Class.
     module Metadata
-      include Introspection, Inverse, Dependency, Attributes, JSON::Deserializer
+      include Introspector, Inverse, Dependency, Attributes, JSON::Deserializer
       
       # @return [Module] the {Domain} module context
       attr_accessor :domain_module
