@@ -21,14 +21,17 @@ module CaRuby
     # The default database driver class is +com.mysql.jdbc.Driver+ for MySQL,
     # +oracle.jdbc.OracleDriver+ for Oracle.
     #
+    # The default database URI is +dbi:+_db_driver_+://+_db_host_+:+_db_port_+/+_db_name_.
+    #
     # @param [Hash] opts the connect options
     # @option opts [String] :database the mandatory database name
     # @option opts [String] :database_user the mandatory database username (not the application login name)
     # @option opts [String] :database_password the optional database password (not the application login password)
     # @option opts [String] :database_host the optional database host
     # @option opts [Integer] :database_port the optional database port number
-    # @option opts [String] :database_type the optional DBI database type, e.g. +mysql+
+    # @option opts [Integer] :database_port the optional database port number
     # @option opts [String] :database_driver the optional DBI connect driver string, e.g. +jdbc:mysql+
+    # @option opts [String] :database_url the optional database connection URL
     # @option opts [String] :database_driver_class the optional DBI connect driver class name
     # @raise [CaRuby::ConfigurationError] if an option is invalid
     def initialize(opts)
@@ -41,7 +44,8 @@ module CaRuby
       db_driver = Options.get(:database_driver, opts) { default_driver_string(db_type) }
       db_port = Options.get(:database_port, opts) { default_port(db_type) }
       db_name = Options.get(:database, opts) { raise_missing_option_exception(:database) }
-      @address = "dbi:#{db_driver}://#{db_host}:#{db_port}/#{db_name}"
+      db_url = Options.get(:database_url, opts) { "#{db_driver}://#{db_host}:#{db_port}/#{db_name}" }
+      @dbi_url = 'dbi:' + db_url
       @username = Options.get(:database_user, opts) { raise_missing_option_exception(:database_user) }
       @password = Options.get(:database_password, opts)
       @driver_class = Options.get(:database_driver_class, opts, default_driver_class(db_type))
@@ -54,7 +58,7 @@ module CaRuby
         :database_port => db_port,
         :database_driver => db_driver,
         :database_driver_class => @driver_class,
-        :address => @address
+        :database_url => db_url
       }
       logger.debug { "Database connection parameters (excluding password): #{eff_opts.qp}" }
     end
@@ -63,7 +67,7 @@ module CaRuby
     #
     # @return [Array] the execution result
     def execute
-      DBI.connect(@address, @username, @password, 'driver'=> @driver_class) { |dbh| yield dbh }
+      DBI.connect(@dbi_url, @username, @password, 'driver'=> @driver_class) { |dbh| yield dbh }
     end
 
     private
