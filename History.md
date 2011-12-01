@@ -1,6 +1,10 @@
 This history lists major release themes. See the GitHub Commits (https://github.com/caruby/core)
 for change details.
 
+2.1.1 / 2011-11-23
+------------------
+* Initial web service release.
+
 1.5.5 / 2011-09-22
 ------------------
 * Support mixed-case custom DE package name.
