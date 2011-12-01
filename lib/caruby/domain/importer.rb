@@ -1,4 +1,4 @@
-require 'caruby/domain/metadata_loader'
+require 'caruby/helpers/transitive_closure'
 
 module CaRuby
   module Domain
@@ -12,8 +12,6 @@ module CaRuby
     # +ClinicalTrials::Subject+. The +ClinicalTrials::Resource+ module is included
     # in +ClinicalTrials::Subject+ and the Java property meta-data is introspected.
     module Importer
-      include MetadataLoader
-      
       # Extends the given module with Java class meta-data import support.
       #
       # @param [Module] mod the module to extend
@@ -30,15 +28,17 @@ module CaRuby
       # @return [Class] the imported class
       # @raise [NameError] if the symbol is not an importable Java class
       def const_missing(symbol)
-        logger.debug { "Detecting whether #{symbol} is a #{@pkg} Java class..." }
-        # The symbol might be a class defined in the source directory.
-        # If that is the case, then initialize the introspected set, which
-        # loads the source directory.
-        unless defined? @introspected then
-          initialize_introspected
+        # Load the class definitions in the source directory, if necessary.
+        # If a load is performed as a result of referencing the given symbol,
+        # then dereference the class constant again after the load, since the class
+        # might have been loaded or referenced during the load.
+        if @load_state == :unloaded then
+          load_definitions
           return const_get(symbol)
         end
+        
         # Append the symbol to the package to make the Java class name.
+        logger.debug { "Detecting whether #{symbol} is a #{@pkg} Java class..." }
         begin
           klass = java_import "#{@pkg}.#{symbol}"
         rescue NameError
@@ -46,10 +46,16 @@ module CaRuby
           logger.warn { "#{symbol} is not recognized as a #{@pkg} Java class - #{$!}\n#{caller.qp}." }
           super
         end
+        
         # Introspect the Java class meta-data, if necessary.
         unless @introspected.include?(klass) then
-          add_metadata(klass) 
-          logger.info(klass.pp_s)
+          logger.debug("Adding #{klass.qp} to resource #{self}...")
+          add_metadata(klass)
+          logger.debug("#{klass.qp} added to #{self}.")
+          # If the class was not referenced in a class definition, then print the class
+          # meta-data. Printing the class definition is deferred while loading the class
+          # definitions.
+          logger.info(klass.pp_s) unless @load_state == :loading
         end
         
         klass
@@ -64,13 +70,32 @@ module CaRuby
       #   in this module's package
       # @return [Class, nil] the imported class, or nil if the class was already introspected
       def resource_import(klass)
-        # Import the Java class.
-        java_import(klass)
-        # If this is the first imported class, then load the class definitions.
-        unless defined? @introspected then initialize_introspected end
-        # Introspect the Java class meta-data, if necessary.
-        add_metadata(klass) unless @introspected.include?(klass)
-        klass
+        
+        
+        return klass
+        
+        
+        # return if @imported.include?(klass)
+        # # Import the Java class.
+        # logger.debug("Importing #{klass.qp} into #{self}...")
+        # # If this is the first imported class, then load the class definitions.
+        # load_definitions if @load_state == :unloaded
+        # # Introspect the Java class meta-data, if necessary.
+        # java_import(klass)
+        # add_metadata(klass)
+        # @imported << klass
+        # logger.debug("#{klass.qp} imported into #{self}.")
+        # klass
+      end
+      
+      def load_definitions
+        @load_state = :loading
+        # Load the class definitions in the source directory.
+        load_dir(@directory)
+        @load_state = :loaded
+        # Print each introspected class's content.
+        @imported.sort { |k1, k2| k1.name <=> k2.name }.each { |klass| logger.info(klass.pp_s) }
+        true
       end
       
       # Declares that the given {Resource} classes will be dynamically modified.
@@ -100,53 +125,123 @@ module CaRuby
         @metadata = opts[:metadata]
         @mixin = opts[:mixin] || Resource
         @directory = opts[:directory]
+        # If there is nothing to load, then set the loaded flag to true. Otherwise, the source
+        # definitions will be loaded on demand.
+        @load_state = @directory ? :unloaded : :loaded
+        # The introspected classes.
+        @introspected = Set.new
+        # The imported resource classes.
+        @imported = Set.new
       end
       
       private
-      
-      # Declares the +introspected+ instance variable and loads the source directory, if it is defined.
-      def initialize_introspected
-        @introspected = Set.new
-        load_dir(@directory) if @directory
-      end
 
       # Loads the Ruby source files in the given directory.
       #
       # @param [String] dir the source directory
       def load_dir(dir)
-        logger.debug { "Loading the class definitions in #{@directory}..." }
-        # Auto-load the files.
-        syms = autoload_dir(dir)
-        # Load each file on demand.
-        loaded = syms.map { |sym| klass = const_get(sym) }
-        # Print the introspected class content.
+        logger.debug { "Loading the class definitions in #{dir}..." }
+        # Import the classes.
+        srcs = sources(dir)
+        # Introspect and load the classes in reverse class order, i.e. superclass before subclass.
+        klasses = srcs.keys.transitive_closure { |k| [k.superclass] }.select { |k| srcs[k] }.reverse
+        # Introspect the classes.
+        klasses.each { |klass| add_metadata(klass) }
+        # Load the classes.
+        klasses.each { |klass| require srcs[klass] }
+        # Print all loaded classes.
         @introspected.each { |klass| logger.info(klass.pp_s) }
         logger.debug { "Loaded the class definitions in #{dir}." }
       end
-  
-      # Auto-loads the Ruby source files in the given directory.
-      #
+
       # @param [String] dir the source directory
-      # @return [<Symbol>] the class constants that will be loaded
-      def autoload_dir(dir)
+      # @return [{Class => String}] the source class => file hash
+      def sources(dir)
         # the domain class definitions
-        srcs = Dir.glob(File.join(dir, "*.rb"))
-        # autoload the domain classes to ensure that definitions are picked up on demand in class hierarchy order
-        srcs.map do |file|
-          base_name = File.basename(file, ".rb")
-          sym = base_name.camelize.to_sym
-          # JRuby autoload of classes defined in a submodule of a Java wrapper class is not supported.
-          # However, this only occurs with the caTissue Specimen Pathology annotation class definitions,
-          # not the caTissue Participant or SCG annotations. TODO - confirm, isolate and report.
-          # Work-around is to require the files instead.
-          if name[/^Java::/] then
-            require file
-          else
-            autoload(sym, file)
-          end
-          sym
-        end    
+        files = Dir.glob(File.join(dir, "*.rb"))
+        # Infer each class symbol from the file base name.
+        files.to_compact_hash do |file|
+          name = File.basename(file, ".rb").camelize
+          # Ignore files which do not resolve to a class.
+          resolve_class(name) rescue nil
+        end.invert
       end
+      
+      # @param [String, Symbol] name_or_symbol the demodulized class name or symbol
+      # @return [Class] the {Resource} class imported into this module
+      def resolve_class(name_or_symbol)
+        # Append the class name or symbol to the package to make the Java class name.
+        full_name = "#{@pkg}.#{name_or_symbol}"
+        # If the class is already imported, then java_import returns nil. In that case,
+        # evaluate the Java class.
+        java_import(full_name) or module_eval("Java::#{full_name}")
+      end
+      
+      # Introspects the given class meta-data.
+      #
+      # If the module which extends this loader implements the +metadata_added+ callback
+      # method, then that method is called with the introspected class.
+      #
+      # @param [Class] klass the class to enable
+      def add_metadata(klass)
+        # Mark the class as introspected. Do this first to preclude a recursive loop back
+        # into this method when the references are introspected below.
+        @introspected << klass
+        # The domain module.
+        mod = klass.parent_module
+        # Add the superclass meta-data if necessary.
+        sc = klass.superclass
+        unless @introspected.include?(sc) or sc.parent_module != mod then
+          add_metadata(sc)
+        end
+        # Include the mixin.
+        unless klass < @mixin then
+          m = @mixin
+          klass.class_eval { include m }
+        end
+        # Add the class metadata.
+        klass.extend(Metadata)
+        case @metadata
+          when Module then klass.extend(@metadata) 
+          when Proc then @metadata.call(klass)
+        end
+        # Set the class domain module.
+        klass.domain_module = self
+        # Add referenced domain class metadata as necessary.
+        klass.each_attribute_metadata do |attr_md|
+          ref = attr_md.type
+          if ref.nil? then CaRuby.fail(MetadataError, "#{self} #{attr_md} domain type is unknown.") end
+          unless @introspected.include?(ref) or ref.parent_module != mod then
+            logger.debug { "Adding #{qp} #{attr_md} reference #{ref.qp} metadata..." }
+            add_metadata(ref)
+          end
+        end
+        if respond_to?(:metadata_added) then metadata_added(klass) end
+      end
+      
+      # # Auto-loads the Ruby source files in the given directory.
+      # #
+      # # @param [String] dir the source directory
+      # # @return [<Symbol>] the class constants that will be loaded
+      # def autoload_dir(dir)
+      #   # the domain class definitions
+      #   srcs = Dir.glob(File.join(dir, "*.rb"))
+      #   # autoload the domain classes to ensure that definitions are picked up on demand in class hierarchy order
+      #   syms = srcs.map do |file|
+      #     base_name = File.basename(file, ".rb")
+      #     sym = base_name.camelize.to_sym
+      #     # JRuby autoload of classes defined in a submodule of a Java wrapper class is not supported.
+      #     # However, this only occurs with the caTissue Specimen Pathology annotation class definitions,
+      #     # not the caTissue Participant or SCG annotations. TODO - confirm, isolate and report.
+      #     # Work-around is to require the files instead.
+      #     if name[/^Java::/] then
+      #       require file
+      #     else
+      #       autoload(sym, file)
+      #     end
+      #     sym
+      #   end
+      # end
     end
   end
 end
