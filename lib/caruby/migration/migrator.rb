@@ -42,6 +42,7 @@ module CaRuby
     # @option opts [Boolean] :verbose print progress
     def initialize(opts)
       @rec_cnt = 0
+      @mgt_mths = {}
       parse_options(opts)
       build
     end
@@ -56,6 +57,7 @@ module CaRuby
     #
     # @yield [target] operation performed on the migration target
     # @yieldparam [Resource] target the migrated target domain object
+    # @return (see #migrate)
     def migrate_to_database(&block)
       # migrate with save
       tm = Stopwatch.measure { execute_save(&block) }.elapsed
@@ -67,6 +69,7 @@ module CaRuby
     #
     # @yield [target] operation performed on the migration target
     # @yieldparam [Resource] target the migrated target domain object
+    # @return (see #migrate_rows)
     def migrate(&block)
       CaRuby.fail(MigrationError, "The caRuby Migrator migrate block is missing") unless block_given?
       migrate_rows(&block)
@@ -108,16 +111,22 @@ module CaRuby
 
     def parse_options(opts)
       @fld_map_files = opts[:mapping]
-      CaRuby.fail(MigrationError, "Migrator missing required field mapping file parameter") if @fld_map_files.nil?
+      if @fld_map_files.nil? then
+        CaRuby.fail(MigrationError, "Migrator missing required field mapping file parameter")
+      end
       @def_files = opts[:defaults]
       @filter_files = opts[:filters]
       @shims = opts[:shims] ||= []
       @offset = opts[:offset] ||= 0
       @input = Options.get(:input, opts)
-      CaRuby.fail(MigrationError, "Migrator missing required source file parameter") if @input.nil?
+      if @input.nil? then
+        CaRuby.fail(MigrationError, "Migrator missing required source file parameter")
+      end
       @database = opts[:database]
       @target_class = opts[:target]
-      CaRuby.fail(MigrationError, "Migrator missing required target class parameter") if @target_class.nil?
+      if @target_class.nil? then
+        CaRuby.fail(MigrationError, "Migrator missing required target class parameter")
+      end
       @bad_rec_file = opts[:bad]
       @create = opts[:create]
       logger.info("Migration options: #{printable_options(opts).pp_s}.")
@@ -237,18 +246,12 @@ module CaRuby
       # the class => attribute => migration filter hash
       @attr_flt_hash = {}
       customizable_class_attributes.each do |klass, attr_mds|
-        flts = migration_filters(klass, attr_mds) || next
+        flts = migration_filters(klass) || next
         @attr_flt_hash[klass] = flts
       end
-
       # print the migration shim methods
-      unless @attr_flt_hash.empty? then
-        printer_hash = LazyHash.new { Array.new }
-        @attr_flt_hash.each do |klass, hash|
-          mths = hash.values.select { |flt| Symbol === flt }
-          printer_hash[klass.qp] = mths unless mths.empty?
-        end
-        logger.info("Migration shim methods: #{printer_hash.pp_s}.") unless printer_hash.empty?
+      unless @mgt_mths.empty? then
+        logger.info("Migration shim methods:\n#{@mgt_mths.qp}")
       end
     end
 
@@ -292,19 +295,19 @@ module CaRuby
     # Discovers methods of the form +migrate+__attribute_ implemented for the paths
     # in the given class => paths hash the given klass. The migrate method is called
     # on the input field value corresponding to the path.
-    def migration_filters(klass, attr_mds)
+    def migration_filters(klass)
       # the attribute => migration method hash
-      mth_hash = attribute_method_hash(klass, attr_mds)
-      proc_hash = attribute_proc_hash(klass, attr_mds)
+      mth_hash = attribute_method_hash(klass)
+      @mgt_mths[klass] = mth_hash unless mth_hash.empty?
+      proc_hash = attribute_proc_hash(klass)
       return if mth_hash.empty? and proc_hash.empty?
-
       # for each class path terminal attribute metadata, add the migration filters
       # to the attribute metadata => filter hash
-      attr_mds.to_compact_hash do |attr_md|
+      klass.attributes.to_compact_hash do |attr|
         # the filter proc
-        proc = proc_hash[attr_md.to_sym]
+        proc = proc_hash[attr]
         # the migration shim method
-        mth = mth_hash[attr_md.to_sym]
+        mth = mth_hash[attr]
         if mth then
           if proc then
             Proc.new do |obj, value, row|
@@ -324,7 +327,7 @@ module CaRuby
       end
     end
     
-    def attribute_method_hash(klass, attr_mds)
+    def attribute_method_hash(klass)
       # the migrate methods, excluding the Migratable migrate_references method
       mths = klass.instance_methods(true).select { |mth| mth =~ /^migrate.(?!references)/ }
       # the attribute => migration method hash
@@ -343,13 +346,13 @@ module CaRuby
     end
     
     # @return [Attribute => {Object => Object}] the filter migration methods
-    def attribute_proc_hash(klass, attr_mds)
+    def attribute_proc_hash(klass)
       hash = @filter_hash[klass]
       if hash.nil? then return Hash::EMPTY_HASH end
       proc_hash = {}
-      attr_mds.each do |attr_md|
-        flt = hash[attr_md.to_sym] || next
-        proc_hash[attr_md.to_sym] = to_filter_proc(flt)
+      klass.attributes.each do |attr|
+        flt = hash[attr] || next
+        proc_hash[attr] = to_filter_proc(flt)
       end
       logger.debug { "Migration filters loaded for #{klass.qp} #{proc_hash.keys.to_series}." }
       proc_hash
@@ -438,6 +441,7 @@ module CaRuby
     #
     # @yield (see #migrate)
     # @yieldparam (see #migrate)
+    # @return [Integer] the number of records which were migrated
     def migrate_rows
       # open an CSV output for bad records if the option is set
       if @bad_rec_file then
@@ -486,6 +490,7 @@ module CaRuby
         @rec_cnt += 1
       end
       logger.info("Migrated #{mgt_cnt} of #{@rec_cnt} records.")
+      mgt_cnt
     end
     
     # Prints a +\++ progress indicator to stdout if the count parameter is divisible by ten.
@@ -603,6 +608,9 @@ module CaRuby
       obj
     end
     
+    # Migrates each input field to the associated domain object attribute.
+    # String input values are stripped. Missing input values are ignored.
+    #
     # @param [Resource] the migration object
     # @param row (see #create)
     # @param [<Resource>] created (see #create)
@@ -613,6 +621,7 @@ module CaRuby
         header = @header_map[path][obj.class]
         # the input value
         value = row[header]
+        value.strip! if String === value
         next if value.nil?
         # fill the reference path
         ref = fill_path(obj, path[0...-1], row, created)
@@ -693,7 +702,7 @@ module CaRuby
     # @param value the input value
     # @return the input value, if there is no filter, otherwise the filtered value
     def filter_value(obj, attr_md, value, row)
-      filter = filter_for(obj, attr_md)
+      filter = filter_for(obj, attr_md.to_sym)
       return value if filter.nil?
       fval = filter.call(obj, value, row)
       unless value == fval then
@@ -702,9 +711,9 @@ module CaRuby
       fval
     end
     
-    def filter_for(obj, attr_md)
+    def filter_for(obj, attribute)
       flts = @attr_flt_hash[obj.class] || return
-      flts[attr_md]
+      flts[attribute]
     end
 
     # @param [Resource] obj the domain object to save in the database
@@ -781,7 +790,9 @@ module CaRuby
         next if attr_list.blank?
         # the header accessor method for the field
         header = @loader.accessor(field)
-        CaRuby.fail(MigrationError, "Field defined in migration configuration #{file} not found in input file #{@input} headers: #{field}") if header.nil?
+        if header.nil? then
+          CaRuby.fail(MigrationError, "Field defined in migration configuration not found in input file #{@input} headers: #{field}")
+        end
         # associate each attribute path in the property value with the header
         attr_list.split(/,\s*/).each do |path_s|
           klass, path = create_attribute_path(path_s)
