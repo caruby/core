@@ -4,25 +4,7 @@ require 'caruby/helpers/collection'
 require 'caruby/helpers/transitive_closure'
 
 class TransitiveClosureTest < Test::Unit::TestCase
-  class Node
-    attr_reader :parent, :children, :value
-
-    def initialize(value, parent=nil)
-      super()
-      @value = value
-      @parent = parent
-      @children = []
-      parent.children << self if parent
-    end
-
-    def to_s
-      value.to_s
-    end
-
-    alias :inspect :to_s
-  end
-
-  # Verifies closure iteration for the following hierarchy:
+ # Verifies closure iteration for the following hierarchy:
   #  root -> a, e
   #  a -> b, c
   #  c -> d
@@ -53,6 +35,12 @@ class TransitiveClosureTest < Test::Unit::TestCase
     verify_closure([root, a, b, c], root.transitive_closure(:children))
   end
   
+  def test_class_hierarchy
+    result = [C, D].transitive_closure { |k| [k.superclass] }
+    assert_equal([D, C].to_set, result[0..1].to_set, "Class hierarchy closure incomparable leaf class order incorrect")
+    assert_equal([B, A, Object], result[2..-1], "Class hierarchy closure comparable non-leaf class order incorrect")
+  end
+  
   def verify_closure(content, closure)
     assert_equal(content.to_set, closure.to_set, "Hierarchy closure incorrect")
     # Verify that no child succeeds the parent.
@@ -62,5 +50,30 @@ class TransitiveClosureTest < Test::Unit::TestCase
         assert(closure.index(par) < index, "Child #{node} precedes parent #{par}")
       end
     end
+  end
+  
+  private
+  
+  class A; end
+  class B < A; end
+  class C < B; end
+  class D < A; end
+  
+  class Node
+    attr_reader :parent, :children, :value
+
+    def initialize(value, parent=nil)
+      super()
+      @value = value
+      @parent = parent
+      @children = []
+      parent.children << self if parent
+    end
+
+    def to_s
+      value.to_s
+    end
+
+    alias :inspect :to_s
   end
 end
