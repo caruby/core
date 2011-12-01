@@ -127,14 +127,14 @@ module CaRuby
         inv_inv_md = @inv_md.inverse_metadata
         # If the inverse of the inverse is already set to a different attribute, then raise an exception.
         if inv_inv_md and not (inv_inv_md == self or inv_inv_md.restriction?(self))
-          CaRuby.fail(MetadataError, "Cannot set #{type.qp}.#{attribute} inverse attribute to #{@declarer.qp}.#{self} since it conflicts with existing inverse #{inv_inv_md.declarer.qp}.#{inv_inv_md}")
+          CaRuby.fail(MetadataError, "Cannot set #{type.qp}.#{attribute} inverse attribute to #{@declarer.qp}.#{self}@#{object_id} since it conflicts with existing inverse #{inv_inv_md.declarer.qp}.#{inv_inv_md}@#{inv_inv_md.object_id}")
         end
         # Set the inverse of the inverse to this attribute.
         @inv_md.inverse = @symbol
         # If this attribute is disjoint, then so is the inverse.
         @inv_md.qualify(:disjoint) if disjoint?
         logger.debug { "Assigned #{@declarer.qp}.#{self} attribute inverse to #{type.qp}.#{attribute}." }
-     end
+      end
   
       # @return [Attribute, nil] the metadata for the {#inverse} attribute, if any
       def inverse_metadata
@@ -151,18 +151,18 @@ module CaRuby
         if @restrictions then @restrictions.each { |attr_md| attr_md.qualify(*flags) } end
       end
   
-      # @return whether the subject attribute encapsulates a Java property
+      # @return [Boolean] whether the subject attribute encapsulates a Java property
       def java_property?
         JavaAttribute === self
       end
   
-      # @return whether the subject attribute returns a domain object or collection of domain objects
+      # @return [Boolean] whether the subject attribute returns a domain object or collection of domain objects
       def domain?
         # the type must be a Ruby class rather than a Java Class, and include the Domain mix-in
         Class === type and type < Resource
       end
   
-      # @return whether the subject attribute is not a domain object attribute
+      # @return [Boolean] whether the subject attribute is not a domain object attribute
       def nondomain?
         not domain?
       end
@@ -183,7 +183,7 @@ module CaRuby
         nondomain? or dependent? ? fetched_dependent? : fetched_independent?
       end
   
-      # @return whether the subject attribute return type is a collection
+      # @return [Boolean] whether the subject attribute return type is a collection
       def collection?
         @flags.include?(:collection)
       end
