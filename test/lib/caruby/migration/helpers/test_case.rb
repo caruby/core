@@ -40,10 +40,9 @@ module CaRuby
     # @param [{Symbol => Object}] opts (see CaTissue::Migrator#initialize)
     # @option (see CaTissue::Migrator#initialize)
     # @return [CaTissue::Migrator]
-    # @yield [opts] the optional Migrator factory
-    def create_migrator(fixture, opts={}, &factory)
+    def create_migrator(fixture, opts={})
       opts[:input] ||= File.join(@fixtures, fixture.to_s + '.csv')
-      block_given? ? yield(opts) : CaRuby::Migrator.new(opts)
+      CaRuby::Migrator.new(opts)
     end
 
     # Verifies that the given test fixture is successfully migrated.
@@ -73,10 +72,23 @@ module CaRuby
     # @param [<Symbol>] opts the migration options
     # @option (see CaTissue::Migrator#migrate)
     # @yield [target] verifies the given target
-    # @yieldparam [Resource] target the domain object to verify
+    # @yieldparam [Resource] (see #migrate)
+    # @return (see #migrate)
     def verify_target(fixture, opts={}, &verifier)
+      migrate(fixture, opts) { |tgt| validate_target(tgt, &verifier) }
+    end
+
+    # Migrates the given fixture.
+    #
+    # @param [Symbol] fixture the test fixture to verify
+    # @param [<Symbol>] opts the migration options
+    # @option (see CaTissue::Migrator#migrate)
+    # @yield [target] optional block to run on the given migrated target
+    # @yieldparam [Resource] target the migrated domain object
+    # @return (see Migrator#migrate)
+    def migrate(fixture, opts={}, &block)
       opts[:unique] ||= false
-      create_migrator(fixture, opts).migrate { |tgt| validate_target(tgt, &verifier) }
+      create_migrator(fixture, opts).migrate(&block)
     end
 
     # Validates that the given target was successfully migrated.
