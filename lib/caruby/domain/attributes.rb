@@ -611,7 +611,9 @@ module CaRuby
       def append_ancestor_enum(enum)
         return enum unless superclass.parent_module == parent_module
         anc_enum = yield superclass
-        if anc_enum.nil? then CaRuby.fail(MetadataError, "#{qp} superclass #{superclass.qp} does not have required metadata") end
+        if anc_enum.nil? then
+          CaRuby.fail(MetadataError, "#{qp} superclass #{superclass.qp} does not have required metadata")
+        end
         enum.union(anc_enum)
       end
   
@@ -645,9 +647,9 @@ module CaRuby
       
       # @return [Symbol, nil] the unique non-self-referential owner attribute, if one exists
       def mandatory_owner_attribute
-        attr = owner_attribute || return
-        attr_md = attribute_metadata(attr)
-        attr if attr_md.java_property? and attr_md.type != self
+        oattr = owner_attribute || return
+        attr_md = attribute_metadata(oattr)
+        oattr if attr_md.java_property? and attr_md.type != self
       end
   
       # Raises a NameError. Domain classes can override this method to dynamically create a new reference attribute.
