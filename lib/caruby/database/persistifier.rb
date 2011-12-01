@@ -32,14 +32,20 @@ module CaRuby
       end
 
       # Loads the content of the given attribute.
+      # If the attribute is independent, then the fetched objects are replaced
+      # corresponding cached objects, if cached.
       # The fetched references are persistified with {#persistify}.
       #
       # @param [Resource] obj the domain object whose content is to be loaded
       # @param [Symbol] attribute the attribute to load
       # @return [Resource, <Resource>, nil] the loaded value
       def lazy_load(obj, attribute)
-        fetched = fetch_association(obj, attribute)
-        reconcile_fetched(fetched) if fetched
+        fetched = fetch_association(obj, attribute) || return
+        if obj.class.attribute_metadata(attribute).dependent? then
+          persistify(fetched)
+        else
+          reconcile_fetched(fetched)
+        end
       end
       
       # For each fetched domain object, if there is a corresponding cached object,
@@ -57,8 +63,7 @@ module CaRuby
       end
       
       # @param [Resource] fetched the fetched domain object
-      # @return [Resource] the corresponding cached object, if cached,
-      #   otherwise the fetched object
+      # @return [Resource, nil] the corresponding cached object, if any
       def reconcile_cached(fetched)
         cached = @cache[fetched] if @cache
         if cached then
