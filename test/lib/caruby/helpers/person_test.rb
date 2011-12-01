@@ -4,11 +4,11 @@ require 'caruby/helpers/person'
 
 class PersonTest < Test::Unit::TestCase
   def test_middle_but_no_first
-    assert_raises(ValidationError) { || CaRuby::Person::Name.new('Longfellow', nil, 'Wadsworth').validate }
+    assert_raises(CaRuby::ValidationError) { || CaRuby::Person::Name.new('Longfellow', nil, 'Wadsworth').validate }
   end
 
   def test_empty_middle_and_no_first
-    assert_raises(ValidationError) { || CaRuby::Person::Name.new(nil, '').validate }
+    assert_raises(CaRuby::ValidationError) { || CaRuby::Person::Name.new(nil, '').validate }
   end
 
   def test_substitute_nil_for_empty
