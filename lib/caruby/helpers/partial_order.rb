@@ -1,5 +1,5 @@
 module CaRuby
-  # A PartialOrder is a Comparable which restricted scope. Classes wich include PartialOrder
+  # A PartialOrder is a Comparable which restricted scope. Classes which include PartialOrder
   # are required to implement the <=> operator with the following semantics:
   # *  _a_ <=> _b_ returns -1, 0, or 1 if a and b are comparable, nil otherwise
   # A PartialOrder thus relaxes comparison symmetry, e.g.
@@ -14,7 +14,7 @@ module CaRuby
   #     end
   #   end
   #   q1 = [a, b] # a, b are Queued
-  #   q2 = [c] # c is a Queued
+  #   q2 = [c]    # c is a Queued
   #   a < b #=> true
   #   b < c #=> nil
   module PartialOrder
