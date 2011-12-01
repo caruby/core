@@ -103,21 +103,21 @@ module CaRuby
     # type in the given migrated domain objects, then the attribute is set to that
     # migrated instance.
     #
-    # If the attribute is associated with a method in mth_hash, then that method is called
+    # If the attribute is associated with a method in proc_hash, then that method is called
     # on the migrated instance and input row. The attribute is set to the method return value.
-    # mth_hash includes an entry for each +migrate_+_attribute_ method defined by this
+    # proc_hash includes an entry for each +migrate_+_attribute_ method defined by this
     # Resource's class.
     #
     # @param [{Symbol => Object}] row the input row field => value hash
     # @param [<Resource>] migrated the migrated instances, including this Resource
-    # @param [{Symbol => String}, nil] mth_hash a hash that associates this domain object's
-    #   attributes to migration method names
-    def migrate_references(row, migrated, mth_hash=nil)
+    # @param [{Symbol => Proc}, nil] proc_hash a hash that associates this domain object's
+    #   attributes to a migration shim block
+    def migrate_references(row, migrated, proc_hash=nil)
       # migrate the owner
-      migratable__migrate_owner(row, migrated, mth_hash)
+      migratable__migrate_owner(row, migrated, proc_hash)
       # migrate the remaining attributes
-      migratable__set_nonowner_references(self.class.saved_independent_attributes, row, migrated, mth_hash)
-      migratable__set_nonowner_references(self.class.unidirectional_dependent_attributes, row, migrated, mth_hash)
+      migratable__set_nonowner_references(self.class.saved_independent_attributes, row, migrated, proc_hash)
+      migratable__set_nonowner_references(self.class.unidirectional_dependent_attributes, row, migrated, proc_hash)
     end
     
     private
@@ -126,12 +126,12 @@ module CaRuby
     #
     # @param row (see #migrate_references)
     # @param migrated (see #migrate_references)
-    # @param mth_hash (see #migrate_references)
-    def migratable__migrate_owner(row, migrated, mth_hash=nil)
+    # @param proc_hash (see #migrate_references)
+    def migratable__migrate_owner(row, migrated, proc_hash=nil)
       # the owner attributes=> migrated reference hash
       ovh = self.class.owner_attributes.to_compact_hash do |mattr|
         attr_md = self.class.attribute_metadata(mattr)
-        migratable__target_value(attr_md, row, migrated, mth_hash=nil)
+        migratable__target_value(attr_md, row, migrated, proc_hash)
       end
       if ovh.size > 1 then
         logger.debug { "The migrated dependent #{qp} has ambiguous migrated owner references #{ovh.qp}." }
@@ -145,13 +145,13 @@ module CaRuby
     # @param [Attribute::Filter] the attributes to set
     # @param row (see #migrate_references)
     # @param migrated (see #migrate_references)
-    # @param mth_hash (see #migrate_references)
-    def migratable__set_nonowner_references(attr_filter, row, migrated, mth_hash=nil)
+    # @param proc_hash (see #migrate_references)
+    def migratable__set_nonowner_references(attr_filter, row, migrated, proc_hash=nil)
       attr_filter.each_pair do |mattr, attr_md|
         # skip owners
         next if attr_md.owner?
         # the target value
-        ref = migratable__target_value(attr_md, row, migrated, mth_hash) || next
+        ref = migratable__target_value(attr_md, row, migrated, proc_hash) || next
         if attr_md.collection? then
           # the current value
           value = send(attr_md.reader) || next
@@ -172,10 +172,10 @@ module CaRuby
     # @param [Attribute] attr_md the reference attribute
     # @param row (see #migrate_references)
     # @param migrated (see #migrate_references)
-    # @param mth_hash (see #migrate_references)
+    # @param proc_hash (see #migrate_references)
     # @return [Resource, nil] the migrated instance of the given class, or nil if there is not
     #   exactly one such instance
-    def migratable__target_value(attr_md, row, migrated, mth_hash=nil)
+    def migratable__target_value(attr_md, row, migrated, proc_hash=nil)
       # the migrated references which are instances of the attribute type
       refs = migrated.select { |other| other != self and attr_md.type === other }
       # skip ambiguous references
@@ -184,9 +184,9 @@ module CaRuby
       # the single reference
       ref = refs.first
       # the shim method, if any
-      mth = mth_hash[attr_md.to_sym] if mth_hash
+      proc = proc_hash[attr_md.to_sym] if proc_hash
       # if there is a shim method, then call it
-      mth && respond_to?(mth) ? send(mth, ref, row) : ref
+      proc ? proc.call(self, ref, row) : ref
     end
   end
 end
