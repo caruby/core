@@ -1,4 +1,4 @@
-require File.expand_path('version', File.dirname(__FILE__) + '/lib/caruby')
+require File.dirname(__FILE__) + '/lib/caruby/version'
 require 'date'
 
 Gem::Specification.new do |s|
@@ -11,9 +11,9 @@ Gem::Specification.new do |s|
   s.email         = 'caruby.org@gmail.com'
   s.homepage      = 'http://caruby.rubyforge.org'
   s.platform      = Gem::Platform::RUBY
-  s.files         = Dir.glob("{conf,lib,test/{bin,lib}}/**/*") + ['History.md', 'LEGAL', 'LICENSE', 'README.md']
+  s.files         = Dir.glob("{conf,lib}/**/*") + ['History.md', 'LEGAL', 'LICENSE', 'README.md']
   s.require_path  = 'lib'
-  s.test_files    = Dir['test/lib/**/*test.rb']
+  s.test_files    = Dir['test/lib/**/*.rb']
   s.add_dependency 'rack'
   s.add_dependency 'dbi'
   s.add_dependency 'dbd-jdbc'
