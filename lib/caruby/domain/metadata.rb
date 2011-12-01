@@ -1,7 +1,7 @@
 require 'caruby/helpers/collection'
 require 'caruby/import/java'
 require 'caruby/domain/java_attribute'
-require 'caruby/domain/introspection'
+require 'caruby/domain/introspector'
 require 'caruby/domain/inverse'
 require 'caruby/domain/dependency'
 require 'caruby/domain/attributes'
