@@ -3,7 +3,7 @@ for change details.
 
 2.1.1 / 2011-11-23
 ------------------
-* Initial web service release.
+* Simpler, more flexible meta-data loading.
 
 1.5.5 / 2011-09-22
 ------------------
