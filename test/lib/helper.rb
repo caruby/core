@@ -2,7 +2,7 @@
 $:.unshift File.dirname(__FILE__),  File.dirname(__FILE__) + '/../../examples/clinical_trials/lib'
 
 require 'rubygems'
-require 'bundler'
+require 'bundler/setup'
 Bundler.require(:test, :development)
 
 require 'caruby/helpers/log'
