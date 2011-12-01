@@ -505,7 +505,7 @@ module CaRuby
     # The DateTime comparison accounts for differences in the Ruby -> Java -> Ruby roundtrip
     # of a date attribute, which loses the seconds fraction.
     #
-    # @return whether value and other are equal according to the above tests
+    # @return [Boolean] whether value and other are equal according to the above tests
     def self.value_equal?(value, other, matches=nil)
       if value == other then
         true
