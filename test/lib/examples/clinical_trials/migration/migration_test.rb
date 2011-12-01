@@ -7,23 +7,37 @@ module ClinicalTrials
     include CaRuby::MigrationTestCase
     
     def setup
-      super(FIXTURES)
+      super(DATA)
     end
     
-   def test_subject
-     verify_target(:subject, :target => ClinicalTrials::Subject, :mapping=> SUBJECT_MAPPING) do |sbj|
-       assert_not_nil(sbj.ssn, "Missing SSN")
+    def test_subject
+      assert_nothing_raised(CaRuby::ValidationError, "Missing SSN") do
+        cnt = verify_target(:subject, :target => ClinicalTrials::Subject, :mapping => SUBJECT_MAPPING)
+      end
+    end
+
+    def test_ssn_filter
+     assert_nothing_raised(CaRuby::ValidationError, "Missing SSN") do
+       verify_target(:ssn_filter, :target => ClinicalTrials::Subject, :mapping => SUBJECT_MAPPING, :shims => SSN_SHIMS)
      end
-   end
-   
-   def test_ssn_filter
-     verify_target(:ssn_filter, :target => ClinicalTrials::Subject, :mapping=> SUBJECT_MAPPING, :shims => SSN_SHIMS) do |sbj|
-       assert_not_nil(sbj.ssn, "Missing SSN")
-     end
-   end
+    end
     
+    # Verifies Bug #
+    def test_blank_name
+      migrate(:blank_name, :input => File.expand_path('blank_name.csv', FIXTURES), :target => ClinicalTrials::Subject, :mapping => SUBJECT_MAPPING) do |sbj|
+        assert_nil(sbj.name, "#{sbj} blank name was not filtered out")
+      end
+    end
+
+    def test_bad
+      migrate(:bad, :target => ClinicalTrials::Subject, :mapping => SUBJECT_MAPPING, :bad => BAD, :shims => SSN_SHIMS) do |sbj|
+        fail("Bad record #{sbj} was not flagged as an invalid migration")
+      end
+      assert_equal(1, File.open(BAD).to_a.size, "Bad record not placed in reject file #{BAD}")
+    end
+
     def test_activity_filter
-      verify_target(:activity_filter, :target => ClinicalTrials::Study, :mapping=> STUDY_MAPPING, :defaults => STUDY_DEFAULTS, :filters => STUDY_FILTERS) do |std|
+      verify_target(:activity_filter, :target => ClinicalTrials::Study, :mapping => STUDY_MAPPING, :defaults => STUDY_DEFAULTS, :filters => STUDY_FILTERS) do |std|
         expected = std.name.split(' ').first
         assert_equal(expected, std.activity_status, "Incorrect activity status")
       end
@@ -31,30 +45,39 @@ module ClinicalTrials
     
     private
 
-    EXAMPLE = File.dirname(__FILE__) + '/../../../../../examples/clinical_trials'
+    EXAMPLE = File.dirname(__FILE__) + '/../../../../../examples/clinical_trials/migration'
     
     # The migration input data directory.
-    FIXTURES = EXAMPLE + '/data'
-  
+    DATA = EXAMPLE + '/data'
+    
+    # The migration fixture data directory.
+    FIXTURES = File.dirname(__FILE__) + '/../../../../fixtures/migration/data'
+    
     # The migration input shim directory.
-    SHIMS = EXAMPLE + '/lib/clinical_trials/migration'
+    SHIMS = EXAMPLE + '/lib/shims'
     
     # The migration configuration directory.
-    CONFIGS = EXAMPLE + '/conf/migration'
+    CONFIGS = EXAMPLE + '/conf'
+    
+    # The migration test results directory.
+    RESULTS = File.dirname(__FILE__) + '/../../../../results/clinical_trials'
+    
+    # The migration bad file.
+    BAD = File.expand_path('bad.csv', RESULTS)
     
     # The subject input file.
-    SUBJECT_MAPPING = File.join(CONFIGS, "subject_fields.yaml")
+    SUBJECT_MAPPING = File.expand_path('subject_fields.yaml', CONFIGS)
     
     # The study input file.
-    STUDY_MAPPING = File.join(CONFIGS, "study_fields.yaml")
+    STUDY_MAPPING = File.expand_path('study_fields.yaml', CONFIGS)
     
     # The study default values.
-    STUDY_DEFAULTS = File.join(CONFIGS, "study_defaults.yaml")
+    STUDY_DEFAULTS = File.expand_path('study_defaults.yaml', CONFIGS)
     
     # The study default values.
-    STUDY_FILTERS = File.join(CONFIGS, "study_filters.yaml")
+    STUDY_FILTERS = File.expand_path('study_filters.yaml', CONFIGS)
     
     # The filter shims file.
-    SSN_SHIMS = File.join(SHIMS, "ssn_shim.rb")
+    SSN_SHIMS = File.expand_path('ssn.rb', SHIMS)
   end
 end
