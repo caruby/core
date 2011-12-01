@@ -12,38 +12,42 @@ module CaRuby
       # The specs parameter is an array of command line option and argument
       # specifications as follows:
       #
-      # Each option specification is an array in the form:
-      #   [option, short, long, class, description]
-      # where:
-      # * option is the option symbol, e.g. +:output+
-      # * short is the short option form, e.g. "-o"
-      # * long is the long option form, e.g. "--output FILE"
-      # * class is the option value class, e.g. Integer
-      # * description is the option usage, e.g. "Output file"
-      # The option, long and description items are required; the short and class items can
-      # be omitted.
+      # The option specification has format:
       #
-      # Each command line argument specification is an array in the form:
-      #   [arg, text]
+      # [_option_, _short_, _long_, _class_, _description_]
+      #
       # where:
-      # * arg is the argument symbol, e.g. +:input+
-      # * text is the usage message text, e.g. 'input', '[input]' or 'input ...' 
-      # The arg and description items are required.
+      # * _option_ is the option symbol, e.g. +:output+
+      # * _short_ is the short option form, e.g. "-o"
+      # * _long_ is the long option form, e.g. "--output FILE"
+      # * _class_ is the option value class, e.g. Integer
+      # * _description_ is the option usage, e.g. "Output file"
+      # The _option_, _long_ and _description_ items are required; the _short_
+      # and _class_ items can be omitted.
+      #
+      # The argument specification is an array in the form:
+      #
+      # [_arg_, _text_]
+      #
+      # where:
+      # * _arg_ is the argument symbol, e.g. +:input+
+      # * _text_ is the usage message text, e.g. 'input', '[input]' or 'input ...' 
+      # Both _arg_ and _text_ are required.
       #
       # Built-in options include the following:
-      # * --help : print the help message and exit
-      # * --verbose : print additional information to the console
-      # * --log FILE : log file
-      # * --debug : print debug messages to the log
-      # * --file FILE: configuration file containing other options
-      # * --quiet: suppress printing messages to stdout
+      # * +--help+ : print the help message and exit
+      # * +--verbose+ : print additional information to the console
+      # * +--log FILE+ : log file
+      # * +--debug+ : print debug messages to the log
+      # * +--file FILE+: configuration file containing other options
+      # * +--quiet+: suppress printing messages to stdout
       #
       # This class processes these built-in options, with the exception of +--version+,
       # which is a subclass responsibility. Subclasses are responsible for
       # processing any remaining options.
       #
-      # @param [(<Symbol>, <String, Class>)] specs the arguments and options
-      #   described above
+      # @param [<(Symbol, String, String, Class, String), (Symbol, String)>] specs
+      #   the command line argument specifications
       # @yield (see #run)
       # @yieldparam (see #run)
       def initialize(specs=[], &executor)
