@@ -116,7 +116,7 @@ module CaRuby
     end
   
     # @param node the node to check
-    # @return whether the node was visited
+    # @return [Boolean] whether the node was visited
     def visited?(node)
       @visited.has_key?(node)
     end
