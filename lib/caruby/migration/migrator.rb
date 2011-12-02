@@ -845,12 +845,13 @@ module CaRuby
     # @param [String] file the file to load
     # @param [<Class => <String => <Object => Object>>>] hash the class => path => input value => caTissue value entries 
     def load_filter_file(file, hash)
+      # collect the class => attribute => filter entries
+      logger.debug { "Loading filter configuration #{file}..." }
       begin
         config = YAML::load_file(file)
       rescue
         CaRuby.fail(MigrationError, "Could not read filter file #{file}: " + $!)
       end
-      # collect the class => attribute => filter entries
       config.each do |path_s, flt|
         next if flt.nil_or_empty?
         klass, path = create_attribute_path(path_s)
