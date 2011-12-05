@@ -16,7 +16,9 @@ module CaRuby
     #
     # If the converter block is given to this method, then that block is called to convert
     # source CSV field values as described in the FasterCSV.
-    def initialize(config, target, csv, options={}, &converter) # :yields: value, info
+    #
+    # @yield [value, info] convert the input value of a non-string target attribute
+    def initialize(config, target, csv, options={}, &converter)
       @target = target
       # load the config
       fld_path_hash = load_config(config)
