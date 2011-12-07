@@ -120,10 +120,7 @@ module CaRuby
     # @yieldparam [Database] database self
     def open
       # reset the execution timers
-      persistence_services.each do |svc|
-        svc.timer.reset
-        svc.start
-      end
+      persistence_services.each { |svc| svc.timer.reset }
       # call the block and close when done
       yield(self) ensure close
     end
