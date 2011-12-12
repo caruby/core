@@ -214,6 +214,14 @@ module CaRuby
       owner = self.owner
       owner and (owner == other or owner.owner_ancestor?(other))
     end
+    
+    # @param [Resource] other the domain object to check
+    # @return [Boolean] whether the other domain object is a dependent of this object
+    #  and has an update-only non-domain attribute.
+    def dependent_update_only?(other)
+      other.owner == self and
+      other.class.nondomain_attributes.detect_with_metadata { |attr_md| attr_md.updatable? and not attr_md.creatable? }
+    end
 
     # Returns an attribute => value hash for the specified attributes with a non-nil, non-empty value.
     # The default attributes are this domain object's class {Domain::Attributes#attributes}.

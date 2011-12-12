@@ -163,10 +163,11 @@ module CaRuby
       # @return [Boolean] whether the save operation is redundant
       def recursive_save?(obj, operation)
         @operations.any? { |op| op.type == operation and op.subject == obj } and
-          not obj.owner_ancestor?(@operations.last.subject)
+          not obj.owner_ancestor?(@operations.last.subject) and
+          not obj.dependent_update_only?(@operations.last.subject)
       end
       
-      # Creates obj as follows:
+      # Creates the given object as follows:
       # * if obj has an uncreated owner, then store the owner, which in turn will create a physical dependent
       # * otherwise, create a savable template. The template is a copy of obj containing a recursive copy
       #   of each saved obj reference and resolved independent references
@@ -182,7 +183,7 @@ module CaRuby
         begin
           # A dependent is created by saving the owner.
           # Otherwise, create the object from a template.
-          owner = cascaded_owner(obj)
+          owner = cascaded_dependent_owner(obj)
           result = create_dependent(owner, obj) if owner
           result ||= create_from_template(obj)
           if result.nil? then
@@ -418,26 +419,25 @@ module CaRuby
           CaRuby.fail(DatabaseError, "Update target is missing a database identifier: #{obj}")
         end
         
-        # if this object is proxied, then delegate to the proxy
+        # If this object is proxied, then delegate to the proxy.
         if obj.class.method_defined?(:saver_proxy) then
           return save_with_proxy(obj)
         end
         
-        # if a changed dependent is saved with a proxy, then update that dependent first
+        # If a changed dependent is saved with a proxy, then update that dependent first.
         proxied = updatable_proxied_dependents(obj)
         unless proxied.empty? then
           proxied.each { |dep| update(dep) }
         end
         
-        # update a cascaded dependent by updating the owner
-        owner = cascaded_owner(obj)
+        # Update a cascaded dependent by updating the owner.
+        owner = cascaded_dependent_owner(obj)
         if owner then return update_cascaded_dependent(owner, obj) end
-
-        # Not cascaded dependent; update using a template,
+        # Not a cascaded dependent; update using a template.
         tmpl = build_update_template(obj)
-        # call the caCORE service with an obj update template
+        # Call the caCORE service with the update template.
         save_with_template(obj, tmpl) { |svc| svc.update(tmpl) }
-        # take a snapshot of the updated content
+        # Take a snapshot of the updated content.
         obj.take_snapshot
       end
       
@@ -448,7 +448,7 @@ module CaRuby
       # @param [Resource] obj the domain object to update
       # @return [Resource, nil] the owner which can cascade an update to the object, or nil if none
       # @raise [DatabaseError] if the domain object is a cascaded dependent but does not have an owner
-      def cascaded_owner(obj)
+      def cascaded_dependent_owner(obj)
         return unless obj.cascaded_dependent?
         # the owner attribute and value
         oattr, oref = obj.effective_owner_attribute_value
@@ -668,7 +668,7 @@ module CaRuby
       
       # Returns the saved target attributes which must be fetched to reflect the database content,
       # consisting of the following:
-      # * {Persistable#saved_fetch_attributes}
+      # * {Persistable#saved_attributes_to_fetch}
       # * {Attributes#domain_attributes} which include a source reference without an identifier
       #
       # @param (see #sync_saved)
@@ -677,7 +677,7 @@ module CaRuby
         # the target save operation
         op = @operations.last
         # the attributes to fetch
-        attrs = target.saved_fetch_attributes(op).to_set
+        attrs = target.saved_attributes_to_fetch(op).to_set
         # the pending create, if any
         pndg_op = penultimate_create_operation
         pndg = pndg_op.subject if pndg_op
