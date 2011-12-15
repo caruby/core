@@ -173,14 +173,13 @@ module Enumerable
     Filter.new(self, &filter)
   end
 
-  # @return an Enumerable which iterates over the non-nil items in this Enumerable
+  # @return [Enumerable] an iterator over the non-nil items in this Enumerable
   def compact
     filter { |item| not item.nil? }
   end
 
-  # Returns a new Flattener on this Enumerable, e.g.:
+  # @example
   #   {:a => {:b => :c}, :d => [:e]}.enum_values.flatten.to_a #=> [:b, :c, :e]
-  #
   # @return [Enumerable] the flattened result
   def flatten
     Flattener.new(self).to_a

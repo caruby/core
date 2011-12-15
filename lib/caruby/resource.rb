@@ -55,6 +55,7 @@ module CaRuby
       # Otherwise, add defaults to this object.
       par = owner
       if par and par.identifier.nil? then
+        logger.debug { "Adding defaults to #{qp} owner #{par.qp}..." }
         par.add_defaults
       else
         logger.debug { "Adding defaults to #{qp} and its dependents..." }

@@ -1,19 +1,9 @@
-# load the required gems
-require 'rubygems'
-
-# the Units of Measurement gem
-gem 'uom'
-
-require 'enumerator'
-require 'date'
-require 'uom'
 require 'caruby/csv/csvio'
 require 'caruby/helpers/class'
 require 'caruby/helpers/collection'
 require 'caruby/helpers/inflector'
-require 'caruby/helpers/options'
 require 'caruby/helpers/pretty_print'
-require 'caruby/helpers/properties'
+require 'caruby/helpers/stopwatch'
 require 'caruby/helpers/transitive_closure'
 require 'caruby/migration/migratable'
 
@@ -118,7 +108,7 @@ module CaRuby
       @filter_files = opts[:filters]
       @shims = opts[:shims] ||= []
       @offset = opts[:offset] ||= 0
-      @input = Options.get(:input, opts)
+      @input = opts[:input]
       if @input.nil? then
         CaRuby.fail(MigrationError, "Migrator missing required source file parameter")
       end
