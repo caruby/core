@@ -18,7 +18,16 @@ module Java
   # @see ClassPathModifier#expand_to_class_path
   def self.expand_to_class_path(path)
     @cp_mod.expand_to_class_path(path)
-  end  
+  end
+  
+  # @param [String] name the properties file name
+  # @return [Hash, nil] the properties content, or nil if the file is not on the classpath 
+  def self.load_properties(name)
+    url = JRuby.runtime.jruby_class_loader.findResource(name) || return
+    props = JavaUtil::Properties.new
+    props.load(url.openStream)
+    props
+  end
 
   module JavaUtil
     # Aliases Java Collection methods with the standard Ruby Set counterpart, e.g. +delete+ for +remove+.
