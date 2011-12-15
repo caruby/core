@@ -20,7 +20,6 @@ Gem::Specification.new do |s|
   s.add_dependency 'dbd-jdbc'
   s.add_dependency 'fastercsv'
   s.add_dependency 'json_pure'
-  s.add_dependency 'uom'
   s.add_dependency 'dbi'
   s.add_development_dependency 'yard'
   s.add_development_dependency 'rake'
