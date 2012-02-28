@@ -457,6 +457,7 @@ module CaRuby
         @rec_cnt += 1 && next if @rec_cnt < @offset
         begin
           # migrate the row
+          puts Time.new.inspect() + " Started migrating record #{rec_no}."
           logger.debug { "Migrating record #{rec_no}..." }
           target = migrate_row(row)
           # call the block on the migrated target
@@ -471,6 +472,7 @@ module CaRuby
         if target then
           # replace the log message below with the commented alternative to detect a memory leak
           logger.debug { "Migrated record #{rec_no}." }
+          puts Time.new.inspect() + " Migrated record #{rec_no}."
           #memory_usage = `ps -o rss= -p #{Process.pid}`.to_f / 1024 # in megabytes
           #logger.debug { "Migrated rec #{@rec_cnt}; memory usage: #{sprintf("%.1f", memory_usage)} MB." }
           if @print_progress then print_progress(mgt_cnt) end
@@ -490,6 +492,7 @@ module CaRuby
         @rec_cnt += 1
       end
       logger.info("Migrated #{mgt_cnt} of #{@rec_cnt} records.")
+      puts "Migrated #{mgt_cnt} of #{@rec_cnt} records."
       mgt_cnt
     end
     
