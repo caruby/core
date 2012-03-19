@@ -1,8 +1,5 @@
-require 'rubygems'
-gem 'dbi'
-
-require 'dbi'
-require 'caruby/helpers/options'
+require 'jinx/helpers/options'
+require 'caruby/rdbi/driver/jdbc'
 
 module CaRuby
   # SQLExecutor executes an SQL statement against the database.
@@ -36,7 +33,7 @@ module CaRuby
     # @raise [CaRuby::ConfigurationError] if an option is invalid
     def initialize(opts)
       if opts.empty? then
-        CaRuby.fail(CaRuby::ConfigurationError, "The caRuby database connection properties were not found.") 
+        Jinx.fail(CaRuby::ConfigurationError, "The caRuby database connection properties were not found.") 
       end
       app_host = Options.get(:host, opts, 'localhost')
       db_host = Options.get(:database_host, opts, app_host)
@@ -44,8 +41,8 @@ module CaRuby
       db_driver = Options.get(:database_driver, opts) { default_driver_string(db_type) }
       db_port = Options.get(:database_port, opts) { default_port(db_type) }
       db_name = Options.get(:database, opts) { raise_missing_option_exception(:database) }
-      db_url = Options.get(:database_url, opts) { "#{db_driver}://#{db_host}:#{db_port}/#{db_name}" }
-      @dbi_url = 'dbi:' + db_url
+      @db_url = Options.get(:database_url, opts) { "#{db_driver}://#{db_host}:#{db_port}/#{db_name}" }
+      @dbi_url = 'dbi:' + @db_url
       @username = Options.get(:database_user, opts) { raise_missing_option_exception(:database_user) }
       @password = Options.get(:database_password, opts)
       @driver_class = Options.get(:database_driver_class, opts, default_driver_class(db_type))
@@ -58,16 +55,47 @@ module CaRuby
         :database_port => db_port,
         :database_driver => db_driver,
         :database_driver_class => @driver_class,
-        :database_url => db_url
+        :database_url => @db_url
       }
       logger.debug { "Database connection parameters (excluding password): #{eff_opts.qp}" }
     end
 
     # Connects to the database, yields the DBI handle to the given block and disconnects.
     #
-    # @return [Array] the execution result
+    # @yield [dbh] the transaction statements
+    # @yieldparam [RDBI::Database] dbh the database handle
     def execute
-      DBI.connect(@dbi_url, @username, @password, 'driver'=> @driver_class) { |dbh| yield dbh }
+      RDBI.connect(:JDBC, :database => @db_url, :user => @username, :password => @password, :driver_class=> @driver_class) do |dbh|
+        yield dbh
+      end
+    end
+
+    # Runs the given query.
+    #
+    # @param [String] sql the SQL to execute
+    # @param [Array] args the SQL bindings
+    # @return [Array] the query result
+    def query(sql, *args)
+      fetched = nil
+      execute do |dbh|
+        res = dbh.execute(sql, *args)
+        fetched = res.fetch(:all)
+        res.finish
+      end
+      fetched
+    end
+
+    # Runs the given modification SQL or block as a transaction.
+    #
+    # @param [String] sql the SQL to execute
+    # @param [Array] args the SQL bindings
+    # @yield [dbh] the transaction statements
+    # @yieldparam [RDBI::Database] dbh the database handle
+    def transact(sql=nil, *args)
+      return transact { |dbh| dbh.execute(sql, *args) } if sql
+      execute do |dbh|
+        dbh.transaction { yield dbh }
+      end
     end
 
     private
@@ -80,7 +108,7 @@ module CaRuby
       case db_type.downcase
         when 'mysql' then 'Jdbc:mysql'
         when 'oracle' then 'Oracle'
-        else CaRuby.fail(CaRuby::ConfigurationError, "Default database connection driver string could not be determined for database type #{db_type}")
+        else Jinx.fail(CaRuby::ConfigurationError, "Default database connection driver string could not be determined for database type #{db_type}")
       end
     end
     
@@ -88,7 +116,7 @@ module CaRuby
       case db_type.downcase
         when 'mysql' then MYSQL_DRIVER_CLASS_NAME
         when 'oracle' then ORACLE_DRIVER_CLASS_NAME
-        else CaRuby.fail(CaRuby::ConfigurationError, "Default database connection driver class could not be determined for database type #{db_type}")
+        else Jinx.fail(CaRuby::ConfigurationError, "Default database connection driver class could not be determined for database type #{db_type}")
       end
     end
 
@@ -96,12 +124,12 @@ module CaRuby
       case db_type.downcase
         when 'mysql' then 3306
         when 'oracle' then 1521
-        else CaRuby.fail(CaRuby::ConfigurationError, "Default database connection port could not be determined for database type #{db_type}")
+        else Jinx.fail(CaRuby::ConfigurationError, "Default database connection port could not be determined for database type #{db_type}")
       end
     end
 
     def raise_missing_option_exception(option)
-      CaRuby.fail(CaRuby::ConfigurationError, "Database connection property not found: #{option}")
+      Jinx.fail(CaRuby::ConfigurationError, "Database connection property not found: #{option}")
     end
   end
 end

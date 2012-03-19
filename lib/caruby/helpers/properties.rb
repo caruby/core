@@ -1,8 +1,8 @@
 require 'yaml'
 require 'set'
-require 'caruby/helpers/pretty_print'
-require 'caruby/helpers/collection'
-require 'caruby/helpers/merge'
+require 'jinx/helpers/pretty_print'
+require 'jinx/helpers/collection'
+require 'jinx/helpers/merge'
 
 module CaRuby
   # Exception raised if a configuration property is missing or invalid.
@@ -66,12 +66,12 @@ module CaRuby
     #
     # Raises ConfigurationError if file doesn't exist or couldn't be parsed.
     def load_properties(file)
-      CaRuby.fail(ConfigurationError, "Properties file not found: #{File.expand_path(file)}") unless File.exists?(file)
+      Jinx.fail(ConfigurationError, "Properties file not found: #{File.expand_path(file)}") unless File.exists?(file)
       properties = {}
       begin
         YAML::load_file(file).each { |key, value| properties[key.to_sym] = value }
       rescue
-        CaRuby.fail(ConfigurationError, "Could not read properties file #{file}: " + $!)
+        Jinx.fail(ConfigurationError, "Could not read properties file #{file}: " + $!)
       end
       # Uncomment the following line to print detail properties.
       #logger.debug { "#{file} properties:\n#{properties.pp_s}" }
@@ -103,7 +103,7 @@ module CaRuby
     # Validates that the required properties exist.
     def validate_properties
       @required_properties.each do |key|
-        CaRuby.fail(ConfigurationError, "A required #{@application} property was not found: #{key}") unless has_property?(key)
+        Jinx.fail(ConfigurationError, "A required #{@application} property was not found: #{key}") unless has_property?(key)
       end
     end
   end

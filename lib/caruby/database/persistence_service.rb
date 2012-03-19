@@ -1,9 +1,10 @@
+require 'jinx/helpers/stopwatch'
 require 'caruby/helpers/version'
-require 'caruby/database'
-require 'caruby/helpers/stopwatch'
+require 'caruby/database/application_service'
 
 module CaRuby
-  # A PersistenceService wraps a caCORE application service.
+  # A PersistenceService is a database mediator which implements the {#query} {#create}, {#update}
+  # and {#delete} methods.
   class PersistenceService
     # The service name.
     attr_reader :name
@@ -25,7 +26,7 @@ module CaRuby
       @host = opts[:host] || default_host
       @port = opts[:port] || 8080
       @url = "http://#{@host}:#{@port}/#{@name}/http/remoteService"
-      @timer = Stopwatch.new
+      @timer = Jinx::Stopwatch.new
       logger.debug { "Created persistence service #{name} at #{@host}:#{@port}." }
     end
 
@@ -81,16 +82,11 @@ module CaRuby
       end
     end
 
-    # Returns a freshly initialized ApplicationServiceProvider remote instance.
+    # Returns the {ApplicationService} remote instance.
     #
-    # @quirk caCORE When more than one application service is used, each call to the service
-    #   must reinitialize the remote instance. E.g. this is done in the caTissue DE examples,
-    #  and is a good general practice.
-    #
-    # @return [ApplicationServiceProvider] the CaCORE service provider wrapped by this PersistenceService
+    # @return the CaCORE service provider wrapped by this PersistenceService
     def app_service
-      logger.debug { "Connecting to service provider at #{@url}..." }
-      ApplicationServiceProvider.remote_instance(@url)
+      ApplicationService.for(@url)
     end
 
     private
@@ -136,7 +132,7 @@ module CaRuby
       logger.debug { "Building HQLCriteria..." }
       criteria = HQLCriteria.new(hql)
       target = hql[/from\s+(\S+)/i, 1]
-      CaRuby.fail(DatabaseError, "HQL does not contain a FROM clause: #{hql}") unless target
+      Jinx.fail(DatabaseError, "HQL does not contain a FROM clause: #{hql}") unless target
       logger.debug { "Submitting search on target class #{target} with the following HQL:\n  #{hql}" }
       begin
         dispatch { |svc| svc.query(criteria, target) }
@@ -153,9 +149,9 @@ module CaRuby
       logger.debug { "Searching using template #{template.qp}#{', path ' + path.join('.') unless path.empty?}..." }
       # collect the class search path from the reference attribute domain type Java class names
       class_name_path = []
-      path.inject(template.class) do |type, attr|
-        ref_type = type.domain_type(attr)
-        CaRuby.fail(DatabaseError, "Attribute in search attribute path #{path.join('.')} is not a #{type} domain reference attribute: #{attr}") if ref_type.nil?
+      path.inject(template.class) do |type, pa|
+        ref_type = type.domain_type(pa)
+        Jinx.fail(DatabaseError, "Property in search attribute path #{path.join('.')} is not a #{type} domain reference attribute: #{pa}") if ref_type.nil?
         class_name_path << ref_type.java_class.name
         ref_type
       end
@@ -190,7 +186,7 @@ module CaRuby
     end
 
     def dump(obj)
-      Resource === obj ? obj.dump : obj.to_s
+      Jinx::Resource === obj ? obj.dump : obj.to_s
     end
     
     private
@@ -198,15 +194,8 @@ module CaRuby
     # Imports this class's Java classes on demand.
     def self.import_java_classes
       return if const_defined?(:HQLCriteria)
-      
       # HQLCriteria is required for the query_hql method.
       java_import Java::gov.nih.nci.common.util.HQLCriteria
-
-      # The encapsulated caBIG service class.
-      java_import Java::gov.nih.nci.system.applicationservice.ApplicationServiceProvider
-
-      # This import is not strictly necessary, but works around Ticket #5.
-      java_import Java::gov.nih.nci.system.comm.client.ApplicationServiceClientImpl
     end
 
   end

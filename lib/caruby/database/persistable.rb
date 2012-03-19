@@ -1,7 +1,7 @@
-require 'caruby/helpers/pretty_print'
-require 'caruby/helpers/inflector'
-require 'caruby/helpers/collection'
-require 'caruby/helpers/validation'
+require 'jinx/helpers/pretty_print'
+require 'jinx/helpers/inflector'
+require 'jinx/helpers/collection'
+require 'jinx/helpers/validation'
 
 module CaRuby
   # The Persistable mixin adds persistance capability. Every instance which includes Persistable
@@ -10,29 +10,31 @@ module CaRuby
     # @return [{Symbol => Object}] the content value hash at the point of the last snapshot
     attr_reader :snapshot
       
-    # @param [Resource, <Resource>, nil] obj the object(s) to check
-    # @return [Boolean] whether the given object(s) have an identifier, or the object is nil or empty
+    # @param [Jinx::Resource, <Jinx::Resource>, nil] obj the object(s) to check
+    # @return [Boolean] whether the given object(s) have an identifier
     def self.saved?(obj)
-      if obj.collection? then
+      if obj.nil_or_empty? then
+        false
+      elsif obj.collection? then
         obj.all? { |ref| saved?(ref) }
       else
-        obj.nil? or obj.identifier
+        !!obj.identifier
       end
     end
     
-    # @param [Resource, <Resource>, nil] obj the object(s) to check
+    # @param [Jinx::Resource, <Jinx::Resource>, nil] obj the object(s) to check
     # @return [Boolean] whether at least one of the given object(s) does not have an identifier
     def self.unsaved?(obj)
-      not saved?(obj)
+      not (obj.nil_or_empty? or saved?(obj))
     end
     
     # Returns the data access mediator for this domain object.
-    # Application #{Resource} modules are required to override this method.
+    # Application #{Jinx::Resource} modules are required to override this method.
     #
     # @return [Database] the data access mediator for this Persistable, if any
     # @raise [DatabaseError] if the subclass does not override this method
     def database
-      CaRuby.fail(ValidationError, "#{self} database is missing")
+      Jinx.fail(ValidationError, "#{self} database is missing")
     end
     
     # @return [PersistenceService] the database application service for this Persistable
@@ -125,25 +127,25 @@ module CaRuby
     end
 
     # @return [Boolean] whether this Persistable has a {#snapshot}
-    def snapshot_taken?
+    def fetched?
       !!@snapshot
     end
     
     # Merges the other domain object non-domain attribute values into this domain object's snapshot,
     # An existing snapshot value is replaced by the corresponding other attribute value.
     #
-    # @param [Resource] other the source domain object
+    # @param [Jinx::Resource] other the source domain object
     # @raise [ValidationError] if this domain object does not have a snapshot
     def merge_into_snapshot(other)
-      unless snapshot_taken? then
-        CaRuby.fail(ValidationError, "Cannot merge #{other.qp} content into #{qp} snapshot, since #{qp} does not have a snapshot.")
+      if @snapshot.nil? then
+        Jinx.fail(ValidationError, "Cannot merge #{other.qp} content into #{qp} snapshot, since #{qp} does not have a snapshot.")
       end
       # the non-domain attribute => [target value, other value] difference hash
       delta = diff(other)
       # the difference attribute => other value hash, excluding nil other values
       dvh = delta.transform { |d| d.last }
       return if dvh.empty?
-      logger.debug { "#{qp} differs from database content #{other.qp} as follows: #{delta.filter_on_key { |attr| dvh.has_key?(attr) }.qp}" }
+      logger.debug { "#{qp} differs from database content #{other.qp} as follows: #{delta.filter_on_key { |pa| dvh.has_key?(pa) }.qp}" }
       logger.debug { "Setting #{qp} snapshot values from other #{other.qp} values to reflect the database state: #{dvh.qp}..." }
       # update the snapshot from the other value to reflect the database state
       @snapshot.merge!(dvh)
@@ -151,18 +153,20 @@ module CaRuby
     
     # Returns whether this Persistable either doesn't have a snapshot or has changed since the last snapshot.
     # This is a conservative condition test that returns false if there is no snaphsot for this Persistable
-    # and therefore no basis to determine whether the content changed.
+    # and therefore no basis to determine whether the content changed. If the attribute parameter is given,
+    # then only that attribute is checked for a change. Otherwise, all attributes are checked.
     #
+    # @param [Symbol, nil] attribute the optional attribute to check.
     # @return [Boolean] whether this Persistable's content differs from its snapshot
-    def changed?
-      @snapshot.nil? or not snapshot_equal_content?
+    def changed?(attribute=nil)
+      @snapshot.nil? or not snapshot_equal_content?(attribute)
     end
 
     # @return [<Symbol>] the attributes which differ between the {#snapshot} and current content
     def changed_attributes
       if @snapshot then
         ovh = value_hash(self.class.updatable_attributes)
-        diff = @snapshot.diff(ovh) { |attr, v, ov| Resource.value_equal?(v, ov) }
+        diff = @snapshot.diff(ovh) { |pa, v, ov| Jinx::Resource.value_equal?(v, ov) }
         diff.keys
       else
         self.class.updatable_attributes
@@ -186,30 +190,30 @@ module CaRuby
     # @param loader [LazyLoader] the lazy loader to add
     def add_lazy_loader(loader, attributes=nil)
       # guard against invalid call
-      if identifier.nil? then CaRuby.fail(ValidationError, "Cannot add lazy loader to an unfetched domain object: #{self}") end
+      if identifier.nil? then Jinx.fail(ValidationError, "Cannot add lazy loader to an unfetched domain object: #{self}") end
       # the attributes to lazy-load
       attributes ||= loadable_attributes
       return if attributes.empty?
       # define the reader and writer method overrides for the missing attributes
-      attrs = attributes.select { |attr| inject_lazy_loader(attr) }
-      logger.debug { "Lazy loader added to #{qp} attributes #{attrs.to_series}." } unless attrs.empty?
+      pas = attributes.select { |pa| inject_lazy_loader(pa) }
+      logger.debug { "Lazy loader added to #{qp} attributes #{pas.to_series}." } unless pas.empty?
     end
     
     # Returns the attributes to load on demand. The base attribute list is given by the
-    # {Domain::Attributes#loadable_attributes} whose value is nil or empty.
+    # {Jinx::Properties#loadable_attributes} whose value is nil or empty.
     # In addition, if this Persistable has more than one {Domain::Dependency#owner_attributes}
     # and one is non-nil, then none of the owner attributes are loaded on demand,
     # since there can be at most one owner and ownership cannot change.
     #
     # @return [<Symbol>] the attributes to load on demand
     def loadable_attributes
-      attrs = self.class.loadable_attributes.select { |attr| send(attr).nil_or_empty? }
+      pas = self.class.loadable_attributes.select { |pa| send(pa).nil_or_empty? }
       ownr_attrs = self.class.owner_attributes
       # If there is an owner, then variant owners are not loaded.
-      if ownr_attrs.size > 1 and ownr_attrs.any? { |attr| not send(attr).nil_or_empty? } then
-        attrs - ownr_attrs
+      if ownr_attrs.size > 1 and ownr_attrs.any? { |pa| not send(pa).nil_or_empty? } then
+        pas - ownr_attrs
       else
-        attrs
+        pas
       end
     end
 
@@ -220,18 +224,34 @@ module CaRuby
     # @param [Symbol] the attribute to remove from the load list, or nil if to remove all attributes
     def remove_lazy_loader(attribute=nil)
       if attribute.nil? then
-        return self.class.domain_attributes.each { |attr| remove_lazy_loader(attr) }
+        return self.class.domain_attributes.each { |pa| remove_lazy_loader(pa) }
       end
       # the modified accessor method
-      reader, writer = self.class.attribute_metadata(attribute).accessors
+      reader, writer = self.class.property(attribute).accessors
       # remove the reader override
       disable_singleton_method(reader)
       # remove the writer override
       disable_singleton_method(writer)
     end
     
+    # Wrap +Resource.dump+ to disable the lazy-loader while printing.
+    def dump
+      do_without_lazy_loader { super }
+    end
+    
+    # Executes the given block with the database lazy loader disabled, if any.
+    #
+    # @yield the block to execute
+    def do_without_lazy_loader(&block)
+      if database then
+        database.lazy_loader.disable(&block)
+      else
+        yield
+      end
+    end
+    
     # Returns this domain object's attributes which must be fetched to reflect the database state.
-    # This default implementation returns the {Domain::Attributes#autogenerated_logical_dependent_attributes}
+    # This default implementation returns the {Jinx::Properties#autogenerated_logical_dependent_attributes}
     # if this domain object does not have an identifier, or an empty array otherwise.
     # Subclasses can override to relax or restrict the condition.
     #
@@ -254,8 +274,8 @@ module CaRuby
       # only fetch a create, not an update (note that subclasses can override this condition)
       if operation.type == :create or operation.autogenerated? then
         # Filter the class saved fetch attributes for content.
-        self.class.saved_attributes_to_fetch.select { |attr| not send(attr).nil_or_empty? }
-     else
+        self.class.saved_attributes_to_fetch.select { |pa| not send(pa).nil_or_empty? }
+      else
         Array::EMPTY_ARRAY
       end
     end
@@ -274,7 +294,7 @@ module CaRuby
       operation == :update
       # Check for an attribute with a value that might need to be changed in order to
       # reflect the auto-generated database content.
-      self.class.autogenerated_logical_dependent_attributes.select { |attr| not send(attr).nil_or_empty? }
+      self.class.autogenerated_logical_dependent_attributes.select { |pa| not send(pa).nil_or_empty? }
     end
     
     # Returns whether this domain object must be fetched to reflect the database state.
@@ -296,6 +316,9 @@ module CaRuby
     # @quirk caCORE A saved attribute which is cascaded but not fetched must be fetched in
     #   order to reflect the database identifier in the saved object.
     #
+    # TODO - this method is no longeer used. Should it be? If not, remove here and in catissue
+    # subclasses.
+    #
     # @return [Boolean] whether this domain object must be fetched to reflect the database state
     def fetch_saved?
       # only fetch a create, not an update (note that subclasses can override this condition)
@@ -304,29 +327,29 @@ module CaRuby
       # reflect the auto-generated database content.
       ag_attrs = self.class.autogenerated_attributes
       return false if ag_attrs.empty?
-      ag_attrs.any? { |attr| not send(attr).nil_or_empty? }
+      ag_attrs.any? { |pa| not send(pa).nil_or_empty? }
     end
 
-    # Sets the {Domain::Attributes#volatile_nondomain_attributes} to the other fetched value,
+    # Sets the {Jinx::Properties#volatile_nondomain_attributes} to the other fetched value,
     # if different.
     #
-    # @param [Resource] other the fetched domain object reflecting the database state
+    # @param [Jinx::Resource] other the fetched domain object reflecting the database state
     def copy_volatile_attributes(other)
-      attrs = self.class.volatile_nondomain_attributes
-      return if attrs.empty?
-      logger.debug { "Merging volatile attributes #{attrs.to_series} from #{other.qp} into #{qp}..." }
-      attrs.each do |attr|
-        val = send(attr)
-        oval = other.send(attr)
+      pas = self.class.volatile_nondomain_attributes
+      return if pas.empty?
+      logger.debug { "Merging volatile attributes #{pas.to_series} from #{other.qp} into #{qp}..." }
+      pas.each do |pa|
+        val = send(pa)
+        oval = other.send(pa)
         # set the attribute to the other value if it differs from the current value
         unless oval == val then
           # if this error occurs, then there is a serious match-merge flaw
-          if val and attr == :identifier then
-            CaRuby.fail(DatabaseError, "Can't copy #{other} to #{self} with different identifier")
+          if val and pa == :identifier then
+            Jinx.fail(DatabaseError, "Can't copy #{other} to #{self} with different identifier")
           end
           # overwrite the current attribute value
-          set_attribute(attr, oval)
-          logger.debug { "Set #{qp} volatile #{attr} to the fetched #{other.qp} database value #{oval.qp}." }
+          set_property_value(pa, oval)
+          logger.debug { "Set #{qp} volatile #{pa} to the fetched #{other.qp} database value #{oval.qp}." }
         end
       end
     end
@@ -335,36 +358,47 @@ module CaRuby
 
     # Returns whether the {#snapshot} and current content are equal.
     # The attribute values _v_ and _ov_ of the snapshot and current content, resp., are
-    # compared with equality determined by {Resource.value_equal?}.
+    # compared with equality determined by {Jinx::Resource.value_equal?}.
     #
+    # @param (see #changed?)
     # @return [Boolean] whether the {#snapshot} and current content are equal
-    def snapshot_equal_content?
-      vh = @snapshot
-      ovh = value_hash(self.class.updatable_attributes)
+    def snapshot_equal_content?(attribute=nil)
+      if attribute then
+        value = send(attribute)
+        ssval = @snapshot[attribute]
+        eq = Jinx::Resource.value_equal?(value, ssval)
+        unless eq then
+          logger.debug { "#{qp} #{attribute} snapshot value #{ssval.qp} differs from the current value #{value.qp}." }
+        end
+        return eq
+      end
       
-      # KLUDGE TODO - confirm this is still a problem and fix
-      # In Galena frozen migration example, SpecimenPosition snapshot doesn't include identifier; work around this here
-      # This could be related to the problem of an abstract DomainObject not being added as a domain module class. See the
-      # ClinicalTrials::Resource for more info.
-      if ovh[:identifier] and not @snapshot[:identifier] then
-        @snapshot[:identifier] = ovh[:identifier]
+      vh = value_hash(self.class.updatable_attributes)
+      
+      # KLUDGE TODO - confirm this is still a problem and fix.
+      # In the Galena frozen migration example, the SpecimenPosition snapshot doesn't include the identifier.
+      # This bug could be related to the problem of an abstract DomainObject not being added as a domain module class.
+      # Work around this here by setting the snapshot identifier.
+      # See the ClinicalTrials::Jinx::Resource rubydoc for more info.
+      if vh[:identifier] and not @snapshot[:identifier] then
+        @snapshot[:identifier] = vh[:identifier]
       end
       # END OF KLUDGE
       
-      if vh.size < ovh.size then
-        attr, oval = ovh.detect { |a, v| not vh.has_key?(a) }
-        logger.debug { "#{qp} is missing snapshot #{attr} compared to the current value #{oval.qp}." }
+      if @snapshot.size < vh.size then
+        pa, pv = vh.detect { |a, v| not @snapshot.has_key?(a) }
+        logger.debug { "#{qp} is missing snapshot #{pa} compared to the current value #{pv.qp}." }
         false
-      elsif vh.size > ovh.size then
-        attr, value = vh.detect { |a, v| not ovh.has_key?(a) }
-        logger.debug { "#{qp} has snapshot #{attr} value #{value.qp} not found in current content." }
+      elsif @snapshot.size > vh.size then
+        pa, value = @snapshot.detect { |a, v| not vh.has_key?(a) }
+        logger.debug { "#{qp} has snapshot #{pa} value #{value.qp} not found in current content." }
         false
       else
-        vh.all? do |attr, value|
-          oval = ovh[attr]
-          eq = Resource.value_equal?(oval, value)
+        @snapshot.all? do |pa, ssval|
+          pv = vh[pa]
+          eq = Jinx::Resource.value_equal?(pv, ssval)
           unless eq then
-            logger.debug { "#{qp} #{attr} snapshot value #{value.qp} differs from the current value #{oval.qp}." }
+            logger.debug { "#{qp} #{pa} snapshot value #{ssval.qp} differs from the current value #{pv.qp}." }
           end
           eq
         end
@@ -380,7 +414,7 @@ module CaRuby
       # bail if there is already a value
       return false if attribute_loaded?(attribute)
       # the accessor methods to modify
-      reader, writer = self.class.attribute_metadata(attribute).accessors
+      reader, writer = self.class.property(attribute).accessors
       # The singleton attribute reader method loads the reference once and thenceforth calls the
       # standard reader.
       instance_eval "def #{reader}; load_reference(:#{attribute}); end"
@@ -408,21 +442,21 @@ module CaRuby
       # bypass the singleton method and call the class instance method if the lazy loader is disabled
       return transient_value(attribute) unless ldr.enabled?
       
-      # Disable lazy loading first for the attribute, since the reader method is called by the loader.
+      # First disable lazy loading for the attribute, since the reader method is called by the loader.
       remove_lazy_loader(attribute)
       # load the fetched value
       merged = ldr.load(self, attribute)
       
       # update dependent snapshots if necessary
-      attr_md = self.class.attribute_metadata(attribute)
-      if attr_md.dependent? then
+      pa = self.class.property(attribute)
+      if pa.dependent? then
         # the owner attribute
-        oattr = attr_md.inverse
+        oattr = pa.inverse
         if oattr then
           # update dependent snapshot with the owner, since the owner snapshot is taken when fetched but the
           # owner might be set when the fetched dependent is merged into the owner dependent attribute. 
           merged.enumerate do |dep|
-            if dep.snapshot_taken? then
+            if dep.fetched? then
               dep.snapshot[oattr] = self
               logger.debug { "Updated the #{qp} fetched #{attribute} dependent #{dep.qp} snapshot with #{oattr} value #{qp}." }
             end

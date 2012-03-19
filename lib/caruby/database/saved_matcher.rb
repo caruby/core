@@ -26,7 +26,7 @@ module CaRuby
       #
       # @param sources (see #match_fetched)
       # @param targets (see #match_fetched)
-      # @param [{Resource => Resource}] the source => target matches so far
+      # @param [{Jinx::Resource => Jinx::Resource}] the source => target matches so far
       def match_fetched_residual(sources, targets, matches)
         unmtchd_tgts = targets.to_set - matches.keys.delete_if { |tgt| tgt.identifier }
         unmtchd_srcs = sources.to_set - matches.values
@@ -34,8 +34,8 @@ module CaRuby
         matches.merge!(min_mtchs)
       end
       
-      #@param [<Resource>] sources the source objects to match
-      #@param [<Resource>] targets the potential match target objects
+      #@param [<Jinx::Resource>] sources the source objects to match
+      #@param [<Jinx::Resource>] targets the potential match target objects
       # @return (see #match_saved)
       def match_minimal(sources, targets)
         matches = {}

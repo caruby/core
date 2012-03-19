@@ -1,4 +1,5 @@
-require 'caruby/helpers/pretty_print'
+require 'jinx/resource'
+require 'jinx/helpers/pretty_print'
 
 module CaRuby
   class Database
@@ -6,7 +7,7 @@ module CaRuby
       # TemplateBuilder builds a template suitable for a caCORE saarch database operation.
       class TemplateBuilder
         # Returns a template for matching the domain object obj and the optional hash values.
-        # The default hash attributes are the {Domain::Attributes#searchable_attributes}.
+        # The default hash attributes are the {Jinx::Properties#searchable_attributes}.
         # The template includes only the non-domain attributes of the hash references.
         #
         # @quirk caCORE Because of caCORE API limitations, the obj searchable attribute
@@ -25,14 +26,14 @@ module CaRuby
           logger.debug { "Building search template for #{obj.qp}..." }
           hash ||= obj.value_hash(obj.class.searchable_attributes)
           # the searchable attribute => value hash
-          rh, nrh = hash.split { |attr, value| Resource === value }
+          rh, nrh = hash.split { |pa, value| Jinx::Resource === value }
           # make the search template from the non-reference attributes
           tmpl = obj.class.new.merge_attributes(nrh)
           # get references for the search template
           unless rh.empty? then
             logger.debug { "Collecting search reference parameters for #{obj.qp} from attributes #{rh.keys.to_series}..." }
           end
-          rh.each { |attr, ref| add_search_template_reference(tmpl, ref, attr) }
+          rh.each { |pa, ref| add_search_template_reference(tmpl, ref, pa) }
           tmpl
         end
 
@@ -42,13 +43,13 @@ module CaRuby
         # source domain object. The reference contains only the source identifier, if it exists,
         # or the source non-domain attributes otherwise.
         #
-        # @return [Resource] the search reference
+        # @return [Jinx::Resource] the search reference
         def add_search_template_reference(template, source, attribute)
           ref = source.identifier ? source.copy(:identifier) : source.copy
           # Disable inverse integrity, since the template attribute assignment might have added a reference
           # from ref to template, which introduces a template => ref => template cycle that causes a caCORE
           # search infinite loop. Use the Java property writer instead.
-          wtr = template.class.attribute_metadata(attribute).property_writer
+          wtr = template.class.property(attribute).property_writer
           template.send(wtr, ref)
           logger.debug { "Search reference parameter #{attribute} for #{template.qp} set to #{ref} copied from #{source.qp}" }
           ref

@@ -7,7 +7,7 @@ module CaRuby
       # Creates a new LazyLoader which calls the loader block on the subject.
       #
       # @yield [subject, attribute] fetches the given subject attribute value from the database
-      # @yieldparam [Resource] subject the domain object whose attribute is to be loaded
+      # @yieldparam [Jinx::Resource] subject the domain object whose attribute is to be loaded
       # @yieldparam [Symbol] attribute the domain attribute to load
       def initialize(&loader)
         @loader = loader
@@ -16,14 +16,14 @@ module CaRuby
         @enabled = true
       end
   
-      # @param [Resource] subject the domain object whose attribute is to be loaded
+      # @param [Jinx::Resource] subject the domain object whose attribute is to be loaded
       # @param [Symbol] the domain attribute to load
       # @yield (see #initialize)
       # @yieldparam (see #initialize)
       # @return the attribute value loaded from the database
       # @raise [RuntimeError] if this loader is disabled
       def load(subject, attribute)
-        if disabled? then CaRuby.fail(RuntimeError, "#{subject.qp} lazy load called on disabled loader") end
+        if disabled? then Jinx.fail(RuntimeError, "#{subject.qp} lazy load called on disabled loader") end
         logger.debug { "Lazy-loading #{subject.qp} #{attribute}..." }
         # the current value
         oldval = subject.send(attribute)
@@ -33,7 +33,7 @@ module CaRuby
         return oldval if fetched.nil_or_empty?
         # merge the fetched into the attribute
         logger.debug { "Merging #{subject.qp} fetched #{attribute} value #{fetched.qp}#{' into ' + oldval.qp if oldval}..." }
-        matches = @matcher.match(fetched.to_enum, oldval.to_enum)
+        matches = @matcher.match(fetched.to_enum, oldval.to_enum, subject, attribute)
         subject.merge_attribute(attribute, fetched, matches)
       end
       

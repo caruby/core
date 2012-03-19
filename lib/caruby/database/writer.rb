@@ -1,6 +1,8 @@
-require 'caruby/helpers/collection'
-require 'caruby/helpers/pretty_print'
-require 'caruby/domain/reference_visitor'
+require 'jinx/helpers/collection'
+require 'jinx/helpers/pretty_print'
+require 'jinx/resource/reference_visitor'
+require 'jinx/resource/match_visitor'
+require 'jinx/resource/merge_visitor'
 require 'caruby/database/saved_matcher'
 require 'caruby/database/writer_template_builder'
 
@@ -11,23 +13,23 @@ module CaRuby
       # Adds store capability to this Database.
       def initialize
         super
-        @ftchd_vstr = ReferenceVisitor.new { |tgt| tgt.class.fetched_domain_attributes }
+        @ftchd_vstr = Jinx::ReferenceVisitor.new { |tgt| tgt.class.fetched_domain_attributes }
         @cr_tmpl_bldr = TemplateBuilder.new(self) { |ref| creatable_domain_attributes(ref) }
         @upd_tmpl_bldr = TemplateBuilder.new(self) { |ref| updatable_domain_attributes(ref) }
         # the save result => argument reference matcher
         svd_mtchr = SavedMatcher.new
         # the save (result, argument) synchronization visitor
-        @svd_sync_vstr = MatchVisitor.new(:matcher => svd_mtchr) { |ref| ref.class.dependent_attributes }
+        @svd_sync_vstr = Jinx::MatchVisitor.new(:matcher => svd_mtchr) { |ref| ref.class.dependent_attributes }
         # the attributes to merge from the save result
         mgbl = Proc.new { |ref| ref.class.domain_attributes }
         # the save result => argument merge visitor
-        @svd_mrg_vstr = MergeVisitor.new(:matcher => svd_mtchr, :mergeable => mgbl) { |ref| ref.class.dependent_attributes }
+        @svd_mrg_vstr = Jinx::MergeVisitor.new(:matcher => svd_mtchr, :mergeable => mgbl) { |ref| ref.class.dependent_attributes }
       end
 
       # Creates the specified domain object obj and returns obj. The pre-condition for this method is as
       # follows:
       # * obj is a well-formed domain object with the necessary required attributes as determined by the
-      #   {Resource#validate} method
+      #   {Jinx::Resource#validate} method
       # * obj does not have a database identifier attribute value
       # * obj does not yet exist in the database
       # The post-condition is that obj is created and assigned a database identifier.
@@ -55,8 +57,8 @@ module CaRuby
       #   owner.dependents.size == dependents_count #=> true
       #
       # If obj is not dependent, then the create strategy is as follows:
-      # * add default attribute values using {Resource#add_defaults}
-      # * validate obj using {Resource#validate}
+      # * add default attribute values using {Jinx::Resource#add_defaults}
+      # * validate obj using {Jinx::Resource#validate}
       # * ensure that all saved independent reference attribute values exist in the database, creating
       #   them if necessary
       # * ensure that all dependent reference attribute values can be created according to this set of rules
@@ -66,16 +68,16 @@ module CaRuby
       # * copy the new database identifier to each created object, i.e. the transitive closure of obj and
       #   its dependents
       #
-      # @param [Resource] the domain object to create
-      # @return [Resource] obj
+      # @param [Jinx::Resource] the domain object to create
+      # @return [Jinx::Resource] obj
       # @raise [DatabaseError] if the database operation fails
       def create(obj)
         # guard against recursive call back into the same operation
         # the only allowed recursive call is a dependent create which first creates the owner
         if recursive_save?(obj, :create) then
-          CaRuby.fail(DatabaseError, "Create #{obj.qp} recursively called in context #{print_operations}")
+          Jinx.fail(DatabaseError, "Create #{obj.qp} recursively called in context #{print_operations}")
         elsif obj.identifier then
-          CaRuby.fail(DatabaseError, "Create unsuccessful since #{obj.qp} already has identifier #{obj.identifier}")
+          Jinx.fail(DatabaseError, "Create unsuccessful since #{obj.qp} already has identifier #{obj.identifier}")
         end
         # create the object
         perform(:create, obj) { create_object(obj) }
@@ -90,11 +92,12 @@ module CaRuby
       # * validate that obj has a database identifier
       # * the template is submitted to the application service update method
       #
-      # Raises DatabaseError if the database operation fails.
+      # @param [Jinx::Resource] the object to update
+      # @raise [DatabaseError] if the database operation fails
       def update(obj)
         # guard against a recursive call back into the same operation.
         if recursive_save?(obj, :update) then
-          CaRuby.fail(DatabaseError, "Update #{obj.qp} recursively called in context #{print_operations}")
+          Jinx.fail(DatabaseError, "Update #{obj.qp} recursively called in context #{print_operations}")
         end
         # update the object
         perform(:update, obj) { update_object(obj) }
@@ -109,8 +112,8 @@ module CaRuby
       # @see #create 
       # @see #update
       #
-      #@param [Resource] obj the domain object to save
-      # @return [Resource] obj
+      #@param [Jinx::Resource] obj the domain object to save
+      # @return [Jinx::Resource] obj
       # @raise [DatabaseError] if the database operation fails
       def save(obj)
         logger.debug { "Saving #{obj}..." }
@@ -125,7 +128,7 @@ module CaRuby
       # Note that some applications restrict or forbid delete operations. Check the specific application
       # documentation to determine whether deletion is supported.
       #
-      # @param [Resource] obj the domain object to delete
+      # @param [Jinx::Resource] obj the domain object to delete
       # @raise [DatabaseError] if the database operation fails
       def delete(obj)
         perform(:delete, obj) { delete_object(obj) }
@@ -133,11 +136,11 @@ module CaRuby
 
       # Creates the domain object obj, if necessary.
       #
-      # @param [Resource, <Resource>] obj the domain object or collection of domain objects to find or create 
+      # @param [Jinx::Resource, <Jinx::Resource>] obj the domain object or collection of domain objects to find or create 
       # @raise [ArgumentError] if obj is nil or empty
       # @raise [DatabaseError] if obj could not be created
       def ensure_exists(obj)
-        CaRuby.fail(ArgumentError, "Database ensure_exists is missing a domain object argument") if obj.nil_or_empty?
+        Jinx.fail(ArgumentError, "Database ensure_exists is missing a domain object argument") if obj.nil_or_empty?
         obj.enumerate { |ref| find(ref, :create) unless ref.identifier }
         
       end
@@ -158,7 +161,7 @@ module CaRuby
       # same type on the same dependent is only allowed if the precursor operation was delegated to an owner save which
       # in turn saves the dependent.
       #
-      # @param [Resource] obj the domain object to save
+      # @param [Jinx::Resource] obj the domain object to save
       # @param [Symbol] operation the +:create+ or +:update+ save operation
       # @return [Boolean] whether the save operation is redundant
       def recursive_save?(obj, operation)
@@ -176,7 +179,7 @@ module CaRuby
       # * add a lazy-loader to obj for unfetched domain references
       #
       # @param (see #create)
-      # @return [Resource] obj
+      # @return [Jinx::Resource] obj
       def create_object(obj)
         # add obj to the transients set
         @transients << obj
@@ -187,7 +190,7 @@ module CaRuby
           result = create_dependent(owner, obj) if owner
           result ||= create_from_template(obj)
           if result.nil? then
-            CaRuby.fail(DatabaseError, "#{obj.class.qp} is not creatable in context #{print_operations}")
+            Jinx.fail(DatabaseError, "#{obj.class.qp} is not creatable in context #{print_operations}")
           end
         ensure
           # since obj now has an id, removed from transients set
@@ -204,8 +207,8 @@ module CaRuby
       # A logical dependent is created by its parent unless the parent already exists.
       # If the logical parent exists, then dep must be created.
       #
-      # @param [Resource] dep the dependent domain object to create
-      # @return [Resource] dep
+      # @param [Jinx::Resource] dep the dependent domain object to create
+      # @return [Jinx::Resource] dep
       def create_dependent(owner, dep)
         if owner.identifier.nil? then
           logger.debug { "Adding #{owner.qp} dependent #{dep.qp} defaults..." }
@@ -234,12 +237,12 @@ module CaRuby
      
       # Saves the given domain object using a proxy.
       #
-      # @param [Resource] obj the proxied domain object
-      # @return [Resource] obj
+      # @param [Jinx::Resource] obj the proxied domain object
+      # @return [Jinx::Resource] obj
       # @raise [DatabaseError] if obj does not have a proxy
       def save_with_proxy(obj)
         proxy = obj.saver_proxy
-        if proxy.nil? then CaRuby.fail(DatabaseError, "#{obj.class.qp} does not have a proxy") end
+        if proxy.nil? then Jinx.fail(DatabaseError, "#{obj.class.qp} does not have a proxy") end
         if recursive_save?(proxy, :create) then
           logger.debug { "Foregoing #{obj.qp} save, since it  will be handled by creating the proxy #{proxy}." }
           return
@@ -319,39 +322,39 @@ module CaRuby
       # the application always ignores a non-domain attribute value, e.g. the caTissue
       # CollectionProtocolRegistration registration_date. The work-around is to
       # check whether the create result differs from the create argument for the
-      # {Attributes#autogenerated_nondomain_attributes}, and, if so, to perform an update
+      # {Properties#autogenerated_nondomain_attributes}, and, if so, to perform an update
       # on the save argument.
       #
       # This method returns whether the save result differs from the save source for any
-      # {Attributes#autogenerated_nondomain_attributes}.
+      # {Properties#autogenerated_nondomain_attributes}.
       #
-      # @param [Resource] obj the save argument
-      # @param [Resource] source the save result
+      # @param [Jinx::Resource] obj the save argument
+      # @param [Jinx::Resource] source the save result
       # @return [Boolean] whether the save result differs from the save source on the
       #   autogenerated non-domain attributes
       def update_saved?(obj, source)
-        obj.class.autogenerated_nondomain_attributes.any? do |attr|
-          intended = obj.send(attr)
-          stored = source.send(attr)
+        obj.class.autogenerated_nondomain_attributes.any? do |pa|
+          intended = obj.send(pa)
+          stored = source.send(pa)
           if intended != stored then
-            logger.debug { "Saved #{obj.qp} #{attr} value #{intended} differs from result value #{stored}..." }
+            logger.debug { "Saved #{obj.qp} #{pa} value #{intended} differs from result value #{stored}..." }
             true
           end
         end
       end
       
-      # Returns the {MetadataAttributes#creatable_domain_attributes} which are not contravened
+      # Returns the {MetadataProperties#creatable_domain_attributes} which are not contravened
       # by a one-to-one independent pending create.
       # 
       # @param (see #create)
       # @return [<Symbol>] the attributes to include in the create template
       def creatable_domain_attributes(obj)
         # filter the creatable attributes
-        obj.class.creatable_domain_attributes.compose do |attr_md|
-          if exclude_pending_create_attribute?(obj, attr_md) then
+        obj.class.creatable_domain_attributes.compose do |pa|
+          if exclude_pending_create_attribute?(obj, pa) then
             # Avoid printing duplicate log message.
             if obj != @cr_dom_attr_log_obj then
-              logger.debug { "Excluded #{obj.qp} #{attr_md} in the create template since it references a 1:1 bidirectional independent pending create." }
+              logger.debug { "Excluded #{obj.qp} #{pa} in the create template since it references a 1:1 bidirectional independent pending create." }
               @cr_dom_attr_log_obj = obj
             end
             false
@@ -363,24 +366,24 @@ module CaRuby
       
       # Returns whether the given creatable domain attribute with value obj satisfies
       # each of the following conditions:
-      # * the attribute is {Attribute#independent?}
-      # * the attribute is not an {Attribute#owner?}
+      # * the attribute is {Property#independent?}
+      # * the attribute is not an {Property#owner?}
       # * the obj value is unsaved
       # * the attribute is not mandatory
       # * the attribute references a {#pending_create?} save context.
       #
       # @param obj (see #create)
-      # @param [Attribute] attr_md the candidate attribute metadata
+      # @param [Property] pa the candidate attribute metadata
       # @return [Boolean] whether the attribute should not be included in the create template
-      def exclude_pending_create_attribute?(obj, attr_md)
-        attr_md.independent? and
-          not attr_md.owner? and
+      def exclude_pending_create_attribute?(obj, pa)
+        pa.independent? and
+          not pa.owner? and
           obj.identifier.nil? and
-          not obj.mandatory_attributes.include?(attr_md.to_sym) and
-          exclude_pending_create_value?(obj.send(attr_md.to_sym))
+          not obj.mandatory_attributes.include?(pa.to_sym) and
+          exclude_pending_create_value?(obj.send(pa.to_sym))
       end
       
-      # @param [Resource, <Resource>, nil] value the referenced value
+      # @param [Jinx::Resource, <Jinx::Resource>, nil] value the referenced value
       # @return [Boolean] whether the value includes a {#pending_create?} save context object
       def exclude_pending_create_value?(value)
         return false if value.nil?
@@ -391,7 +394,7 @@ module CaRuby
         end
       end
       
-      # @param [Resource] obj the object to check
+      # @param [Jinx::Resource] obj the object to check
       # @return [Boolean] whether the penultimate create operation is on the object
       def pending_create?(obj)
         op = penultimate_create_operation
@@ -404,7 +407,7 @@ module CaRuby
         nil
       end
       
-      # Returns the {MetadataAttributes#updatable_domain_attributes}.
+      # Returns the {MetadataProperties#updatable_domain_attributes}.
       # 
       # @param (see #update)
       # @return the attributes to include in the update template
@@ -416,7 +419,7 @@ module CaRuby
       def update_object(obj)
         # database identifier is required for update
         if obj.identifier.nil? then
-          CaRuby.fail(DatabaseError, "Update target is missing a database identifier: #{obj}")
+          Jinx.fail(DatabaseError, "Update target is missing a database identifier: #{obj}")
         end
         
         # If this object is proxied, then delegate to the proxy.
@@ -434,27 +437,21 @@ module CaRuby
         owner = cascaded_dependent_owner(obj)
         if owner then return update_cascaded_dependent(owner, obj) end
         # Not a cascaded dependent; update using a template.
-        tmpl = build_update_template(obj)
-        # Call the caCORE service with the update template.
-        save_with_template(obj, tmpl) { |svc| svc.update(tmpl) }
-        # Take a snapshot of the updated content.
-        obj.take_snapshot
+        update_from_template(obj)
       end
       
       # Returns the owner that can cascade update to the given object. The owner is the
-      # {Resource#effective_owner_attribute} value for which the owner attribute
-      # {Attribute#inverse_metadata} is {Attribute#cascaded?}.
+      # {Jinx::Resource#effective_owner_attribute} value for which the owner attribute
+      # {Property#inverse_property} is {Property#cascaded?}.
       # 
-      # @param [Resource] obj the domain object to update
-      # @return [Resource, nil] the owner which can cascade an update to the object, or nil if none
+      # @param [Jinx::Resource] obj the domain object to update
+      # @return [Jinx::Resource, nil] the owner which can cascade an update to the object, or nil if none
       # @raise [DatabaseError] if the domain object is a cascaded dependent but does not have an owner
       def cascaded_dependent_owner(obj)
-        return unless obj.cascaded_dependent?
         # the owner attribute and value
-        oattr, oref = obj.effective_owner_attribute_value
-        if oattr.nil? then CaRuby.fail(DatabaseError, "Dependent #{obj} does not have an owner") end
-        dep_md = obj.class.attribute_metadata(oattr).inverse_metadata
-        oref if dep_md and dep_md.cascaded?
+        op, oref = obj.effective_owner_property_value || return
+        dp = op.inverse_property
+        oref if dp and dp.cascaded?
       end
       
       def update_cascaded_dependent(owner, obj)
@@ -493,14 +490,14 @@ module CaRuby
       #     must be created via the proxy after the Specimen is created.
       #
       # @param (see #update)
-      # @return [<Resource>] the #{Attributes#proxied_savable_template_attributes} dependents
+      # @return [<Jinx::Resource>] the #{Properties#proxied_savable_template_attributes} dependents
       #   which are #{Persistable#changed?}
       def updatable_proxied_dependents(obj)
-        attrs = obj.class.proxied_savable_template_attributes
-        return Array::EMPTY_ARRAY if attrs.empty?
+        pas = obj.class.proxied_savable_template_attributes
+        return Array::EMPTY_ARRAY if pas.empty?
         deps = []
-        attrs.each do |attr|
-          obj.send(attr).enumerate { |dep| deps << dep if dep.identifier and dep.changed? }
+        pas.each do |pa|
+          obj.send(pa).enumerate { |dep| deps << dep if dep.identifier and dep.changed? }
         end
         deps
       end
@@ -513,7 +510,7 @@ module CaRuby
       
       # @param obj (see #save)
       # @param [TemplateBuilder] builder the builder to use
-      # @return [Resource] the template to use as the save argument
+      # @return [Jinx::Resource] the template to use as the save argument
       def build_save_template(obj, builder)
         builder.build_template(obj)
       end
@@ -523,7 +520,7 @@ module CaRuby
       def delete_object(obj)
         # database identifier is required for delete
         if obj.identifier.nil? then
-          CaRuby.fail(DatabaseError, "Delete target is missing a database identifier: #{obj}")
+          Jinx.fail(DatabaseError, "Delete target is missing a database identifier: #{obj}")
         end
         persistence_service(obj.class).delete_object(obj)
       end
@@ -534,7 +531,7 @@ module CaRuby
       # create method is called on the template. Dependents are saved as well, if necessary.
       #
       # @param obj (see #store)
-      # @param [Resource] template the obj template to submit to caCORE
+      # @param [Jinx::Resource] template the obj template to submit to caCORE
       def save_with_template(obj, template)
         logger.debug { "Saving #{obj.qp} from template:\n#{template.dump}" }
         # dispatch to the application service
@@ -561,8 +558,8 @@ module CaRuby
       # 4. Each argument dependent which differs from the corresponding result dependent
       #    is saved.
       #
-      # @param [Resource] target the saved domain object
-      # @param [Resource] source the caCORE save result
+      # @param [Jinx::Resource] target the save argument
+      # @param [Jinx::Resource] source the caCORE save result
       def sync_saved(target, source)
         # clear the toxic source attributes
         detoxify(source)
@@ -600,7 +597,7 @@ module CaRuby
       #   the database, the difference induces an update of the reference.
       #
       # @param (see #sync_saved)
-      # @return [Resource] the merged target object
+      # @return [Jinx::Resource] the merged target object
       def merge_saved(target, source)
         logger.debug { "Merging saved result #{source} into saved #{target.qp}..." }
         # Update each saved reference snapshot to reflect the database state and add a lazy loader
@@ -629,33 +626,48 @@ module CaRuby
         return if source == target
         # If the target was created, then refetch and merge the source if necessary to reflect auto-generated
         # non-domain attribute values.
-       if target.identifier.nil? then sync_created_result_object(source) end
+       if target.identifier.nil? then sync_created_result_object(target, source) end
         # If there are auto-generated attributes, then merge them into the save result.
         sync_save_result_references(source, target)
         # Set inverses consistently in the source object graph
         set_inverses(source)
       end
       
-      # Refetches the given create result if there are any {Attributes#autogenerated_nondomain_attributes}
+      # Refetches the given create result if there are any {#autogenerated_nondomain_attributes}
       # which must be fetched to reflect the database state.
       #
-      # @param source (see #sync_saved)
-      def sync_created_result_object(source)
-        attrs = source.class.autogenerated_nondomain_attributes
-        return if attrs.empty?
-        logger.debug { "Refetch #{source} to reflect auto-generated database content for attributes #{attrs.to_series}..." }
+      # @param (see #sync_save_result)
+      def sync_created_result_object(target, source)
+        pas = nondomain_sync_attributes(target, source)
+        return if pas.empty?
+        logger.debug { "Refetch #{source} to reflect auto-generated database content for attributes #{pas.to_series}..." }
         find(source)
+      end
+      
+      # Returns the attributes which must be fetched into the given source prior to a merge with
+      # the save argument target. This default implementation returns the subject class's
+      # {Properties#autogenerated_nondomain_attributes} if the save is a create, the empty array
+      # otherwise. Subclasses can specialize this method for any special cases that depend on the
+      # instance state.
+      #
+      # @return [<Symbol>] the attributes which must be fetched into the source
+      def nondomain_sync_attributes(target, source)
+        if target.identifier.nil? then
+          source.class.autogenerated_nondomain_attributes
+        else
+          Array::EMPTY_ARRAY
+        end
       end
       
       # Fetches the {#synchronization_attributes} into the given save result.
       #
       # @param (see #sync_saved)
       def sync_save_result_references(source, target)
-        attrs = synchronization_attributes(source, target)
-        return if attrs.empty?
-        logger.debug { "Fetching the saved #{target.qp} attributes #{attrs.to_series} into save result #{source.qp}..." }
-        attrs.each { |attr| sync_save_result_attribute(source, attr) }
-        logger.debug { "Fetched the saved #{target.qp} attributes #{attrs.to_series} into the save result #{source.qp}." }
+        pas = synchronization_attributes(source, target)
+        return if pas.empty?
+        logger.debug { "Fetching the saved #{target.qp} attributes #{pas.to_series} into the save result #{source.qp}..." }
+        pas.each { |pa| sync_save_result_attribute(source, pa) }
+        logger.debug { "Fetched the saved #{target.qp} attributes #{pas.to_series} into the save result #{source.qp}." }
       end
       
       # @see #sync_save_result_references
@@ -663,13 +675,13 @@ module CaRuby
         # fetch the value
         fetched = fetch_association(source, attribute)
         # set the attribute
-        source.set_attribute(attribute, fetched)
+        source.set_property_value(attribute, fetched)
       end
       
       # Returns the saved target attributes which must be fetched to reflect the database content,
       # consisting of the following:
       # * {Persistable#saved_attributes_to_fetch}
-      # * {Attributes#domain_attributes} which include a source reference without an identifier
+      # * {Properties#domain_attributes} which include a source reference without an identifier
       #
       # @param (see #sync_saved)
       # @return [<Symbol>] the attributes which must be fetched
@@ -677,65 +689,69 @@ module CaRuby
         # the target save operation
         op = @operations.last
         # the attributes to fetch
-        attrs = target.saved_attributes_to_fetch(op).to_set
+        pas = target.saved_attributes_to_fetch(op).to_set
         # the pending create, if any
         pndg_op = penultimate_create_operation
         pndg = pndg_op.subject if pndg_op
         # add in the domain attributes whose identifier was not set in the result
-        source.class.saved_domain_attributes.select do |attr|
-          srcval = source.send(attr)
-          tgtval = target.send(attr)
+        source.class.sync_domain_attributes.select do |pa|
+          srcval = source.send(pa)
+          tgtval = target.send(pa)
           if Persistable.unsaved?(srcval) then
-            logger.debug { "Fetching save result #{source.qp} #{attr} since a referenced object identifier was not set in the result..." }
-            attrs << attr
+            logger.debug { "Fetching the save result #{source.qp} #{pa} since a referenced object identifier was not set in the result..." }
+            pas << pa
           elsif srcval.nil_or_empty? and Persistable.unsaved?(tgtval) and tgtval != pndg then
-            logger.debug { "Fetching save result #{source.qp} #{attr} since the target #{target.qp} value #{tgtval.qp} is missing an identifier..." }
-            attrs << attr
+            logger.debug { "Fetching the save result #{source.qp} #{pa} since the target #{target.qp} value #{tgtval.qp} is missing an identifier..." }
+            pas << pa
           end
         end
-        attrs
+        pas
       end
       
       # Saves the given domain object dependents.
       #
-      # @param [Resource] obj the owner domain object
+      # @param [Jinx::Resource] obj the owner domain object
       def save_changed_dependents(obj)
-        obj.class.dependent_attributes.each do |dattr|
-          deps = obj.dependents(dattr)
+        obj.class.dependent_attributes.each_property do |prop|
+          deps = obj.dependents(prop)
           unless deps.nil_or_empty? then
-            logger.debug { "Saving the #{obj} #{dattr} dependents #{deps.to_enum.qp(:single_line)} which have changed..." }
+            logger.debug { "Saving the #{obj} dependents #{deps.to_enum.qp(:single_line)} which have changed..." }
           end
-          deps.enumerate { |dep| save_dependent_if_changed(obj, dattr, dep) }
+          deps.enumerate { |dep| save_dependent_if_changed(obj, prop, dep) }
         end
       end
       
       # Saves the given dependent domain object if necessary.
       # Recursively saves the obj dependents as necessary.
       #
-      # @param [Resource] owner the dependent owner
-      # @param [Symbol] attribute the dependent attribute
-      # @param [Resource] dependent the dependent to save
-      def save_dependent_if_changed(owner, attribute, dependent)
+      # @param [Jinx::Resource] owner the dependent owner
+      # @param [Property] property the dependent property
+      # @param [Jinx::Resource] dependent the dependent to save
+      def save_dependent_if_changed(owner, property, dependent)
+        # If the dependent identifier is missing, then the owner save did not cascade to the
+        # dependent. Create the dependent here.
         if dependent.identifier.nil? then
-          logger.debug { "Creating #{owner.qp} #{attribute} dependent #{dependent.qp}..." }
+          logger.debug { "Creating #{owner.qp} #{property} dependent #{dependent.qp}..." }
           return create(dependent)
         end
+        # Collect the changed attributes.
         changes = dependent.changed_attributes
-        # If the dependent identifier is missing, then the identifier was probably created on demand. 
-        logger.debug { "#{owner.qp} #{attribute} dependent #{dependent.qp} changed for attributes #{changes.to_series}." } unless changes.empty?
-        if changes.any? { |attr| not dependent.class.attribute_metadata(attr).dependent? } then
+        logger.debug { "#{owner.qp} #{property} dependent #{dependent.qp} changed for attributes #{changes.to_series}." } unless changes.empty?
+        # If any changed attribute is a reference to dependents, then check for
+        # special auto-generation handling. Otherwise, simpl save the referenced
+        # dependents.
+        if changes.any? { |pa| not dependent.class.property(pa).dependent? } then
           # the owner save operation
           op = operations.last
           # The dependent is auto-generated if the owner was created or auto-generated and
           # the dependent attribute is auto-generated.
-          attr_md = owner.class.attribute_metadata(attribute)
-          ag = (op.type == :create or op.autogenerated?) && attr_md.autogenerated?
-          logger.debug { "Updating the changed #{owner.qp} #{attribute} dependent #{dependent.qp}..." }
+          ag = (op.type == :create or op.autogenerated?) && property.autogenerated?
+          logger.debug { "Updating the changed #{owner.qp} #{property} dependent #{dependent.qp}..." }
           if ag then
-            logger.debug { "Adding defaults to the auto-generated #{owner.qp} #{attribute} dependent #{dependent.qp}..." }
+            logger.debug { "Adding defaults to the auto-generated #{owner.qp} #{property} dependent #{dependent.qp}..." }
             dependent.add_defaults_autogenerated
           end
-          update_changed_dependent(owner, attribute, dependent, ag)
+          update_changed_dependent(owner, property, dependent, ag)
         else
           save_changed_dependents(dependent)
         end
@@ -744,7 +760,8 @@ module CaRuby
       # Updates the given dependent.
       #
       # @param (see #save_dependent_if_changed)
-      def update_changed_dependent(owner, attribute, dependent, autogenerated)
+      # @param [Boolean] autogenerated flag indicating whether the dependent was auto-generated
+      def update_changed_dependent(owner, property, dependent, autogenerated)
         perform(:update, dependent, :autogenerated => autogenerated) { update_object(dependent) }
       end
     end
