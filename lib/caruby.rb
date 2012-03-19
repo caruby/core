@@ -1,3 +1,3 @@
-require 'caruby/helpers/log'
-require 'caruby/helpers/error'
-require 'caruby/resource'
+require 'jinx'
+require 'jinx/helpers/log'
+require 'jinx/helpers/error'
