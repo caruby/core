@@ -1,20 +1,16 @@
-require 'caruby/resource'
+require 'jinx/resource'
+require 'jinx/metadata/id_alias'
 require 'clinical_trials/domain'
 require 'clinical_trials/database'
-require 'caruby/domain/id_alias'
 
 module ClinicalTrials
-  # The module included by all ClinicalTrials domain classes.
+  # The module included by all Clinical Trials domain classes.
   module Resource
-    include CaRuby::Resource, CaRuby::IdAlias
+    include Jinx::IdAlias, CaRuby::Persistable
 
     # @return [Database] the mock database for the Clinical Trials example
     def database
-      ClinicalTrials::Database.instance
+      Database.instance
     end
-
-    # Add meta-data capability to this Resource module.
-    ClinicalTrials.extend_module(self)
-  end
 end
 

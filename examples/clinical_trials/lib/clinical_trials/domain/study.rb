@@ -1,9 +1,7 @@
-require 'caruby/helpers/validation'
+require 'jinx/helpers/validation'
 
 module ClinicalTrials
   # Import the Java class into Ruby.
-  resource_import Java::clinicaltrials.domain.Study
-
   # Extends the Study domain class.
   class Study
     set_secondary_key_attributes(:name)
@@ -24,7 +22,7 @@ module ClinicalTrials
     # @raise [ValidationError] if there are no events
     def validate_local
       super
-      CaRuby.fail(ValidationError, "Study #{name} is missing study events") if events.nil_or_empty?
+      Jinx.fail(ValidationError, "Study #{name} is missing study events") if events.nil_or_empty?
     end
   end
 end
