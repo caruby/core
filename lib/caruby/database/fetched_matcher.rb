@@ -63,9 +63,7 @@ module CaRuby
         unmatched = Set === sources ? sources.dup : sources.to_set
         matches = {}
         targets.each do |tgt|
-          src = tgt.match_in_owner_scope(unmatched)
-          # an owner has a tolerant match
-          next unless src
+          src = tgt.match_in_owner_scope(unmatched) || next
           matches[src] = tgt
           unmatched.delete(src)
         end

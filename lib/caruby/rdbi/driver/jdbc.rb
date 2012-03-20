@@ -320,7 +320,6 @@ class RDBI::Driver::JDBC < RDBI::Driver
         # columns.each do |col|
         #   col.primary_key = true if primary_keys[col.table].include? col.name
         # end
-
         return [
           Cursor.new(@handle),
           RDBI::Schema.new(columns, tables),

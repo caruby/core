@@ -85,16 +85,25 @@ module CaRuby
       fetched
     end
 
-    # Runs the given modification SQL or block as a transaction.
+    # Runs the given SQL or block in a transaction. If SQL is provided, then that
+    # SQL is executed. Otherwise, the block is called.
+    #
+    # @quirk RDBI RDBI converts nil args to 12. Work-around this bug by embedding
+    #   +NULL+ in the SQL instead.
     #
     # @param [String] sql the SQL to execute
     # @param [Array] args the SQL bindings
     # @yield [dbh] the transaction statements
     # @yieldparam [RDBI::Database] dbh the database handle
     def transact(sql=nil, *args)
-      return transact { |dbh| dbh.execute(sql, *args) } if sql
-      execute do |dbh|
-        dbh.transaction { yield dbh }
+      # Work-around for rcbi nil substitution.
+      if sql then
+        sql, *args = replace_nil_binds(sql, args)
+        transact { |dbh| dbh.execute(sql, *args) }
+      elsif block_given? then
+        execute { |dbh| dbh.transaction { yield dbh } }
+      else
+        raise ArgumentError.new("SQL executor is missing the required execution block")
       end
     end
 
@@ -103,6 +112,38 @@ module CaRuby
     MYSQL_DRIVER_CLASS_NAME = 'com.mysql.jdbc.Driver'
     
     ORACLE_DRIVER_CLASS_NAME = 'oracle.jdbc.OracleDriver'
+    
+    # Replaces nil arguments with a +NULL+ literal in the given SQL.
+    # 
+    # @param (see #transact)
+    # @return [Array] the (possibly modified) SQL followed by the non-nil arguments
+    def replace_nil_binds(sql, args)
+      nils = []
+      args.each_with_index { |value, i| nils << i if value.nil? }
+      unless nils.empty? then
+        logger.debug { "SQL executor working around RDBI bug by eliminating the nil arguments #{nils.to_series} for the SQL:\n#{sql}..." }
+        # Quoted ? is too much of a pain for this hack; bail out.
+        raise ArgumentError.new("RDBI work-around does not support quoted ? in transactional SQL: #{sql}") if sql =~ /'[^,]*[?][^,]*'/
+        prefix, binds_s, suffix = /(.+\s*values\s*\()([^)]*)(\).*)/i.match(sql).captures
+        sql = prefix
+        binds = binds_s.split('?')
+        last = binds_s[-1, 1]
+        del_cnt = 0
+        binds.each_with_index do |s, i|
+          sql << s
+          if nils.include?(i) then
+            args.delete_at(i - del_cnt)
+            del_cnt += 1
+            sql << 'NULL'
+          elsif i < binds.size - 1 or last == '?'
+            sql << '?'
+          end
+        end
+        sql << suffix
+      end
+      logger.debug { "SQL executor converted the SQL to:\n#{sql}\nwith arguments #{args.qp}" }
+      return args.unshift(sql)
+    end
 
     def default_driver_string(db_type)
       case db_type.downcase
