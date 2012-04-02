@@ -24,14 +24,6 @@ PATH
       jinx
       json_pure
 
-PATH
-  remote: /Users/loneyf/workspace/jinx/migrate
-  specs:
-    jinx-migrate (2.1.1)
-      bundler
-      fastercsv
-      rack
-
 GEM
   remote: http://rubygems.org/
   specs:
@@ -60,7 +52,6 @@ DEPENDENCIES
   caruby-core!
   jinx!
   jinx-json!
-  jinx-migrate!
   rake
   ruby-debug
   yard
