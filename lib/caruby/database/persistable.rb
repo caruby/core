@@ -143,7 +143,7 @@ module CaRuby
       # the non-domain attribute => [target value, other value] difference hash
       delta = diff(other)
       # the difference attribute => other value hash, excluding nil other values
-      dvh = delta.transform { |d| d.last }
+      dvh = delta.transform_value { |d| d.last }
       return if dvh.empty?
       logger.debug { "#{qp} differs from database content #{other.qp} as follows: #{delta.filter_on_key { |pa| dvh.has_key?(pa) }.qp}" }
       logger.debug { "Setting #{qp} snapshot values from other #{other.qp} values to reflect the database state: #{dvh.qp}..." }
@@ -341,15 +341,13 @@ module CaRuby
       pas.each do |pa|
         val = send(pa)
         oval = other.send(pa)
-        # set the attribute to the other value if it differs from the current value
-        unless oval == val then
-          # if this error occurs, then there is a serious match-merge flaw
-          if val and pa == :identifier then
-            Jinx.fail(DatabaseError, "Can't copy #{other} to #{self} with different identifier")
-          end
-          # overwrite the current attribute value
+        if val.nil? then
+          # Overwrite the current attribute value.
           set_property_value(pa, oval)
           logger.debug { "Set #{qp} volatile #{pa} to the fetched #{other.qp} database value #{oval.qp}." }
+        elsif oval != val and pa == :identifier then
+          # If this error occurs, then there is a serious match-merge flaw. 
+          Jinx.fail(DatabaseError, "Can't copy #{other} to #{self} with different identifier")
         end
       end
     end
