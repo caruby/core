@@ -274,7 +274,7 @@ module CaRuby
           # the proxied attribute => value hash
           vh = proxied.value_hash
           # map references to either the copied owner or a new copy of the reference
-          tvh = vh.transform { |value| Jinx::Resource === value ? (value == obj ? template : value.copy) : value }
+          tvh = vh.transform_value { |v| Jinx::Resource === v ? (v == obj ? template : v.copy) : v }
           # the copy with the adjusted values
           copy = proxied.class.new.merge_attributes(tvh)
           logger.debug { "Created #{obj.qp} proxied #{attribute} save template copy #{proxied.pp_s}." }
