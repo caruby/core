@@ -183,6 +183,13 @@ module CaRuby
       
       # Merges fetched into target. The fetched references are recursively merged.
       #
+      # @quirk caCORE caCORE does not enforce reference integrity, i.e. if object _a_ has
+      #   a reference path _a_.+b+ = _b_ and _b_.+a+ = _a_, then a search on _a_ with path
+      #   +:b+ results in the reference path _a_ => _b_ => _a'_, where
+      #   _a.identifier_ == _a'.identifier_ but _a_ != _a_'.
+      #   This method remedies the caCORE defect by matching source references on a previously
+      #   matched identifier where possible.
+      #
       # @param [Jinx::Resource] source the fetched domain object result
       # @param [Jinx::Resource] target the domain object find argument
       def merge_fetched(source, target)
