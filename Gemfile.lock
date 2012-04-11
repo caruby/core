@@ -27,7 +27,6 @@ PATH
 GEM
   remote: http://rubygems.org/
   specs:
-    columnize (0.3.6)
     epoxy (0.3.1)
     fastercsv (1.5.4)
     json_pure (1.6.5)
@@ -38,10 +37,6 @@ GEM
       epoxy (>= 0.3.1)
       methlab (>= 0.0.9)
       typelib
-    ruby-debug (0.10.4)
-      columnize (>= 0.1)
-      ruby-debug-base (~> 0.10.4.0)
-    ruby-debug-base (0.10.4-java)
     typelib (0.1.0)
     yard (0.7.5)
 
@@ -53,5 +48,4 @@ DEPENDENCIES
   jinx!
   jinx-json!
   rake
-  ruby-debug
   yard
