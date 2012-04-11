@@ -1,7 +1,7 @@
 This history lists major release themes. See the GitHub Commits (https://github.com/caruby/core)
 for change details.
 
-2.1.1 / 2011-11-23
+2.1.1 / 2011-04-11
 ------------------
 * Simpler, more flexible meta-data loading.
 
