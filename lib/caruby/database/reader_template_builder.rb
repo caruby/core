@@ -7,7 +7,7 @@ module CaRuby
       # TemplateBuilder builds a template suitable for a caCORE saarch database operation.
       class TemplateBuilder
         # Returns a template for matching the domain object obj and the optional hash values.
-        # The default hash attributes are the {Jinx::Properties#searchable_attributes}.
+        # The default hash attributes are the {Propertied#searchable_attributes}.
         # The template includes only the non-domain attributes of the hash references.
         #
         # @quirk caCORE Because of caCORE API limitations, the obj searchable attribute

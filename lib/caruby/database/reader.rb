@@ -32,7 +32,7 @@ module CaRuby
       # is a String, then the HQL statement String is executed.
       #
       # Otherwise, the query condition is determined by the values set in the template.
-      # The non-nil {Jinx::Properties#searchable_attributes} are used in the query.
+      # The non-nil {Propertied#searchable_attributes} are used in the query.
       #
       # The optional path arguments are attribute symbols from the template to the
       # destination class, e.g.:
