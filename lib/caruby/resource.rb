@@ -1,5 +1,7 @@
 require 'jinx/resource'
 require 'jinx/json/serializer'
+require 'caruby/migration/migratable'
+require 'caruby/database/persistable'
 
 module CaRuby
   # Augments +Jinx::Resource+ to inject {Propertied} persistence into introspected classes.
@@ -16,7 +18,7 @@ module CaRuby
   #     @metadata_module = CaRuby::Metadata  
   #   end
   module Resource
-    include Jinx::JSON::Serializer, Jinx::Resource
+    include CaRuby::Migratable, CaRuby::Persistable, Jinx::JSON::Serializer, Jinx::Resource
   end
 end
 
