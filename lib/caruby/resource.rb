@@ -1,23 +1,24 @@
-require 'caruby/importer'
+require 'jinx/resource'
+require 'jinx/json/serializer'
+require 'caruby/migration/migratable'
+require 'caruby/database/persistable'
 
 module CaRuby
   # Augments +Jinx::Resource+ to inject {Propertied} persistence into introspected classes.
-  # A CaRuby application domain module includes +Jinx::Resource+ and +CaRuby::Resource+.
+  # A CaRuby application domain module includes +CaRuby::Resource+ and extends +CaRuby::Importer+.
   #
   # @example
-  #   # The CaRuby application domain module
+  #   # The application domain module.
   #   module Domain
-  #     include CaRuby::Resource, Jinx::Resource  
-  #     # The caTissue Java package name.
-  #     packages 'app.domain'
-  #     # The JRuby mix-ins directory.
-  #     definitions File.expand_path('domain', dirname(__FILE__))
+  #     # Add persistence to the domain instances.
+  #     include CaRuby::Resource
+  #     # Add introspection to this domain module.
+  #     extend Jinx::Importer
+  #     # Add persistence to the domain classes.
+  #     @metadata_module = CaRuby::Metadata  
   #   end
   module Resource
-    def self.included(mod)
-      super
-      mod.extend(Importer)
-    end
+    include CaRuby::Migratable, CaRuby::Persistable, Jinx::JSON::Serializer, Jinx::Resource
   end
 end
 

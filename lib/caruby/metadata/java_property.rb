@@ -1,15 +1,15 @@
-require 'jinx/metadata/property'
+require 'jinx/metadata/java_property'
 require 'caruby/metadata/property_characteristics'
 
-# Mix persistence into +Jinx::Property+.
+# Mix persistence into +Jinx::JavaProperty+.
 module CaRuby
-  class Property < Jinx::Property
+  class JavaProperty < Jinx::JavaProperty
     include CaRuby::PropertyCharacteristics
-           
-    def initialize(attribute, declarer, type=nil, *flags)
+    
+    def initialize(pd, declarer, restricted_type=nil)
       super
     end
-    
+
     private
     
     # @param [Symbol] the flag to set
@@ -19,4 +19,3 @@ module CaRuby
     end
   end
 end
-
