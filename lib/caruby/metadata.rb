@@ -1,10 +1,9 @@
-require 'jinx/json/deserializer'
 require 'caruby/metadata/propertied'
 
 module CaRuby
   # The metadata persistence mix-in.
   module Metadata
-    include Propertied, Jinx::JSON::Deserializer, Jinx::Metadata
+    include Propertied, Jinx::Metadata
     
     private
     
