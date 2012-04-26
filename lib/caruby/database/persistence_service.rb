@@ -23,7 +23,7 @@ module CaRuby
       @name = name
       ver_opt = opts[:version]
       @version = ver_opt.to_s.to_version if ver_opt
-      @host = opts[:host] || default_host
+      @host = opts[:host] || 'localhost'
       @port = opts[:port] || 8080
       @url = "http://#{@host}:#{@port}/#{@name}/http/remoteService"
       @timer = Jinx::Stopwatch.new
@@ -111,16 +111,6 @@ module CaRuby
     # @return the block result
     def dispatch
       time { yield app_service }
-    end
-    
-    # @return [String] the default host name
-    def default_host
-#      # TODO - extract from the service config file
-#      xml = JRuby.runtime.jruby_class_loader.getResourceAsStream('remoteService.xml')
-#      if xml then
-#        # parse xml file
-#      end
-      'localhost'
     end
     
     # Dispatches the given HQL to the application service.
