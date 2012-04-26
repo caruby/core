@@ -1,5 +1,5 @@
 require 'jinx/resource'
-require 'jinx/json/serializer'
+require 'caruby/json/serializable'
 require 'caruby/migration/migratable'
 require 'caruby/database/persistable'
 
@@ -18,7 +18,7 @@ module CaRuby
   #     @metadata_module = CaRuby::Metadata  
   #   end
   module Resource
-    include CaRuby::Migratable, CaRuby::Persistable, Jinx::JSON::Serializer, Jinx::Resource
+    include CaRuby::Migratable, CaRuby::Persistable, CaRuby::JSON::Serializable, Jinx::Resource
   end
 end
 

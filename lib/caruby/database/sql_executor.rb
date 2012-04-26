@@ -24,8 +24,8 @@ module CaRuby
     # @option opts [String] :database the mandatory database name
     # @option opts [String] :database_user the mandatory database username (not the application login name)
     # @option opts [String] :database_password the optional database password (not the application login password)
+    # @option opts [String] :database_type the optional database type (default +mysql+)
     # @option opts [String] :database_host the optional database host
-    # @option opts [Integer] :database_port the optional database port number
     # @option opts [Integer] :database_port the optional database port number
     # @option opts [String] :database_driver the optional DBI connect driver string, e.g. +jdbc:mysql+
     # @option opts [String] :database_url the optional database connection URL
@@ -40,10 +40,18 @@ module CaRuby
       db_type = Options.get(:database_type, opts, 'mysql')
       db_driver = Options.get(:database_driver, opts) { default_driver_string(db_type) }
       db_port = Options.get(:database_port, opts) { default_port(db_type) }
-      db_name = Options.get(:database, opts) { raise_missing_option_exception(:database) }
-      @db_url = Options.get(:database_url, opts) { "#{db_driver}://#{db_host}:#{db_port}/#{db_name}" }
+      db_name = Options.get(:database, opts)
+      @db_url = Options.get(:database_url, opts) do
+        # If there is a db name, then make the default db url.
+        # Otherwise, raise an error.
+        if db_name then
+         "#{db_driver}://#{db_host}:#{db_port}/#{db_name}"
+        else
+          raise_missing_option_error(:database)
+        end
+      end 
       @dbi_url = 'dbi:' + @db_url
-      @username = Options.get(:database_user, opts) { raise_missing_option_exception(:database_user) }
+      @username = Options.get(:database_user, opts) { raise_missing_option_error(:database_user) }
       @password = Options.get(:database_password, opts)
       @driver_class = Options.get(:database_driver_class, opts, default_driver_class(db_type))
       # The effective connection options.
@@ -65,7 +73,7 @@ module CaRuby
     # @yield [dbh] the transaction statements
     # @yieldparam [RDBI::Database] dbh the database handle
     def execute
-      RDBI.connect(:JDBC, :database => @db_url, :user => @username, :password => @password, :driver_class=> @driver_class) do |dbh|
+      RDBI.connect(:JDBC, :database => @db_url, :user => @username, :password => @password, :driver_class => @driver_class) do |dbh|
         yield dbh
       end
     end
@@ -74,13 +82,19 @@ module CaRuby
     #
     # @param [String] sql the SQL to execute
     # @param [Array] args the SQL bindings
+    # @yield [row] operate on the result 
+    # @yield [Array] the result row 
     # @return [Array] the query result
-    def query(sql, *args)
+    def query(sql, *args, &block)
       fetched = nil
       execute do |dbh|
-        res = dbh.execute(sql, *args)
-        fetched = res.fetch(:all)
-        res.finish
+        result = dbh.execute(sql, *args)
+        if block_given? then
+          result.each(&block)
+        else
+          fetched = result.fetch(:all)
+        end
+        result.finish
       end
       fetched
     end
@@ -149,6 +163,7 @@ module CaRuby
       case db_type.downcase
         when 'mysql' then 'Jdbc:mysql'
         when 'oracle' then 'Oracle'
+        when 'jdbc' then 'Jdbc'
         else Jinx.fail(CaRuby::ConfigurationError, "Default database connection driver string could not be determined for database type #{db_type}")
       end
     end
@@ -157,6 +172,7 @@ module CaRuby
       case db_type.downcase
         when 'mysql' then MYSQL_DRIVER_CLASS_NAME
         when 'oracle' then ORACLE_DRIVER_CLASS_NAME
+        when 'jdbc' then ''
         else Jinx.fail(CaRuby::ConfigurationError, "Default database connection driver class could not be determined for database type #{db_type}")
       end
     end
@@ -165,11 +181,12 @@ module CaRuby
       case db_type.downcase
         when 'mysql' then 3306
         when 'oracle' then 1521
+        when 'jdbc' then -1
         else Jinx.fail(CaRuby::ConfigurationError, "Default database connection port could not be determined for database type #{db_type}")
       end
     end
 
-    def raise_missing_option_exception(option)
+    def raise_missing_option_error(option)
       Jinx.fail(CaRuby::ConfigurationError, "Database connection property not found: #{option}")
     end
   end
