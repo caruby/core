@@ -18,7 +18,7 @@ module CaRuby
   #     @metadata_module = CaRuby::Metadata  
   #   end
   module Resource
-    include CaRuby::Migratable, CaRuby::Persistable, CaRuby::JSON::Serializable, Jinx::Resource
+    include CaRuby::Migratable, CaRuby::Persistable, Jinx::JSON::Serializable, Jinx::Resource
   end
 end
 
