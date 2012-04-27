@@ -1,5 +1,5 @@
 require 'jinx/resource'
-require 'caruby/json/serializable'
+require 'jinx/json/serializable'
 require 'caruby/migration/migratable'
 require 'caruby/database/persistable'
 
