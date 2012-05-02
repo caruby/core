@@ -13,7 +13,7 @@ module CaRuby
       def initialize
         super
         # the query template builder
-        @srch_tmpl_bldr = TemplateBuilder.new
+        @rdr_tmpl_bldr = TemplateBuilder.new
         # the fetch result matcher
         @matcher = FetchedMatcher.new
         # the fetched copier
@@ -25,7 +25,7 @@ module CaRuby
         # visitor that merges the fetched object graph
         @ftchd_mrg_vstr = Jinx::MergeVisitor.new(:matcher => @matcher, :copier => copier) { |ref| ref.class.fetched_domain_attributes }
       end
-
+      
       # Returns an array of objects matching the specified query template and attribute path.
       # The obj_or_hql argument is either a domain object template or a
       # Hibernate[http://www.hibernate.org/docs.html] HQL statement. If obj_or_hql
@@ -57,36 +57,46 @@ module CaRuby
         # enable change tracking and lazy-loading
         persistify(result)
       end
-
-      # Fetches the given domain object from the database.
-      # Only secondary key attributes are used in the match.
-      # If no secondary key is defined for the object's class, then this method returns nil.
-      # The {#query} method is used to fetch records on non-secondary key attributes.
+      
+      # Fetches the given target domain object from the database. The target
+      # domain object class {Propertied#searchable_attributes} are used in the match.
+      # If this domain object does not have a set of searchable attributes with
+      # non-nil values, then this method returns nil.
       #
       # If the :create option is set, then this method creates an object if the
       # find is unsuccessful.
       #
-      # @param [Jinx::Resource] obj the domain object to find
+      # If the fetched domain object is the same class as the target domain object,
+      # then the fetched content is merged into the target and this method returns
+      # the target. If the fetched domain object is a subclass of the target domain
+      # object, then the fetched domain object is returned.
+      #
+      # @param [Jinx::Resource] obj the target domain object to find
       # @param [Hash, Symbol] opts the find options
       # @option opts [Boolean] :create whether to create the object if it is not found
       # @return [Jinx::Resource, nil] the domain object if found, nil otherwise
       # @raise [DatabaseError] if obj is not a domain object or more than object
       #   matches the obj attribute values
+      # @see #query
       def find(obj, opts=nil)
         return if obj.nil?
         perform(:find, obj) do
-          if find_object(obj) then
+          fetched = find_object(obj)
+          if fetched.nil? then
+            logger.info { "#{obj.qp} not found." }
+            create(obj) if Options.get(:create, opts)
+          elsif fetched.equal?(obj) then
             logger.info { "Found #{obj}." }
             obj
           else
-            logger.info { "#{obj.qp} not found." }
-            if Options.get(:create, opts) then create(obj) end
+            logger.info { "Found #{fetched} matching the find template #{obj}." }
+            fetched
           end
         end
       end
-
-      # Returns whether the given domain object has a database identifier or exists in the database.
-      # This method fetches the object from the database if necessary.
+      
+      # Returns whether the given domain object has a database identifier or exists
+      # in the database. This method fetches the object from the database if necessary.
       #
       # @param [Jinx::Resource, <Jinx::Resource>] obj the domain object(s) to find
       # @return [Boolean] whether the domain object(s) exist in the database
@@ -96,14 +106,14 @@ module CaRuby
         elsif obj.collection? then
           obj.all? { |item| exists?(item) }
         else
-          obj.identifier or find(obj)
+          !!obj.identifier or find(obj).equal?(obj)
         end
       end
       
       private
-
+      
       RESULT_PRINTER = PrintWrapper.new { |obj| obj.pp_s }
-
+      
       # Queries the given obj_or_hql as described in {#query} and makes a detoxified copy of the
       # toxic caCORE search result.
       #
@@ -121,7 +131,7 @@ module CaRuby
         # detoxify the toxic caCORE result
         detoxify(toxic)
       end
-
+      
       # Queries the given obj_or_hql as described in {#query} and returns the toxic caCORE search result.
       #
       # @param (see #query)
@@ -140,11 +150,11 @@ module CaRuby
       def query_redundant?(obj_or_hql, path)
         @operations.detect { |op| op.type == :query and query_subject_redundant?(op.subject, obj_or_hql) and op.attribute == path }
       end
-
+      
       def query_subject_redundant?(s1, s2)
         s1 == s2 or (Jinx::Resource === s1 and Jinx::Resource === s2 and s1.identifier and s1.identifier == s2.identifier)
       end
-
+      
       # @return an array of objects matching the given query template and path
       # @see #query
       def query_with_path(obj_or_hql, path)
@@ -161,7 +171,7 @@ module CaRuby
         # perform the attribute query
         query_with_attribute(obj_or_hql, attribute)
       end
-
+      
       # Returns an array of objects matching the given query template and optional attribute.
       # @see #query
       def query_with_attribute(obj_or_hql, attribute=nil)
@@ -195,20 +205,20 @@ module CaRuby
       def merge_fetched(source, target)
         @ftchd_mrg_vstr.visit(source, target) { |src, tgt| tgt.copy_volatile_attributes(src) }
       end
-
+      
       def print_query_result(result)
         count_s = 'result object'.quantify(result.size)
         result_printer = result.wrap { |item| RESULT_PRINTER.wrap(item) }
         "Persistence service query returned #{count_s}: #{result_printer.pp_s(:single_line)}"
       end
-
+      
       def query_hql(hql)
         java_name = hql[/from\s+(\S+)/i, 1]
         Jinx.fail(DatabaseError, "Could not determine target type from HQL: #{hql}") if java_name.nil?
         tgt = Class.to_ruby(java_name)
         persistence_service(tgt).query(hql)
       end
-
+      
       # Returns an array of objects fetched from the database which matches
       # a template and follows the given optional domain attribute, if present.
       #
@@ -228,12 +238,12 @@ module CaRuby
         elsif invertible_query?(obj, attribute) then
           query_with_inverted_reference(obj, attribute)
         else
-          tmpl = @srch_tmpl_bldr.build_template(obj)
+          tmpl = @rdr_tmpl_bldr.build_template(obj)
           return Array::EMPTY_ARRAY if tmpl.nil?
           query_on_template(tmpl, attribute)
         end
       end
-
+      
       # Returns an array of objects fetched from the database which matches
       # the given template and follows the given optional domain attribute.
       def query_on_template(template, attribute=nil)
@@ -241,7 +251,7 @@ module CaRuby
         svc = persistence_service(tgt)
         attribute ? svc.query(template, attribute) : svc.query(template)
       end
-
+      
       # Queries on the given template and attribute by issuing a HQL query with an identifier condition.
       #
       # @param (see #query_object)
@@ -252,17 +262,17 @@ module CaRuby
         sa = source[/([[:alnum:]])[[:alnum:]]*$/, 1].downcase
         # the HQL condition
         hql = "from #{source} #{sa} where #{sa}.id = #{obj.identifier}"
-
+      
         # the join attribute property
         if attribute then
           pd = obj.class.property(attribute).property_descriptor
           hql.insert(0, "select #{sa}.#{pd.name} ")
         end
         logger.debug { "Querying on #{obj} #{attribute} using HQL identifier criterion..." }
-
+      
         query_hql(hql)
       end
-
+    
       # Returns whether the query specified by the given search object and attribute can be
       # inverted as a query on a template of type attribute which references the object.
       # This condition holds if the search object has a key and attribute is a non-abstract
@@ -277,10 +287,11 @@ module CaRuby
         inv_prop = pa.inverse_property
         inv_prop and inv_prop.searchable? and finder_parameters(obj)
       end
-
-      # Queries the given query object attribute by querying an attribute type template which references obj.
+      
+      # Queries the given query object attribute by querying an attribute type template which references
+      # the target object.
       #
-      # @quirk caCORE caCORE caCORE search enters an infinite loop when the search argument has an object
+      # @quirk caCORE caCORE search enters an infinite loop when the search argument has an object
       #   reference graph cycle. Work-around is to ensure that reference integrity is broken in the search
       #   argument by not setting inverse attributes.
       #
@@ -304,7 +315,7 @@ module CaRuby
         logger.debug { "Submitting #{obj.qp} #{attribute} inverted query template #{tmpl.qp} ..." }
         persistence_service(tmpl.class).query(tmpl)
       end
-
+      
       # Finds the database content matching the given search object and merges the matching
       # database values into the object. The find uses the search object secondary or alternate
       # key for the search.
@@ -315,14 +326,16 @@ module CaRuby
       # If a match is found, then each missing search object non-domain-valued attribute is set to
       # the fetched attribute value and this method returns the search object.
       #
-      # @quirk caCORE there is no caCORE find utility method to update a search target with persistent content,
-      #   so it is done manually here.
+      # @quirk caCORE there is no caCORE find utility method to update a search target with persistent
+      #   content, so it is done manually here.
       #
-      # @param obj (see #find)
-      # @return [Jinx::Resource, nil] obj if there is a matching database record, nil otherwise
-      # @raise [DatabaseError] if more than object matches the obj attribute values or if
+      # @param (see #find)
+      # @return (see #find)
+      # @raise [DatabaseError] if more than object matches the target object attribute values or if
       #   the search object is a dependent entity that does not reference an owner
       def find_object(obj)
+        # The transient set includes every object for which a find failed. This set is used to preclude
+        # a recursive unsuccessful search.
         if @transients.include?(obj) then
           logger.debug { "Find #{obj.qp} obviated since the search was previously unsuccessful in the current database operation context." }
           return
@@ -334,23 +347,29 @@ module CaRuby
         return obj if obj.equal?(fetched)
         
         logger.debug { "Fetch #{obj.qp} matched database object #{fetched}." }
+        # The target is no longer a transient since the find succeeded (see above).
         @transients.delete(obj)
-        # recursively copy the nondomain attributes, esp. the identifer, of the fetched domain object references
+        # If the fetched object is a subclass of the target, then return the fetched object.
+        if fetched.class < obj.class then
+          # Clean up the fetched object before it is returned.
+          return persistify(detoxify(fetched))
+        end
+        # Recursively copy the nondomain attributes, of the fetched domain object references.
+        # This merge sets the target identifier and fills in missing values of other nondomain
+        # attributes.
         merge_fetched(fetched, obj)
         # Inject the lazy loader for loadable domain reference attributes.
         persistify(obj, fetched)
         obj
       end
-
-      # Fetches the object matching the specified object obj from the database.
+       
+      # Fetches the object matching the specified domain object from the database.
       #
       # @see #find_object
       def fetch_object(obj)
         # If there is an identifier, then work around the caCORE identifier query bug by delegating
         # to the HQL identifier query.
-        if obj.identifier then
-          return query_on_identifier(obj).first
-        end
+        return query_on_identifier(obj).first if obj.identifier
         # Make the finder template with key attributes.
         tmpl = finder_template(obj)
         # If a template could be made, then fetch on the template.
@@ -375,10 +394,9 @@ module CaRuby
           logger.error("Fetch error - #{msg}:\n#{obj}")
           Jinx.fail(DatabaseError, msg)
         end
-
         result.first
       end
-
+      
       # If the given domain object is a dependent with an unfetched owner, then this method fetches
       # the owner and attempts to match the owner dependent to this object.
       #
@@ -388,7 +406,7 @@ module CaRuby
         owner = nil
         oattr = obj.class.owner_attributes.detect { |pa| owner = obj.send(pa) }
         return if owner.nil? or owner.fetched?
-
+      
         logger.debug { "Querying #{obj.qp} by matching on the #{oattr} owner #{owner.qp} dependents..." }
         inv_prop = obj.class.property(oattr)
         if inv_prop.nil? then
@@ -402,7 +420,7 @@ module CaRuby
           logger.debug { "Found #{obj.qp} by fetching the owner #{owner}." }
           return obj
         end
-
+      
         # try to match a fetched owner dependent
         deps = lazy_loader.enable { owner.send(inv) }
         if obj.identifier then
@@ -413,7 +431,7 @@ module CaRuby
           nil
         end
       end
-
+      
       # Returns a copy of obj containing only those key attributes used in a find operation.
       #
       # @quirk caCORE Bug #79: caCORE search fetches on all non-nil attributes, except
@@ -422,9 +440,9 @@ module CaRuby
       #   application configuration.
       def finder_template(obj)
         hash = finder_parameters(obj) || return
-        @srch_tmpl_bldr.build_template(obj, hash)
+        @rdr_tmpl_bldr.build_template(obj, hash)
       end
-
+      
       # Fetches the given object attribute value from the database.
       #
       # @quirk caCORE there is no association fetch for caCORE 3.1 and earlier;
@@ -476,7 +494,7 @@ module CaRuby
         # Unbracket the result if the search propery is not a collection.
         prop.collection? ? result : result.first
       end
-
+      
       # Fetches the given object attribute reference from the database and sets the property value.
       #
       # @param (see #fetch_association)
@@ -484,7 +502,7 @@ module CaRuby
       def load_association(obj, attribute)
         obj.set_property_value(attribute, fetch_association(obj, attribute))
       end
-
+      
       # @return [{Symbol => Object}, nil] the find operation key attributes, or nil if there is no complete key
       #
       # @quirk caCORE caCORE search fetches on all non-nil attributes, except occasionally the identifier
@@ -496,7 +514,7 @@ module CaRuby
         key_value_hash(obj, obj.class.secondary_key_attributes) or
         key_value_hash(obj, obj.class.alternate_key_attributes)
       end
-
+      
       # @return [{Symbol => Object}, nil] the attribute => value hash suitable for a finder template
       #   if obj has searchable values for all of the given key attributes, nil otherwise
       def key_value_hash(obj, attributes)
@@ -525,7 +543,7 @@ module CaRuby
           value
         end
       end
-
+      
       # Returns whether the obj attribute value is either not a domain object reference or exists
       # in the database.
       #
@@ -535,7 +553,7 @@ module CaRuby
         return false if value.nil?
         obj.class.nondomain_attribute?(pa) or value.identifier
       end
-
+      
       # Sets the template attribute to a new search reference object created from source.
       # The reference contains only the source identifier.
       #
