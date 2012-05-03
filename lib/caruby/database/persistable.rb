@@ -34,7 +34,7 @@ module CaRuby
     # @return [Database] the data access mediator for this Persistable, if any
     # @raise [DatabaseError] if the subclass does not override this method
     def database
-      Jinx.fail(ValidationError, "#{self} database is missing")
+      raise ValidationError.new("#{self} database is missing")
     end
     
     # @return [PersistenceService] the database application service for this Persistable
@@ -138,7 +138,7 @@ module CaRuby
     # @raise [ValidationError] if this domain object does not have a snapshot
     def merge_into_snapshot(other)
       if @snapshot.nil? then
-        Jinx.fail(ValidationError, "Cannot merge #{other.qp} content into #{qp} snapshot, since #{qp} does not have a snapshot.")
+        raise ValidationError.new("Cannot merge #{other.qp} content into #{qp} snapshot, since #{qp} does not have a snapshot.")
       end
       # the non-domain attribute => [target value, other value] difference hash
       delta = diff(other)
@@ -190,7 +190,7 @@ module CaRuby
     # @param loader [LazyLoader] the lazy loader to add
     def add_lazy_loader(loader, attributes=nil)
       # guard against invalid call
-      if identifier.nil? then Jinx.fail(ValidationError, "Cannot add lazy loader to an unfetched domain object: #{self}") end
+      if identifier.nil? then raise ValidationError.new("Cannot add lazy loader to an unfetched domain object: #{self}") end
       # the attributes to lazy-load
       attributes ||= loadable_attributes
       return if attributes.empty?
@@ -396,7 +396,7 @@ module CaRuby
           logger.debug { "Set #{qp} volatile #{pa} to the fetched #{other.qp} database value #{oval.qp}." }
         elsif oval != val and pa == :identifier then
           # If this error occurs, then there is a serious match-merge flaw. 
-          Jinx.fail(DatabaseError, "Can't copy #{other} to #{self} with different identifier")
+          raise DatabaseError.new("Can't copy #{other} to #{self} with different identifier")
         end
       end
     end

@@ -22,7 +22,7 @@ module ClinicalTrials
     # @raise [ValidationError] if there are no events
     def validate_local
       super
-      Jinx.fail(ValidationError, "Study #{name} is missing study events") if events.nil_or_empty?
+      raise ValidationError.new("Study #{name} is missing study events") if events.nil_or_empty?
     end
   end
 end

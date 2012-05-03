@@ -83,13 +83,13 @@ class Coordinate < Array
   # @raise [TypeError] if other is not a Coordinate
   def <=>(other)
     return 0 if equal?(other)
-    Jinx.fail(TypeError, "Can't compare #{self} with #{other} since it is not a Coordinate") unless Coordinate === other
-    Jinx.fail(ArgumentError, "Can't compare #{self} with #{other} since it has a different dimension count") unless size == other.size
+    raise TypeError.new("Can't compare #{self} with #{other} since it is not a Coordinate") unless Coordinate === other
+    raise ArgumentError.new("Can't compare #{self} with #{other} since it has a different dimension count") unless size == other.size
     REXML::SyncEnumerator.new(self.reverse, other.reverse).each_with_index do |pair, index|
       dim = pair.first
       odim = pair.last
-      Jinx.fail(ArgumentError, "Can't compare #{self} with missing dimension #{index} to #{other}") unless dim
-      Jinx.fail(ArgumentError, "Can't compare #{self} to #{other} with missing dimension #{index}") unless odim
+      raise ArgumentError.new("Can't compare #{self} with missing dimension #{index} to #{other}") unless dim
+      raise ArgumentError.new("Can't compare #{self} to #{other} with missing dimension #{index}") unless odim
       cmp = dim <=> odim
       return cmp unless cmp.zero?
     end

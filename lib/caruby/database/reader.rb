@@ -141,7 +141,7 @@ module CaRuby
         path_s = path.join('.') unless path.empty?
         # guard against recursive call back into the same operation
         if query_redundant?(obj_or_hql, path_s) then
-          Jinx.fail(DatabaseError, "Query #{obj_or_hql.qp} #{path_s} recursively called in context #{print_operations}")
+          raise DatabaseError.new("Query #{obj_or_hql.qp} #{path_s} recursively called in context #{print_operations}")
         end
         # perform the query
         perform(:query, obj_or_hql, :attribute => path_s) { query_with_path(obj_or_hql, path) }
@@ -164,7 +164,7 @@ module CaRuby
         # gather the results of querying on those penultimate result objects with the last
         # attribute as the path
         unless path.empty? then
-          if attribute.nil? then Jinx.fail(DatabaseError, "Query path includes empty attribute: #{path.join('.')}.nil") end
+          if attribute.nil? then raise DatabaseError.new("Query path includes empty attribute: #{path.join('.')}.nil") end
           logger.debug { "Decomposing query on #{obj_or_hql} with path #{path.join('.')}.#{attribute} into query on #{path.join('.')} followed by #{attribute}..." }
           return query_safe(obj_or_hql, *path).map { |parent| query_toxic(parent, attribute) }.flatten
         end
@@ -214,7 +214,7 @@ module CaRuby
       
       def query_hql(hql)
         java_name = hql[/from\s+(\S+)/i, 1]
-        Jinx.fail(DatabaseError, "Could not determine target type from HQL: #{hql}") if java_name.nil?
+        raise DatabaseError.new("Could not determine target type from HQL: #{hql}") if java_name.nil?
         tgt = Class.to_ruby(java_name)
         persistence_service(tgt).query(hql)
       end
@@ -410,7 +410,7 @@ module CaRuby
         logger.debug { "Querying #{obj.qp} by matching on the #{oattr} owner #{owner.qp} dependents..." }
         inv_prop = obj.class.property(oattr)
         if inv_prop.nil? then
-          Jinx.fail(DatabaseError, "#{dep.class.qp} owner attribute #{oattr} does not have a #{owner.class.qp} inverse dependent attribute.")
+          raise DatabaseError.new("#{dep.class.qp} owner attribute #{oattr} does not have a #{owner.class.qp} inverse dependent attribute.")
         end
         inv = inv_prop.inverse
         # fetch the owner if necessary
@@ -478,7 +478,7 @@ module CaRuby
         logger.debug { "Fetching association #{attribute} for #{obj}..." }
         # load the object if necessary
         unless exists?(obj) then
-          Jinx.fail(DatabaseError, "Can't fetch an association since the referencing object is not found in the database: #{obj}")
+          raise DatabaseError.new("Can't fetch an association since the referencing object is not found in the database: #{obj}")
         end
         # fetch the reference
         result = query_safe(obj, attribute)
