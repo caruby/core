@@ -99,7 +99,7 @@ module CaRuby
       Database.import_java_classes
       # the fetched object cache
       @defaults = {}
-      if opts.nil? then Jinx.fail(ArgumentError, "Missing required database access properties") end
+      if opts.nil? then raise ArgumentError.new("Missing required database access properties") end
       @user = Options.get(:user, opts)
       @password = Options.get(:password, opts)
       host = Options.get(:host, opts)
@@ -157,7 +157,7 @@ module CaRuby
     # @return [PersistanceService] the corresponding service
     def persistence_service(klass)
        unless Class === klass then
-         Jinx.fail(ArgumentError, "#{self} persistence_service argument is not a Class: {#klass.qp}")
+         raise ArgumentError.new("#{self} persistence_service argument is not a Class: {#klass.qp}")
        end
        @def_persist_svc
     end
@@ -243,6 +243,9 @@ module CaRuby
       begin
         # perform the operation
         result = perform_operation(&block)
+      rescue Exception
+        logger.error($!)
+        raise
       ensure
         # the operation is done
         @operations.pop

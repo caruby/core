@@ -56,7 +56,7 @@ module CaRuby
     # is created, if necessary, after the target save.
     def execute_save
       if @database.nil? then
-        Jinx.fail(MigrationError, "Migrator cannot save records since the database option was not specified.")
+        raise MigrationError.new("Migrator cannot save records since the database option was not specified.")
       end
       @database.open do |db|
         migrate do |tgt, rec|

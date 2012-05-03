@@ -122,7 +122,7 @@ module CaRuby
       logger.debug { "Building HQLCriteria..." }
       criteria = HQLCriteria.new(hql)
       target = hql[/from\s+(\S+)/i, 1]
-      Jinx.fail(DatabaseError, "HQL does not contain a FROM clause: #{hql}") unless target
+      raise DatabaseError.new("HQL does not contain a FROM clause: #{hql}") unless target
       logger.debug { "Submitting search on target class #{target} with the following HQL:\n  #{hql}" }
       begin
         dispatch { |svc| svc.query(criteria, target) }
@@ -141,7 +141,7 @@ module CaRuby
       class_name_path = []
       path.inject(template.class) do |type, pa|
         ref_type = type.domain_type(pa)
-        Jinx.fail(DatabaseError, "Property in search attribute path #{path.join('.')} is not a #{type} domain reference attribute: #{pa}") if ref_type.nil?
+        raise DatabaseError.new("Property in search attribute path #{path.join('.')} is not a #{type} domain reference attribute: #{pa}") if ref_type.nil?
         class_name_path << ref_type.java_class.name
         ref_type
       end

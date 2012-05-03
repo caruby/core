@@ -75,9 +75,9 @@ module CaRuby
         # guard against recursive call back into the same operation
         # the only allowed recursive call is a dependent create which first creates the owner
         if recursive_save?(obj, :create) then
-          Jinx.fail(DatabaseError, "Create #{obj.qp} recursively called in context #{print_operations}")
+          raise DatabaseError.new("Create #{obj.qp} recursively called in context #{print_operations}")
         elsif obj.identifier then
-          Jinx.fail(DatabaseError, "Create unsuccessful since #{obj.qp} already has identifier #{obj.identifier}")
+          raise DatabaseError.new("Create unsuccessful since #{obj.qp} already has identifier #{obj.identifier}")
         end
         # create the object
         perform(:create, obj) { create_object(obj) }
@@ -97,7 +97,7 @@ module CaRuby
       def update(obj)
         # guard against a recursive call back into the same operation.
         if recursive_save?(obj, :update) then
-          Jinx.fail(DatabaseError, "Update #{obj.qp} recursively called in context #{print_operations}")
+          raise DatabaseError.new("Update #{obj.qp} recursively called in context #{print_operations}")
         end
         # update the object
         perform(:update, obj) { update_object(obj) }
@@ -140,7 +140,7 @@ module CaRuby
       # @raise [ArgumentError] if obj is nil or empty
       # @raise [DatabaseError] if obj could not be created
       def ensure_exists(obj)
-        Jinx.fail(ArgumentError, "Database ensure_exists is missing a domain object argument") if obj.nil_or_empty?
+        raise ArgumentError.new("Database ensure_exists is missing a domain object argument") if obj.nil_or_empty?
         obj.enumerate { |ref| find(ref, :create) unless ref.identifier }
         
       end
@@ -190,7 +190,7 @@ module CaRuby
           result = create_dependent(owner, obj) if owner
           result ||= create_from_template(obj)
           if result.nil? then
-            Jinx.fail(DatabaseError, "#{obj.class.qp} is not creatable in context #{print_operations}")
+            raise DatabaseError.new("#{obj.class.qp} is not creatable in context #{print_operations}")
           end
         ensure
           # since obj now has an id, removed from transients set
@@ -242,7 +242,7 @@ module CaRuby
       # @raise [DatabaseError] if obj does not have a proxy
       def save_with_proxy(obj)
         proxy = obj.saver_proxy
-        if proxy.nil? then Jinx.fail(DatabaseError, "#{obj.class.qp} does not have a proxy") end
+        if proxy.nil? then raise DatabaseError.new("#{obj.class.qp} does not have a proxy") end
         if recursive_save?(proxy, :create) then
           logger.debug { "Foregoing #{obj.qp} save, since it  will be handled by creating the proxy #{proxy}." }
           return
@@ -419,7 +419,7 @@ module CaRuby
       def update_object(obj)
         # database identifier is required for update
         if obj.identifier.nil? then
-          Jinx.fail(DatabaseError, "Update target is missing a database identifier: #{obj}")
+          raise DatabaseError.new("Update target is missing a database identifier: #{obj}")
         end
         
         # If this object is proxied, then delegate to the proxy.
@@ -520,7 +520,7 @@ module CaRuby
       def delete_object(obj)
         # database identifier is required for delete
         if obj.identifier.nil? then
-          Jinx.fail(DatabaseError, "Delete target is missing a database identifier: #{obj}")
+          raise DatabaseError.new("Delete target is missing a database identifier: #{obj}")
         end
         persistence_service(obj.class).delete_object(obj)
       end

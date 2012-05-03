@@ -18,7 +18,7 @@ module CaRuby
         def initialize(database)
           @database = database
           unless block_given? then
-            Jinx.fail(ArgumentError, "@{qp} is missing the required template copy attribute selector block")
+            raise ArgumentError.new("@{qp} is missing the required template copy attribute selector block")
           end
       
           # the mergeable attributes filter the given block with exclusions

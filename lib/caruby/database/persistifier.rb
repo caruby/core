@@ -134,7 +134,7 @@ module CaRuby
       # @raise [ArgumentError] if obj is a collection and other is not nil
       def persistify(obj, other=nil)
         if obj.collection? then
-          if other then Jinx.fail(ArgumentError, "Database reader persistify other argument not supported") end
+          if other then raise ArgumentError.new("Database reader persistify other argument not supported") end
           obj.each { |ref| persistify(ref) }
           return obj
         end
@@ -232,7 +232,7 @@ module CaRuby
       def create_cache
         Cache.new do |obj|
           if obj.identifier.nil? then
-            Jinx.fail(ArgumentError, "Can't cache object without identifier: #{obj}")
+            raise ArgumentError.new("Can't cache object without identifier: #{obj}")
           end
           obj.identifier.to_s.to_i
         end
