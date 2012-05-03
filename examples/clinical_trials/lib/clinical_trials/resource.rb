@@ -12,5 +12,6 @@ module ClinicalTrials
     def database
       Database.instance
     end
+  end
 end
 
