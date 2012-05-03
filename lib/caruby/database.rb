@@ -36,8 +36,8 @@ module CaRuby
   # The {Writer#save} method creates or updates references as necessary to persist its argument domain object.
   # It is not necessary to fetch references first or follow dependency ordering rules, which can be
   # implicit and tortuous in caBIG applications. Build the object you want to persist and call the
-  # store method. {Jinx::Resource} sets reasonable default values, recognizes application dependencies and steers
-  # around caBIG idiosyncracies to the extent possible.
+  # store method. {Jinx::Resource} sets reasonable default values, recognizes application dependencies and
+  # steers around caBIG idiosyncracies to the extent possible.
   class Database
     include Reader, Writer, Persistifier
 
@@ -127,6 +127,8 @@ module CaRuby
     # Calls the block given to this method with this database as an argument, and closes the
     # database when done.
     #
+    # @param [String, nil] user the application login user
+    # @param [String, nil] password the application login password
     # @yield [database] the operation to perform on the database
     # @yieldparam [Database] database self
     def open(user=nil, password=nil)
@@ -227,8 +229,8 @@ module CaRuby
     # Performs the operation given by the given op symbol on obj by calling the block given to this method.
     # Lazy loading is suspended during the operation.
     #
-    # @param [:find, :query, :create, :udate, :delete] op the database operation type
-    # @param [Jinx::Resource] obj the domain object on which the operation is performed
+    # @param [:find, :query, :create, :update, :delete] op the database operation type
+    # @param [Resource] obj the domain object on which the operation is performed
     # @param opts (#see Operation#initialize)
     # @yield the database operation block
     # @return the result of calling the operation block
@@ -243,9 +245,11 @@ module CaRuby
       begin
         # perform the operation
         result = perform_operation(&block)
-      rescue Exception
-        logger.error($!)
-        raise
+      rescue Exception => e
+        logger.error("#{e}:")
+        logger.error(obj.dump)
+        logger.error(e.backtrace.qp)
+        raise e
       ensure
         # the operation is done
         @operations.pop
