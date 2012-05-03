@@ -33,7 +33,7 @@ module CaRuby
     # @raise [CaRuby::ConfigurationError] if an option is invalid
     def initialize(opts)
       if opts.empty? then
-        Jinx.fail(CaRuby::ConfigurationError, "The caRuby database connection properties were not found.") 
+        raise CaRuby::ConfigurationError.new("The caRuby database connection properties were not found.") 
       end
       app_host = Options.get(:host, opts, 'localhost')
       db_host = Options.get(:database_host, opts, app_host)
@@ -164,7 +164,7 @@ module CaRuby
         when 'mysql' then 'Jdbc:mysql'
         when 'oracle' then 'Oracle'
         when 'jdbc' then 'Jdbc'
-        else Jinx.fail(CaRuby::ConfigurationError, "Default database connection driver string could not be determined for database type #{db_type}")
+        else raise CaRuby::ConfigurationError.new("Default database connection driver string could not be determined for database type #{db_type}")
       end
     end
     
@@ -173,7 +173,7 @@ module CaRuby
         when 'mysql' then MYSQL_DRIVER_CLASS_NAME
         when 'oracle' then ORACLE_DRIVER_CLASS_NAME
         when 'jdbc' then ''
-        else Jinx.fail(CaRuby::ConfigurationError, "Default database connection driver class could not be determined for database type #{db_type}")
+        else raise CaRuby::ConfigurationError.new("Default database connection driver class could not be determined for database type #{db_type}")
       end
     end
 
@@ -182,12 +182,12 @@ module CaRuby
         when 'mysql' then 3306
         when 'oracle' then 1521
         when 'jdbc' then -1
-        else Jinx.fail(CaRuby::ConfigurationError, "Default database connection port could not be determined for database type #{db_type}")
+        else raise CaRuby::ConfigurationError.new("Default database connection port could not be determined for database type #{db_type}")
       end
     end
 
     def raise_missing_option_error(option)
-      Jinx.fail(CaRuby::ConfigurationError, "Database connection property not found: #{option}")
+      raise CaRuby::ConfigurationError.new("Database connection property not found: #{option}")
     end
   end
 end

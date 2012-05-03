@@ -71,7 +71,7 @@ module CaRuby
       begin
         YAML::load_file(file).each { |key, value| properties[key.to_sym] = value }
       rescue
-        Jinx.fail(ConfigurationError, "Could not read properties file #{file}: " + $!)
+        raise ConfigurationError.new("Could not read properties file #{file}: " + $!)
       end
       # Uncomment the following line to print detail properties.
       #logger.debug { "#{file} properties:\n#{properties.pp_s}" }
