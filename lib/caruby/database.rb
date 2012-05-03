@@ -277,8 +277,8 @@ module CaRuby
     def start_session(user=nil, password=nil)
       user ||= @user
       password ||= @password
-      if user.nil? then Jinx.fail(DatabaseError, 'The caRuby application is missing the login user') end
-      if password.nil? then Jinx.fail(DatabaseError, 'The caRuby application is missing the login password') end
+      if user.nil? then raise DatabaseError.new('The caRuby application is missing the login user') end
+      if password.nil? then raise DatabaseError.new('The caRuby application is missing the login password') end
       @session = ClientSession.instance
       connect(user, password)
     end

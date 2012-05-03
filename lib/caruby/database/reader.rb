@@ -392,7 +392,7 @@ module CaRuby
           msg = "More than one match for #{obj.class.qp} find with template #{template}."
           # it is an error to have an ambiguous result
           logger.error("Fetch error - #{msg}:\n#{obj}")
-          Jinx.fail(DatabaseError, msg)
+          raise DatabaseError.new(msg)
         end
         result.first
       end
