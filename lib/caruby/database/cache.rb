@@ -15,7 +15,9 @@ module CaRuby
       # it to the key by calling the block given to this initializer.
       @ckh = Jinx::LazyHash.new do
         Jinx::KeyTransformerHash.new do |obj|
-          yield(obj) || raise ArgumentError.new("The object to cache does not have a key: #{obj}")
+          key = yield(obj)
+          raise ArgumentError.new("The object to cache does not have a key: #{obj}") if key.nil?
+          key
         end
       end
       @sticky = Set.new
