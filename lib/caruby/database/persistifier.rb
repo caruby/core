@@ -117,12 +117,11 @@ module CaRuby
           next unless prop.java_property?
           # the empty or nil value to set
           value = toxic.class.empty_value(pa)
-          # Use the Java writer method rather than the standard attribute writer method.
-          # The standard attribute writer enforces inverse integrity, which potential requires
-          # accessing the current toxic value. The Java writer bypasses inverse integrity.
-          reader, writer = prop.property_accessors
-          # clear the attribute
-          toxic.send(writer, value)
+          # Clear the attribute. Use the Java writer method rather than the standard
+          # attribute writer method. The standard attribute writer enforces inverse integrity,
+          # which potential requires accessing the current toxic value. The Java writer
+          # bypasses inverse integrity.
+          toxic.send(prop.java_writer, value)
         end
       end
       

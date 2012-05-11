@@ -308,7 +308,7 @@ module CaRuby
         # The Java property writer to set the tmpl inverse to ref.
         # Use the property writer rather than the attribute writer in order to curtail automatically
         # adding tmpl to the ref attribute value when the inv_prop attribute is set to ref.
-        wtr = inv_prop.property_writer
+        wtr = inv_prop.java_writer
         # parameterize tmpl with inverse ref
         tmpl.send(wtr, ref)
         # submit the query

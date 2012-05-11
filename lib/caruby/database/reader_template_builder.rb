@@ -49,7 +49,7 @@ module CaRuby
           # Disable inverse integrity, since the template attribute assignment might have added a reference
           # from ref to template, which introduces a template => ref => template cycle that causes a caCORE
           # search infinite loop. Use the Java property writer instead.
-          wtr = template.class.property(attribute).property_writer
+          wtr = template.class.property(attribute).java_writer
           template.send(wtr, ref)
           logger.debug { "Search reference parameter #{attribute} for #{template.qp} set to #{ref} copied from #{source.qp}" }
           ref
