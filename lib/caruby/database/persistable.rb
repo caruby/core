@@ -386,7 +386,6 @@ module CaRuby
     def copy_volatile_attributes(other)
       pas = self.class.volatile_nondomain_attributes
       return if pas.empty?
-      logger.debug { "Merging volatile attributes #{pas.to_series} from #{other.qp} into #{qp}..." }
       pas.each do |pa|
         val = send(pa)
         oval = other.send(pa)
@@ -399,6 +398,7 @@ module CaRuby
           raise DatabaseError.new("Can't copy #{other} to #{self} with different identifier")
         end
       end
+      logger.debug { "Merged auto-generated attribute values #{pas.to_series} from #{other.qp} into #{self}..." }
     end
     
     private
