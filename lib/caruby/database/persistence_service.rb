@@ -19,7 +19,6 @@ module CaRuby
     # @option opts [String] :host the service host (default +localhost+)
     # @option opts [String] :version the caTissue version identifier
     def initialize(name, opts={})
-      CaRuby::PersistenceService.import_java_classes
       @name = name
       ver_opt = opts[:version]
       @version = ver_opt.to_s.to_version if ver_opt
@@ -52,34 +51,19 @@ module CaRuby
     #   create method. Calling reference attributes of this result is broken by +caCORE+ design.
     def create(obj)
       logger.debug { "Submitting create #{obj.pp_s(:single_line)} to application service #{name}..." }
-      begin
-        dispatch { |svc| svc.create_object(obj) }
-      rescue Exception => e
-        logger.error("Error creating #{obj} - #{e.message}\n#{dump(obj)}")
-        raise e
-      end
+      dispatch { |svc| svc.create_object(obj) }
     end
 
     # Submits the update to the application service and returns obj.
    def update(obj)
       logger.debug { "Submitting update #{obj.pp_s(:single_line)} to application service #{name}..." }
-      begin
-        dispatch { |svc| svc.update_object(obj) }
-      rescue Exception => e
-        logger.error("Error updating #{obj} - #{e.message}\n#{dump(obj)}")
-        raise e
-      end
+      dispatch { |svc| svc.update_object(obj) }
    end
 
     # Submits the delete to the application service.
     def delete(obj)
       logger.debug { 'Deleting #{obj}.' }
-      begin
-        dispatch { |svc| svc.remove_object(obj) }
-      rescue Exception => e
-        logger.error("Error deleting #{obj} - #{e.message}\n#{dump(obj)}")
-        raise e
-      end
+      dispatch { |svc| svc.remove_object(obj) }
     end
 
     # Returns the {ApplicationService} remote instance.
@@ -170,7 +154,7 @@ module CaRuby
      begin
         result = dispatch { |svc| svc.association(obj, assn) }
       rescue Exception => e
-        logger.error("Error fetching association #{obj} - #{e.message}\n#{dump(obj)}")
+        logger.error("Error fetching association #{obj} - #{e}")
         raise
       end
     end
@@ -181,11 +165,13 @@ module CaRuby
     
     private
     
-    # Imports this class's Java classes on demand.
-    def self.import_java_classes
-      return if const_defined?(:HQLCriteria)
-      # HQLCriteria is required for the query_hql method.
-      java_import Java::gov.nih.nci.common.util.HQLCriteria
+    # Imports the caCORE +HQLCriteria+ Java class on demand.
+    def self.const_missing(sym)
+      if sym == :HQLCriteria then
+        java_import Java::gov.nih.nci.common.util.HQLCriteria
+      else
+        super
+      end
     end
 
   end
