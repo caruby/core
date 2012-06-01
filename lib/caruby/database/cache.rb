@@ -1,23 +1,32 @@
 require 'jinx/helpers/lazy_hash'
-require 'jinx/helpers/key_transformer_hash'
+require 'jinx/helpers/associative'
 
 module CaRuby
   # Cache for objects held in memory and accessed by key.
   class Cache
-    # The classes which are not cleared when {#clear} is called without the +all+ flag.
+    # The classes which are not cleared when {#clear} is called.
     attr_reader :sticky
     
-    # @yield [item] returns the key for the given item to cache
-    # @yieldparam item the object to cache
+    # @yield [obj] returns the key for the given object to cache
+    # @yieldparam obj the object to cache
     def initialize
-      # Make the class => {key => item} hash.
-      # The {key => item} hash takes an item as an argument and converts
-      # it to the key by calling the block given to this initializer.
+      # Make the class => {object => {key => object}} hash.
+      # The {object => {key => object}} hash is an Associative which converts the given
+      # object to its key by calling the block given to this initializer.
+      # The {{key => object} hash takes a key as an argument and returns the cached object.
+      # If there is no cached object, then the object passed to the Associative is cached. 
       @ckh = Jinx::LazyHash.new do
-        Jinx::KeyTransformerHash.new do |obj|
+        kh = Hash.new 
+        # the obj => key associator
+        assoc = Jinx::Associative.new do |obj|
           key = yield(obj)
-          raise ArgumentError.new("The object to cache does not have a key: #{obj}") if key.nil?
-          key
+          kh[key] if key
+        end
+        # the obj => key => value writer  
+        assoc.writer do |obj, value|
+          key = yield(obj)                                                                       
+          raise ArgumentError.new("caRuby cannot cache object without a key: #{obj}") if key.nil?
+          kh[key] = value
         end
       end
       @sticky = Set.new

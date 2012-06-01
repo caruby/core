@@ -168,9 +168,16 @@ module CaRuby
     
     alias :toxic_attributes :unfetched_attributes
 
+    # @quirk JRuby - This method body is copied to the +CaTissue::Metadata+ superclass since
+    #   calling super from that class's overloaded +loadable_attributes+ method results in
+    #   an infinite loop.
+    #
     # @return [<Symbol>] the Java attribute non-abstract {#unfetched_attributes}
     def loadable_attributes
-      @ld_flt ||= unfetched_attributes.compose { |prop| prop.java_property? and not prop.type.abstract? }
+      # A change to this method body must be copied to CaTissue::Metadata; see rubydoc above.
+      @ld_flt ||= unfetched_attributes.compose do |prop|
+        prop.java_property? and not prop.type.abstract? and not prop.transient?
+      end
     end
     
     private

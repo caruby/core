@@ -352,9 +352,10 @@ module CaRuby
         # If the fetched object is a subclass of the target, then return the fetched object.
         if fetched.class < obj.class then
           # Clean up the fetched object before it is returned.
-          return persistify(detoxify(fetched))
+          detoxify(fetched)
+          return persistify(fetched)
         end
-        # Recursively copy the nondomain attributes, of the fetched domain object references.
+        # Recursively copy the nondomain attributes of the fetched domain object references.
         # This merge sets the target identifier and fills in missing values of other nondomain
         # attributes.
         merge_fetched(fetched, obj)
@@ -427,7 +428,7 @@ module CaRuby
           logger.debug { "Found #{obj.qp} by fetching the owner #{owner} #{inv} dependents." }
           return obj
         else
-          logger.debug { "#{obj.qp} does not match one of the fetched owner #{owner} #{inv} dependents #{deps}." }
+          logger.debug { "#{obj.qp} does not match one of the fetched owner #{owner} #{inv} dependents #{deps.pp_s}." }
           nil
         end
       end

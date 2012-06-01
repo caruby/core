@@ -13,7 +13,18 @@ module CaRuby
       # Adds query capability to this Database.
       def initialize
         super
-        @ftchd_vstr = Jinx::ReferenceVisitor.new { |ref| ref.class.fetched_domain_attributes }
+        # the fetched object cache
+        @cache = create_cache
+        # the general fetched visitor
+        @ftchd_vstr = Jinx::ReferenceVisitor.new() { |ref| ref.class.fetched_domain_attributes }
+        # The persistifier visitor recurses to references before adding a lazy loader to the parent.
+        # The fetched filter foregoes the visit to a previously fetched reference. The visitor
+        # replaces fetched objects with matching cached objects where possible. It is unnecessary
+        # to visit a previously persistified cached object.
+        pst_flt = Proc.new { |ref| @cache[ref].nil? and not ref.fetched? }
+        @pst_vstr = Jinx::ReferenceVisitor.new(:filter => pst_flt, :depth_first => true) do |ref|
+          ref.class.fetched_domain_attributes
+        end
         # the demand loader
         @lazy_loader = LazyLoader.new { |obj, pa| lazy_load(obj, pa) }
       end
@@ -73,8 +84,14 @@ module CaRuby
       end
 
       # This method clears the given toxic domain objects fetched from the database.
-      # The copy nondomain attribute values are set to the fetched object values.
-      # The copy fetched reference attribute values are set to a copy of the result references.
+      #
+      # Detoxification consists of the following:
+      # * The fetched object's class might not have been previously referenced. In that
+      #   case, introspect the fetched object's class.
+      # * Clear toxic references that will result in a caCORE missing session error
+      #   due to the caCORE API deficiency described below.
+      # * Replaced fetched objects with the corresponding cached objects where possible.
+      # * Set inverses to enforce inverse integrity where necessary.
       #
       # @quirk caCORE Dereferencing a caCORE search result uncascaded collection attribute
       #   raises a Hibernate missing session error.
@@ -88,27 +105,63 @@ module CaRuby
       #   This situation is rectified in this detoxify method by setting the dependent owner
       #   attribute to the fetched owner in the detoxification {Jinx::ReferenceVisitor} copy-match-merge.
       #
-      # @return [Jinx::Resource, <Jinx::Resource>] the detoxified object(s)
+      # @param [Resource] toxic the fetched object to detoxify
+      # @return [Resource, <Resource>] the detoxified object(s)
       def detoxify(toxic)
         return if toxic.nil?
         if toxic.collection? then
           toxic.each { |obj| detoxify(obj) }
         else
           logger.debug { "Detoxifying the toxic caCORE result #{toxic.qp}..." }
-          @ftchd_vstr.visit(toxic) { |ref| clear_toxic_attributes(ref) }
+          @ftchd_vstr.visit(toxic) { |ref| detoxify_object(ref) }
           logger.debug { "Detoxified the toxic caCORE result #{toxic.qp}." }
         end
         toxic
       end
       
+      # Detoxifies the given domain object. This method is called by {#detoxify} to detoxify a visited
+      # object fetched from the database. This method does not detoxify referenced objects.
+      # 
+      # @param (see #detoxify)
+      def detoxify_object(toxic)
+        ensure_introspected(toxic.class)
+        reconcile_fetched_attributes(toxic)
+        clear_toxic_attributes(toxic)
+      end
+      
+      # Replaces fetched references with cached references where possible.
+      # 
+      # @param (see #detoxify)
+      def reconcile_fetched_attributes(toxic)
+        toxic.class.fetched_domain_attributes.each_pair do |fa, fp|
+          # the fetched reference
+          ref = toxic.send(fa) || next
+          # the inverse attribute
+          fi = fp.inverse
+          # Replace each fetched reference with the cached equivalent, if it exists.
+          if fp.collection? then
+            ref.to_compact_hash { |mbr| @cache[mbr] }.each do |fmbr, cmbr|
+              if fmbr != cmbr and (fi.nil? or cmbr.send(fi).nil?) then
+                ref.delete(fmbr)
+                ref << cmbr
+                logger.debug { "Replaced fetched #{toxic} #{fa} #{fmbr} with cached #{cmbr}." }
+              end
+            end
+          else
+            cref = @cache[ref]
+            if cref and cref != ref and (fi.nil? or cref.send(fi).nil?) then
+              toxic.set_property_value(fa, cref)
+              logger.debug { "Replaced fetched #{toxic} #{fa} #{ref} with cached #{cref}." }
+            end
+          end
+        end
+      end
+      
       # Sets each of the toxic attributes in the given domain object to the corresponding
       # {Metadata#empty_value}.
-      #
-      # @param [Jinx::Resource] toxic the toxic domain object
+      # 
+      # @param (see #detoxify)
       def clear_toxic_attributes(toxic)
-        # The result class might not have been previously referenced. In that case,
-        # introspect the class.
-        ensure_introspected(toxic.class)
         pas = toxic.class.toxic_attributes
         return if pas.empty?
         logger.debug { "Clearing toxic #{toxic.qp} attributes #{pas.to_series}..." }
@@ -130,21 +183,25 @@ module CaRuby
       # * Set the inverses to enforce inverse integrity.
       #
       # @param (see #persistify_object)
+      # @param [Jinx::Resource] other the source domain object
       # @raise [ArgumentError] if obj is a collection and other is not nil
       def persistify(obj, other=nil)
         if obj.collection? then
-          if other then raise ArgumentError.new("Database reader persistify other argument not supported") end
+          # A source object is not meaningful for a collection.
+          if other then
+            raise DatabaseError.new("Database reader persistify other argument is not supported for collection #{obj.qp}")
+          end
           obj.each { |ref| persistify(ref) }
           return obj
         end
-        # The attribute type is introspected, but the object might be an unintrospected
-        # subtype. Introspect the object class if necessary.
-        ensure_introspected(obj.class)
-        # set the inverses before recursing to dependents
+        # set the inverses before recursing to references
         set_inverses(obj)
-        # recurse to dependents before adding a lazy loader to the owner
-        obj.dependents.each { |dep| persistify(dep) if dep.identifier }
-        persistify_object(obj, other)
+        @pst_vstr.visit(obj) do |ref|
+          persistify_object(ref) if ref.identifier and ref.snapshot.nil?
+        end
+        # merge the other object content if available
+        obj.merge_into_snapshot(other) if other
+        obj
       end
       
       # Introspects the given class, if necessary. The class must be either introspected
@@ -165,19 +222,22 @@ module CaRuby
       # Takes a {Persistable#snapshot} of obj to track changes, adds a lazy loader and
       # adds the object to the cache.
       #
-      # If the other fetched source object is given, then the obj snapshot is updated
+      # If the other fetched source object is given, then the snapshot is updated
       # with the non-nil values from other.
       #
       # @param [Jinx::Resource] obj the domain object to make persistable
       # @param [Jinx::Resource] other the source domain object
       # @return [Jinx::Resource] obj
       def persistify_object(obj, other=nil)
+        # The attribute type is introspected, but the object might be an unintrospected
+        # subtype. Introspect the object class if necessary.
+        ensure_introspected(obj.class)
         # take a snapshot of the database content
         snapshot(obj, other)
         # add lazy loader to the unfetched attributes
         add_lazy_loader(obj)
         # add to the cache
-        encache(obj)
+        @cache.add(obj)
         obj
       end
       
@@ -213,13 +273,6 @@ module CaRuby
         # merge the other object content if available
         obj.merge_into_snapshot(other) if other
       end
-
-      # @param [Jinx::Resource] obj the object to cache
-      # @raise [ArgumentError] if the given item does not have an identifier
-      def encache(obj)
-        @cache ||= create_cache
-        @cache.add(obj)
-      end    
     
       # @quirk JRuby identifier is not a stable object when fetched from the database, i.e.:
       #     obj.identifier.equal?(obj.identifier) #=> false
@@ -230,10 +283,7 @@ module CaRuby
       # @return [Cache] a new object cache
       def create_cache
         Cache.new do |obj|
-          if obj.identifier.nil? then
-            raise ArgumentError.new("Can't cache object without identifier: #{obj}")
-          end
-          obj.identifier.to_s.to_i
+          obj.identifier.to_s.to_i if obj.identifier
         end
       end
     end
