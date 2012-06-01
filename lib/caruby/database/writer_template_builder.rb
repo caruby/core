@@ -295,7 +295,7 @@ module CaRuby
         # @param [Jinx::Resource] obj the domain object to save
         # @return [<Jinx::Resource>] the references which must be created in order to store the object
         def collect_prerequisites(obj)
-          prereqs = Set.new
+          prereqs = Array.new
           # visit the cascaded attributes
           @prereq_vstr.visit(obj) do |pref|
             # Check each mergeable attribute for prerequisites. The mergeable attributes includes
@@ -328,6 +328,8 @@ module CaRuby
               end
             end
           end
+          # Remove duplicates.
+          prereqs.uniq!
           prereqs
         end
       end
