@@ -561,8 +561,7 @@ module CaRuby
       # @param [Jinx::Resource] target the save argument
       # @param [Jinx::Resource] source the caCORE save result
       def sync_saved(target, source)
-        # clear the toxic source attributes
-        detoxify(source)
+        detoxify_save_result(source)
         # sync the save result source with the database
         sync_saved_result_with_database(source, target)
         # merge the source into the target
@@ -576,6 +575,10 @@ module CaRuby
         end
         # recursively save the dependents
         save_changed_dependents(target)
+      end
+      
+      def detoxify_save_result(source)
+        detoxify(source)
       end
       
       # Synchronizes the given save result with the database content.
