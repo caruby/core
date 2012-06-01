@@ -12,8 +12,6 @@ class CacheTest < Test::Unit::TestCase
     b = Item.new(:a)
     assert_equal(a, cache[b], "Cached equivalent not found")
     assert_equal(a, cache.add(b), "Cached add replaced existing entry")
-    cache.add!(b)
-    assert_equal(b, cache.add(b), "Cached add! did not replace existing entry")
   end
   
   def test_add!
@@ -22,7 +20,7 @@ class CacheTest < Test::Unit::TestCase
     cache.add(a)
     b = Item.new(:a)
     cache.add!(b)
-    assert_equal(b, cache.add(b), "Cached add! did not replace existing entry")
+    assert_equal(b, cache[a], "Cached add! did not replace existing entry")
   end
   
   def test_clear
