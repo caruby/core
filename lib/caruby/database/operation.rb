@@ -29,6 +29,8 @@ module CaRuby
       def to_s
         "#{@subject.qp} #{attribute} #{type}"
       end
+      
+      alias :inspect :to_s
     end
   end
 end
