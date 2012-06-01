@@ -113,6 +113,12 @@ module CaRuby
     def delete
       database.delete(self)
     end
+    
+    # @return [Boolean] whether this domain object can be updated
+    #   (default is true, subclasses can override)
+    def updatable?
+      true
+    end
 
     alias :== :equal?
 

@@ -435,7 +435,9 @@ module CaRuby
         
         # Update a cascaded dependent by updating the owner.
         owner = cascaded_dependent_owner(obj)
-        if owner then return update_cascaded_dependent(owner, obj) end
+        if owner and owner.updatable? then
+          return update_cascaded_dependent(owner, obj)
+        end
         # Not a cascaded dependent; update using a template.
         update_from_template(obj)
       end
@@ -460,6 +462,9 @@ module CaRuby
       end
       
       def update_from_template(obj)
+        unless obj.updatable? then
+          raise DatabaseError.new("#{obj.class.qp} update is not allowed by caTissue")
+        end
         tmpl = build_update_template(obj)
         # call the caCORE service with an obj update template
         save_with_template(obj, tmpl) { |svc| svc.update(tmpl) }
