@@ -69,7 +69,7 @@ module CaRuby
       raise ConfigurationError.new("Properties file not found: #{File.expand_path(file)}") unless File.exists?(file)
       properties = {}
       begin
-        YAML::load_file(file).each { |key, value| properties[key.to_sym] = value }
+        YAML.load_file(file).each { |key, value| properties[key.to_sym] = value }
       rescue
         raise ConfigurationError.new("Could not read properties file #{file}: " + $!)
       end
