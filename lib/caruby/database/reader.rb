@@ -387,13 +387,10 @@ module CaRuby
         # submit the query on the template
         logger.debug { "Query template for finding #{obj.qp}: #{template}." }
         result = query_on_template(template)
-        # a fetch query which returns more than one result is an error.
-        # possible cause is an incorrect secondary key.
+        # It is an error to have an ambiguous result.
+        # A possible cause is an unenforced secondary or alternate key.
         if result.size > 1 then
-          msg = "More than one match for #{obj.class.qp} find with template #{template}."
-          # it is an error to have an ambiguous result
-          logger.error("Fetch error - #{msg}:\n#{obj}")
-          raise DatabaseError.new(msg)
+          raise DatabaseError.new("More than one match for #{obj.class.qp} find with template #{template.qp}:\n#{template.dump}")
         end
         result.first
       end
@@ -428,12 +425,13 @@ module CaRuby
           logger.debug { "Found #{obj.qp} by fetching the owner #{owner} #{inv} dependents." }
           return obj
         else
-          logger.debug { "#{obj.qp} does not match one of the fetched owner #{owner} #{inv} dependents #{deps.pp_s}." }
+          logger.debug { "#{obj.qp} does not match one of the fetched owner #{owner} #{inv} dependents #{deps.qp}." }
           nil
         end
       end
       
-      # Returns a copy of obj containing only those key attributes used in a find operation.
+      # Returns a copy of the given domain object containing only those key attributes used
+      # in a find operation.
       #
       # @quirk caCORE Bug #79: caCORE search fetches on all non-nil attributes, except
       #   occasionally the identifier. There is no indication of how to identify uniquely
@@ -553,23 +551,6 @@ module CaRuby
         value = obj.send(pa)
         return false if value.nil?
         obj.class.nondomain_attribute?(pa) or value.identifier
-      end
-      
-      # Sets the template attribute to a new search reference object created from source.
-      # The reference contains only the source identifier.
-      #
-      # @quirk caCORE The search template must break inverse integrity by clearing an owner inverse reference,
-      #   since a dependent => onwer => dependent cycle causes a caCORE search infinite loop.
-      #
-      # @return [Jinx::Resource, nil] the search reference, or nil if source does not exist in the database
-      def add_search_template_reference(template, source, attribute)
-        return if not exists?(source)
-        ref = source.copy(:identifier)
-        template.set_property_value(attribute, ref)
-        inverse = template.class.property(attribute).derived_inverse
-        ref.clear_attribute(inverse) if inverse
-        logger.debug { "Search reference parameter #{attribute} for #{template.qp} set to #{ref} copied from #{source.qp}" }
-        ref
       end
     end
   end
