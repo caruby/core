@@ -43,12 +43,15 @@ module CaRuby
         # source domain object. The reference contains only the source identifier, if it exists,
         # or the source non-domain attributes otherwise.
         #
+        # @quirk caCORE The search template must break inverse integrity by clearing an owner inverse reference,
+        #   since a dependent => owner => dependent cycle causes a caCORE search infinite loop.
+        #
         # @return [Jinx::Resource] the search reference
         def add_search_template_reference(template, source, attribute)
           ref = source.identifier ? source.copy(:identifier) : source.copy
-          # Disable inverse integrity, since the template attribute assignment might have added a reference
-          # from ref to template, which introduces a template => ref => template cycle that causes a caCORE
-          # search infinite loop. Use the Java property writer instead.
+          # Disable inverse integrity by using the Java property writer instead of the attribute writer.
+          # The attribute writer will add a reference from ref to template, which introduces a
+          # template => ref => template cycle that causes a caCORE search infinite loop.
           wtr = template.class.property(attribute).java_writer
           template.send(wtr, ref)
           logger.debug { "Search reference parameter #{attribute} for #{template.qp} set to #{ref} copied from #{source.qp}" }
