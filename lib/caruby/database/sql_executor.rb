@@ -6,6 +6,19 @@ module CaRuby
   # Use of this class requires the dbi gem.
   # SQLExecutor is an auxiliary utility class and is not used by the rest of the CaRuby API.
   class SQLExecutor
+    # The database connection access options.
+    ACCESS_OPTS = [
+      [:database_host, '--database_host HOST', 'the database host name'],
+      [:database_port, '--database_port PORT', Integer, 'the database port number'],
+      [:database, '--database NAME', 'the database name'],
+      [:database_url, '--database_url URL', 'the database connection URL'],
+      [:database_type, '--database_type TYPE', 'the database type (mysql or oracle)'],
+      [:database_driver, '--database_driver DRIVER', 'the database driver string'],
+      [:database_driver_class, '--database_driver_class CLASS', 'the JDBC database driver class name'],
+      [:database_user, '--database_user USER', 'the database login user'],
+      [:database_password, '--database_password PSWD', 'the database login password']
+    ]
+    
     # Creates a new SQLExecutor with the given options.
     #
     # The default database host is the application :host property value, which in turn
@@ -18,19 +31,19 @@ module CaRuby
     # The default database driver class is +com.mysql.jdbc.Driver+ for MySQL,
     # +oracle.jdbc.OracleDriver+ for Oracle.
     #
-    # The default database URI is +dbi:+_db_driver_+://+_db_host_+:+_db_port_+/+_db_name_.
+    # The default database url is +_db_driver_+://+_db_host_+:+_db_port_+/+_db_name_.
     #
     # @param [Hash] opts the connect options
-    # @option opts [String] :database the mandatory database name
-    # @option opts [String] :database_user the mandatory database username (not the application login name)
-    # @option opts [String] :database_password the optional database password (not the application login password)
-    # @option opts [String] :database_type the optional database type (default +mysql+)
-    # @option opts [String] :database_host the optional database host
-    # @option opts [Integer] :database_port the optional database port number
-    # @option opts [String] :database_driver the optional DBI connect driver string, e.g. +jdbc:mysql+
-    # @option opts [String] :database_url the optional database connection URL
-    # @option opts [String] :database_driver_class the optional DBI connect driver class name
-    # @raise [CaRuby::ConfigurationError] if an option is invalid
+    # @option opts [String] :database the database name
+    # @option opts [String] :database_user the database username (not the application login name)
+    # @option opts [String] :database_password the database password (not the application login password)
+    # @option opts [String] :database_type the database type (default +mysql+)
+    # @option opts [String] :database_host the database host
+    # @option opts [Integer] :database_port the database port number
+    # @option opts [String] :database_driver the JDBC driver string, e.g. +jdbc:mysql+
+    # @option opts [String] :database_url the database connection URL
+    # @option opts [String] :database_driver_class the connect driver class name
+    # @raise [CaRuby::ConfigurationError] if neither the database url nor its constituent options are specified
     def initialize(opts)
       if opts.empty? then
         raise CaRuby::ConfigurationError.new("The caRuby database connection properties were not found.") 
@@ -50,9 +63,8 @@ module CaRuby
           raise_missing_option_error(:database)
         end
       end 
-      @dbi_url = 'dbi:' + @db_url
       @username = Options.get(:database_user, opts) { raise_missing_option_error(:database_user) }
-      @password = Options.get(:database_password, opts)
+      @password = Options.get(:database_password, opts) { raise_missing_option_error(:database_password) }
       @driver_class = Options.get(:database_driver_class, opts, default_driver_class(db_type))
       # The effective connection options.
       eff_opts = {
