@@ -10,6 +10,7 @@ require 'caruby/database/operation'
 require 'caruby/database/reader'
 require 'caruby/database/writer'
 require 'caruby/database/persistifier'
+require 'caruby/database/sql_executor'
 
 module CaRuby
   # Database operation error.
@@ -41,22 +42,13 @@ module CaRuby
   class Database
     include Reader, Writer, Persistifier
 
-    # The application and database connection access command line options.
+    # The application and database connection options.
     ACCESS_OPTS = [
       [:user, '-u USER', '--user USER', 'the application login user'],
       [:password, '-p PSWD', '--password PSWD', 'the application login password'],
       [:host, '--host HOST', 'the application host name'],
       [:port, '--port PORT', 'the application port number'],
-      [:classpath, '--classpath PATH', 'the application client classpath'],
-      [:database_host, '--database_host HOST', 'the database host name'],
-      [:database_port, '--database_port PORT', Integer, 'the database port number'],
-      [:database, '--database NAME', 'the database name'],
-      [:database_url, '--database_url URL', 'the database connection URL'],
-      [:database_type, '--database_type TYPE', 'the database type (mysql or oracle)'],
-      [:database_driver, '--database_driver DRIVER', 'the database driver string'],
-      [:database_driver_class, '--database_driver_class CLASS', 'the database driver class name'],
-      [:database_user, '--database_user USER', 'the database login user'],
-      [:database_password, '--database_password PSWD', 'the database login password']
+      [:classpath, '--classpath PATH', 'the application client classpath']
     ]
     
     attr_reader :operations
