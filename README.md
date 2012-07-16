@@ -1,20 +1,17 @@
 caRuby: Simplifying caBIG(TM)
 =============================
-
 **Home**:         [http://caruby.rubyforge.org](http://caruby.rubyforge.org)    
 **Git**:          [http://github.com/caruby/core](http://github.com/caruby/core)       
 **Author**:       OHSU Knight Cancer Institute    
-**Copyright**:    2010, 2011    
+**Copyright**:    2012    
 **License**:      MIT License    
 
 Synopsis
 --------
-
 caRuby presents a JRuby facade that simplifies interaction with caBIG applications.
 
 Feature List
 ------------
-
 1. caCORE API wrapper.
 
 2. Resolves persistence dependencies.
@@ -32,12 +29,10 @@ is installed.
 
 Usage
 -----
-
 See the project [Home](http://caruby.rubyforge.org) Page for usage examples. 
 
 Copyright
 ---------
-
-caRuby &copy; 2010, 2011 by [Oregon Health & Science University](http://www.ohsu.edu/xd/health/services/cancer/index.cfm).
+caRuby &copy; 2012 by [Oregon Health & Science University](http://www.ohsu.edu/xd/health/services/cancer/index.cfm).
 caRuby is licensed under the MIT license. Please see the LICENSE and LEGAL
 files for more information.
