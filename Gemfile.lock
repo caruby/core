@@ -17,7 +17,7 @@ PATH
 PATH
   remote: /Users/loneyf/workspace/jinx/json
   specs:
-    jinx-json (2.1.2)
+    jinx-json (2.1.3)
       bundler
       jinx
       json_pure
