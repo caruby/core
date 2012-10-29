@@ -10,7 +10,10 @@ require 'caruby/database/operation'
 require 'caruby/database/reader'
 require 'caruby/database/writer'
 require 'caruby/database/persistifier'
+require 'caruby/database/detoxifier'
 require 'caruby/database/sql_executor'
+require 'caruby/database/uniform_application_service'
+require 'caruby/database/url_application_service'
 
 module CaRuby
   # Database operation error.
@@ -40,7 +43,7 @@ module CaRuby
   # store method. {Jinx::Resource} sets reasonable default values, recognizes application dependencies and
   # steers around caBIG idiosyncracies to the extent possible.
   class Database
-    include Reader, Writer, Persistifier
+    include Reader, Writer, Persistifier, Detoxifier 
 
     # The application and database connection options.
     ACCESS_OPTS = [
@@ -75,36 +78,35 @@ module CaRuby
     #   caCORE stomps on an existing JRuby object graph. To reproduce, move the appService call
     #   to the start_session method and run the +PSBIN::MigrationTest+ biopsy save test case.
     #
+    # @example
+    #   Database.new(:user => 'perdita', :password => 'changeMe')
     # @param [String] service_name the name of the default {PersistenceService}
     # @param [{Symbol => String}, nil] opts the access options, or nil if specified as a block
     # @option opts [String] :host application service host name
     # @option opts [String] :login application service login user
     # @option opts [String] :password application service login password
+    # @option opts [String] :version the caTissue version identifier
     # @yield the access options defined by a block rather than a parameter
-    # @example
-    #   Database.new(:user => 'perdita', :password => 'changeMe')
     def initialize(service_name, opts=nil)
       super()
       # The options can be defined in a block.
       opts ||= yield if block_given?
       if opts.nil? then raise ArgumentError.new("Missing required database access properties") end
-      @user = Options.get(:user, opts)
-      @password = Options.get(:password, opts)
-      host = Options.get(:host, opts)
-      port = Options.get(:port, opts)
+      opts = Options.to_hash(opts) 
       # The class => service hash is populated with the default service.
-      @def_persist_svc = PersistenceService.new(service_name, :host => host, :port => port)
+      @def_persist_svc = create_default_service(service_name, opts)
       @persistence_services = [@def_persist_svc].to_set
       @cls_svc_hash = Hash.new(@def_persist_svc)
       # the create/update nested operations
       @operations = []
       # the objects for which exists? is unsuccessful in the context of a nested operation
       @transients = Set.new
+      @opened = false
     end
     
-    # @return [Boolean] whether there is an active session
+    # @return [Boolean] whether {#open} is in progress
     def open?
-      !!@session
+      @opened
     end
     
     # @return [Boolean] whether this database is not {#open?}
@@ -121,11 +123,14 @@ module CaRuby
     # @yieldparam [Database] database self
     def open(user=nil, password=nil)
       raise ArgumentError.new("Database open requires an execution block") unless block_given?
-      raise DatabaseError.new("The caRuby application database is already in use.") if open?
-      # reset the execution timers
+      if open? then
+        raise DatabaseError.new("The caRuby application database is already in use.")
+      end
+      # Reset the execution timers.
       persistence_services.each { |svc| svc.timer.reset }
-      # Start the session.
-      start_session(user, password)
+      # Start the session, if necessary.
+      start_session(user, password) if @session_required
+      @opened = true
       # Call the block and close when done.
       yield(self) ensure close
     end
@@ -143,12 +148,9 @@ module CaRuby
     # Subclasses can override for specialized services. A session is started
     # on demand if necessary.
     #
-    # @param [Class] klass the domain object class
+    # @param [Class, nil] klass the domain object class, or nil for the default service
     # @return [PersistanceService] the corresponding service
-    def persistence_service(klass)
-       unless Class === klass then
-         raise ArgumentError.new("#{self} persistence_service argument is not a Class: {#klass.qp}")
-       end
+    def persistence_service(klass=nil)
        @def_persist_svc
     end
     
@@ -167,6 +169,25 @@ module CaRuby
         super
       end
     end
+    
+    # Returns the application service URL for the given service name.
+    #
+    # @param [String] name the service name
+    # @return [String] the service URL
+    # @raise [DatabaseError] if this database uses a generic service rather than an URL service 
+    def application_service_url_for(name)
+      raise DatabaseError.new("This database does not support an URL service.") if @url_tmpl.nil?
+      @url_tmpl % name
+    end
+    
+    # @return [Boolean] whether this is a caTissue 2.0 or later database which uses a uniform
+    #   service for both domain objects and DEs
+    def uniform_application_service?
+      unless defined? @is_uniform then
+        @is_uniform = UniformApplicationService.supported?
+      end
+      @is_uniform
+    end
 
     alias :to_s :print_class_and_id
 
@@ -175,20 +196,41 @@ module CaRuby
     ## Utility classes and methods, used by Query and Store mix-ins ##
 
     private
+    
+    def create_default_service(name, opts)
+      if uniform_application_service? then
+        @session_required = false
+        user = opts[:user]
+        pswd = opts[:password]
+        svc = Java::gov.nih.nci.system.client.ApplicationServiceProvider.getApplicationService(user, pswd)
+        PersistenceService.new(svc, :association_query_support)
+      else
+        @user = opts[:user]
+        @password = opts[:password]
+        @session_required = true
+        host = opts[:host] || 'localhost'
+        port = opts[:port] || 8080
+        @url_tmpl = "http://#{host}:#{port}/%s/http/remoteService"
+        url = application_service_url_for(name)
+        PersistenceService.new { URLApplicationService.for(url) }
+      end
+    end
 
-    # Releases database resources. This method should be called when database interaction
-    # is completed.
+    # Releases database resources. This method is called when database interaction
+    # is completed at the end of an {#open} block.
     def close
-      return if @session.nil?
-      begin
-        @session.terminate_session
-      rescue Exception => e
-        logger.error("Session termination unsuccessful - #{e.message}")
+      if @session_required and @session then
+        begin
+          @session.terminate_session
+        rescue Exception => e
+          logger.error("Session termination unsuccessful - #{e.message}")
+        end
+        logger.info("Disconnected from application server.")
+        @session = nil
       end
       # clear the cache
       clear
-      logger.info("Disconnected from application server.")
-      @session = nil
+      @opened = false
     end
     
     # A mergeable autogenerated operation is recursively defined as:
@@ -217,14 +259,17 @@ module CaRuby
       false
     end
     
-    # Performs the operation given by the given op symbol on obj by calling the block given to this method.
-    # Lazy loading is suspended during the operation.
+    # Performs the operation given by the given operation symbol on the domain object
+    # by calling the block given to this method. If the database is {#closed?}, then
+    # the operation is performed in an {#open} block. Lazy loading is suspended during
+    # the operation.
     #
     # @param [:find, :query, :create, :update, :delete] op the database operation type
     # @param [Resource] obj the domain object on which the operation is performed
     # @param opts (#see Operation#initialize)
     # @yield the database operation block
     # @return the result of calling the operation block
+    # @raise [DatabaseError] if the number of nested database operations exceeds 20
     def perform(op, obj, opts=nil, &block)
       op_s = op.to_s.capitalize_first
       pa = Options.get(:attribute, opts)
@@ -234,6 +279,10 @@ module CaRuby
       logger.info(">> #{op_s}#{ag_s} #{obj.pp_s(:single_line)}#{attr_s}#{ctxt_s}...")
       # Clear the error flag.
       @error = nil
+      # Guard against an infinite loop.
+      if @operations.size > 20 then
+        raise DatabaseError.new("Nested caRuby database operations exceeds limit: #{@operations.pp_s}")
+      end
       # Push the operation on the nested operation stack.
       @operations.push(Operation.new(op, obj, opts))
       begin
@@ -243,11 +292,13 @@ module CaRuby
         # If the current operation is the immediate cause, then print the
         # error to the log.
         if @error.nil? then
-          msg = "Error performing #{op} on #{obj}:\n#{e.message}\n#{obj.dump}\n#{e.backtrace.qp}"
+          # Guard the dump in case of a print error, e.g. infinite loop.
+          content = obj.dump rescue obj.to_s
+          msg = "Error performing #{op} on #{obj}:\n#{e.message}\n#{content}\n#{e.backtrace.qp}"
           logger.error(msg)
           @error = e
         end
-        raise e
+        raise
       ensure
         # the operation is done
         @operations.pop
@@ -266,13 +317,9 @@ module CaRuby
     def perform_operation(&block)
       if closed? then
        open { perform_operation(&block) }
-      else  
+      else
         @lazy_loader.suspend { yield }
       end
-    end
-    
-    def each_persistence_service(&block)
-      ObjectSpace.each_object(PersistenceService, &block)
     end
     
     # Initializes the default application service.
