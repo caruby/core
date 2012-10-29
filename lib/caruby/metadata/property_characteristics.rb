@@ -92,14 +92,6 @@ module CaRuby
       (dependent? and not logical?) or @flags.include?(:cascaded)
     end
     
-    # Determines whether this propery is included in a save operation argument.
-    #
-    # @return [Boolean] whether this attribute is {#cascaded?} or marked with the
-    #   +:include_in_save_template+ flag
-    def include_in_save_template?
-      cascaded? or @flags.include?(:include_in_save_template)
-    end
-    
     # Returns whether this attribute is #{#cascaded?} and cascades a parent update to a child
     # create. This corresponds to the Hibernate +save-update+ cascade style but not the Hibernate
     # +all+ cascade style.

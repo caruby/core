@@ -79,9 +79,9 @@ module CaRuby
       @unpx_sv_tmpl_flt ||= savable_template_attributes.compose { |prop| not prop.proxied_save? }
     end
 
-    # @return [<Symbol>] the {#domain_attributes} to {Property#include_in_save_template?}
+    # @return [<Symbol>] the {#domain_attributes} to {Property#cascaded?}
     def savable_template_attributes
-      @sv_tmpl_flt ||= domain_attributes.compose { |prop| prop.include_in_save_template? }
+      @sv_tmpl_flt ||= domain_attributes.compose { |prop| prop.cascaded? }
     end
     
     # Returns the physical or auto-generated logical dependent attributes that can

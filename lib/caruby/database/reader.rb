@@ -4,6 +4,7 @@ require 'jinx/resource/merge_visitor'
 require 'caruby/database/cache'
 require 'caruby/database/fetched_matcher'
 require 'caruby/database/reader_template_builder'
+require 'caruby/database/proxy_wrapper'
 
 module CaRuby
   class Database
@@ -83,7 +84,7 @@ module CaRuby
         perform(:find, obj) do
           fetched = find_object(obj)
           if fetched.nil? then
-            logger.info { "#{obj.qp} not found." }
+            logger.info { "#{obj} not found." }
             create(obj) if Options.get(:create, opts)
           elsif fetched.equal?(obj) then
             logger.info { "Found #{obj}." }
@@ -203,7 +204,9 @@ module CaRuby
       # @param [Jinx::Resource] source the fetched domain object result
       # @param [Jinx::Resource] target the domain object find argument
       def merge_fetched(source, target)
-        @ftchd_mrg_vstr.visit(source, target) { |src, tgt| tgt.copy_volatile_attributes(src) }
+        @ftchd_mrg_vstr.visit(source, target) do |src, tgt|
+          tgt.copy_volatile_attributes(src)
+        end
       end
       
       def print_query_result(result)
@@ -216,7 +219,8 @@ module CaRuby
         java_name = hql[/from\s+(\S+)/i, 1]
         raise DatabaseError.new("Could not determine target type from HQL: #{hql}") if java_name.nil?
         tgt = Class.to_ruby(java_name)
-        persistence_service(tgt).query(hql)
+        result = persistence_service(tgt).query(hql)
+        demangle(result)
       end
       
       # Returns an array of objects fetched from the database which matches
@@ -249,7 +253,8 @@ module CaRuby
       def query_on_template(template, attribute=nil)
         tgt = attribute ? template.class.domain_type(attribute) : template.class
         svc = persistence_service(tgt)
-        attribute ? svc.query(template, attribute) : svc.query(template)
+        result = attribute ? svc.query(template, attribute) : svc.query(template)
+        demangle(result)
       end
       
       # Queries on the given template and attribute by issuing a HQL query with an identifier condition.
@@ -262,14 +267,12 @@ module CaRuby
         sa = source[/([[:alnum:]])[[:alnum:]]*$/, 1].downcase
         # the HQL condition
         hql = "from #{source} #{sa} where #{sa}.id = #{obj.identifier}"
-      
         # the join attribute property
         if attribute then
           pd = obj.class.property(attribute).property_descriptor
           hql.insert(0, "select #{sa}.#{pd.name} ")
         end
         logger.debug { "Querying on #{obj} #{attribute} using HQL identifier criterion..." }
-      
         query_hql(hql)
       end
     
@@ -313,7 +316,8 @@ module CaRuby
         tmpl.send(wtr, ref)
         # submit the query
         logger.debug { "Submitting #{obj.qp} #{attribute} inverted query template #{tmpl.qp} ..." }
-        persistence_service(tmpl.class).query(tmpl)
+        result = persistence_service(tmpl.class).query(tmpl)
+        demangle(result)
       end
       
       # Finds the database content matching the given search object and merges the matching

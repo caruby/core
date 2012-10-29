@@ -4,12 +4,21 @@ class Version < Array
   include Comparable
 
   attr_reader :predecessor
+  
+  # Returns the given String as a Version.
+  #
+  # @example
+  #   Version.parse("1.2.1alpha") #=> [1, 2, "1alpha"]
+  def self.parse(s)
+    components = s.split('.').map { |component| component =~ /[\D]/ ? component : component.to_i }
+    Version.new(*components)
+  end
 
   # Creates a new Version from the given version components and optional predecessor.
   #
   # @example
-  #   alpha = Version.new(1, '1alpha')
-  #   Version.new(1, 1, alpha) > alpha #=> true
+  #   prev = Version.new(1, 2, 2)
+  #   Version.new(2, 1, 0, prev) > prev #=> true
   def initialize(*params)
     @predecessor = params.pop if self.class === params.last
     super(params)
@@ -20,10 +29,11 @@ class Version < Array
   # * otherwise, return a component-wise comparison
   #
   # @example
-  #   beta = Version.new(1, '1beta')
-  #   Version.new(1) < beta > #=> true
-  #   Version.new(1, 1) < beta #=> true
-  #   Version.new(1, 1, beta) > beta #=> true
+  #   beta = Version.new(1, 2, '1beta')
+  #   Version.new(1, 2, 1, beta) > beta > #=> true
+  #   Version.new(1, 2, 2) > beta #=> true
+  #   Version.new(1, 2) < beta #=> true
+  #   Version.new(2) > beta #=> true
   def <=>(other)
     return 0 if equal?(other)
     raise ArgumentError.new("Comparand is not a #{self.class}: #{other}") unless self.class === other
@@ -41,16 +51,5 @@ class Version < Array
       return cmp unless cmp.zero?
     end
     length < other.length ? -1 : 0
-  end
-end
-
-class String
-  # Returns this String as a Version.
-  #
-  # @example
-  #   "1.2.1alpha".to_version #=> [1, 2, "1alpha"]
-  def to_version
-    components = split('.').map { |component| component =~ /[\D]/ ? component : component.to_i }
-    Version.new(*components)
   end
 end

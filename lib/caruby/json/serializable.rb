@@ -5,11 +5,13 @@ module CaRuby
     module Serializable
       include Jinx::JSON::Serializable
       
+      private
+      
       # This method disables lazy-loading before delegating to Jinx.
       #
-      # @param [State, Hash, nil] state the JSON state or serialization options
-      # @return [String] the JSON representation of this {Jinx::Resource}
-      def to_json(state=nil)
+      # @param [<Resource>] visited the serialized objects
+      # @return [{Symbol => Object}] the serializable value hash
+      def json_value_hash(visited)
         fetched? ? super : do_without_lazy_loader { super }
       end
     end

@@ -24,7 +24,9 @@ module CaRuby
           # the mergeable attributes filter the given block with exclusions
           @mergeable = Proc.new { |ref| mergeable_attributes(ref, yield(ref)) }
           # the savable prerequisite reference visitor
-          @prereq_vstr = Jinx::ReferenceVisitor.new(:prune_cycle) { |ref| savable_template_attributes(ref) }
+          @prereq_vstr = Jinx::ReferenceVisitor.new(:prune_cycle) do |ref|
+            savable_template_attributes(ref)
+          end
       
           # the savable attributes filter the given block with exclusions
           savable = Proc.new { |ref| savable_attributes(ref, yield(ref)) }
@@ -36,6 +38,7 @@ module CaRuby
           copier = Proc.new do |src|
             tgt = src.copy
             logger.debug { "Store template builder copied #{src.qp} into #{tgt}." }
+            copy_include_in_save_template_references(src, tgt)
             copy_proxied_save_references(src, tgt)
             tgt
           end
@@ -144,7 +147,7 @@ module CaRuby
         # * The {Propertied#unproxied_savable_template_attributes} filtered as follows:
         #   * If the database operation is a create, then exclude the cascaded attributes.
         #   * If the given object has an identifier, then exclude the attributes which
-        #     have the the :no_cascade_update_to_create flag set.
+        #     have the the +:no_cascade_update_to_create+ flag set.
         # * The {Propertied#proxied_savable_template_attributes} are included if and
         #   only if every referenced object has an identifier, and therefore does not
         #   need to be proxied.
@@ -233,6 +236,22 @@ module CaRuby
             end
           end
         end
+        
+        def copy_include_in_save_template_references(obj, template)
+          obj.class.domain_properties.each do |prop|
+            if prop.flags.include?(:include_in_save_template) then
+              value = obj.send(prop.attribute)
+              if prop.collection? then
+                coll = template.send(prop.attribute)
+                value.each do |ref|
+                  coll << ref.copy
+                end
+              elsif value then
+                template.send(prop.writer, value.copy)
+              end
+            end
+          end
+        end
     
         # Copies proxied references as needed.
         #
@@ -312,13 +331,15 @@ module CaRuby
               # that each independent object referenced by a cascaded reference is recognized as a
               # candidate prerequisite.
               if mp.cascaded? then
-                unless pref.identifier.nil? or mp.inverse_property or mp.cascade_update_to_create? then
+                # If the parent object will be updated but create does not cascade to the reference,
+                # then each uncreated referenced object is a prerequisite.
+                if pref.identifier and not mp.cascade_update_to_create? then
                   pref.send(ma).enumerate do |mref|
                     prereqs << mref if mref != obj and mref.identifier.nil?
                   end
                 end
               elsif not bidirectional_unsaved_independent_collection?(pref, mp) then
-                # add qualified prerequisite attribute references
+                # Each uncreated independent, non-owner referenced object is a prerequisite.
                 pref.send(ma).enumerate do |mref|
                   # Add each unsaved reference that is not a direct or indirect dependent.
                   unless mref == obj or mref.identifier or mref.owner_ancestor?(obj) then
