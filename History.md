@@ -1,6 +1,10 @@
 This history lists major release themes. See the GitHub Commits (https://github.com/caruby/core)
 for change details.
 
+2.1.4 / 2012-10-31
+------------------
+* Update gem version dependencies.
+
 2.1.3 / 2012-06-18
 ------------------
 * Split up access properties.
