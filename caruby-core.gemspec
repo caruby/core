@@ -16,7 +16,7 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency     'bundler'
   s.add_runtime_dependency     'rdbi'
   s.add_runtime_dependency     'jinx', '~> 2.1.4'
-  s.add_runtime_dependency     'jinx-json', '~> 2.1.1'
+  s.add_runtime_dependency     'jinx-json', '~> 2.1.4'
   s.add_runtime_dependency     'jinx-migrate', '>= 2.1.1'
   s.add_development_dependency 'rspec', '>= 2.6'
   s.add_development_dependency 'yard'
